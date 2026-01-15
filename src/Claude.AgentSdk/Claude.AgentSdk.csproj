@@ -7,7 +7,7 @@
     <LangVersion>latest</LangVersion>
 
     <!-- Package Info -->
-    <PackageId>Claude.AgentSdk</PackageId>
+    <PackageId>Claude.Agent.Sdk</PackageId>
     <!-- Version is set via -p:Version during CI/CD; this is the fallback for local builds -->
     <Version>0.0.0-dev</Version>
     <Authors>AJGit</Authors>
