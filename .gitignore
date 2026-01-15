@@ -291,3 +291,6 @@ __pycache__/
 /.what-is-this.md
 .specstory/history/
 .claude/skills/dotnet-refactor-expert/resources
+
+# Claude Code local settings (user-specific)
+.claude/settings.local.json
