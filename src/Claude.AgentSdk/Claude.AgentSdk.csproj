@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+
+    <!-- Package Info -->
+    <PackageId>Claude.AgentSdk</PackageId>
+    <!-- Version is set via -p:Version during CI/CD; this is the fallback for local builds -->
+    <Version>0.0.0-dev</Version>
+    <Authors>AJGit</Authors>
+    <Company>AJGit</Company>
+    <Product>Claude.AgentSdk</Product>
+    <Description>A C# SDK for building intelligent agents with Claude Code CLI. Provides session management, bidirectional communication, custom MCP tools, hooks, subagents, and structured outputs.</Description>
+    <PackageTags>anthropic;claude;agent;sdk;ai;llm;mcp;model-context-protocol</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Copyright>Copyright (c) 2025 AJGit</Copyright>
+
+    <!-- Repository Info -->
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/ajgit/Claude.AgentSdk</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/ajgit/Claude.AgentSdk</PackageProjectUrl>
+
+    <!-- Package README -->
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <!-- Release Notes -->
+    <PackageReleaseNotes>Initial release with core SDK features including session management, MCP tools, hooks, subagents, and structured outputs.</PackageReleaseNotes>
+
+    <!-- Build Settings -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- SourceLink for debugging -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+    <!-- optional: where the files will be written (defaults under obj) -->
+    <!--<CompilerGeneratedFilesOutputPath>$(IntermediateOutputPath)GeneratedFiles\</CompilerGeneratedFilesOutputPath>-->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <!-- Include README in package -->
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

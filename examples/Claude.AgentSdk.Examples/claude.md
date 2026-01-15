@@ -1,0 +1,3 @@
+﻿# Rules
+
+- Use markdown formatting.

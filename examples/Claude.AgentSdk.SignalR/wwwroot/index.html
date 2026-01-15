@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Agent SDK - SignalR Demo</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        header {
+            background: #16213e;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #0f3460;
+        }
+        header h1 {
+            font-size: 1.5rem;
+            color: #e94560;
+        }
+        header p {
+            color: #888;
+            font-size: 0.9rem;
+        }
+        .container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        .sidebar {
+            width: 300px;
+            background: #16213e;
+            padding: 1rem;
+            border-right: 1px solid #0f3460;
+        }
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+        }
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            padding: 0.5rem;
+            background: #0f3460;
+            border-radius: 4px;
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #e94560;
+        }
+        .status-dot.connected {
+            background: #4ade80;
+        }
+        .mode-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .mode-tab {
+            padding: 0.5rem 1rem;
+            background: #0f3460;
+            border: none;
+            border-radius: 4px;
+            color: #888;
+            cursor: pointer;
+        }
+        .mode-tab.active {
+            background: #e94560;
+            color: white;
+        }
+        .options {
+            margin-bottom: 1rem;
+        }
+        .options label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: #888;
+        }
+        .options input, .options textarea, .options select {
+            width: 100%;
+            padding: 0.5rem;
+            background: #0f3460;
+            border: 1px solid #1a1a2e;
+            border-radius: 4px;
+            color: #eee;
+            margin-bottom: 0.5rem;
+        }
+        .options textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            background: #0f3460;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .message {
+            margin-bottom: 1rem;
+            padding: 0.75rem;
+            border-radius: 8px;
+        }
+        .message.user {
+            background: #1e3a5f;
+            margin-left: 2rem;
+        }
+        .message.assistant {
+            background: #16213e;
+            margin-right: 2rem;
+        }
+        .message.system {
+            background: #2d1b4e;
+            font-size: 0.85rem;
+            color: #a78bfa;
+        }
+        .message.result {
+            background: #1b4d3e;
+            font-size: 0.85rem;
+            color: #4ade80;
+        }
+        .message.error {
+            background: #4d1b1b;
+            color: #f87171;
+        }
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.8rem;
+            color: #888;
+        }
+        .message-content {
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .tool-use {
+            background: #1a1a2e;
+            padding: 0.5rem;
+            border-radius: 4px;
+            margin: 0.5rem 0;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+        .input-area {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .input-area input {
+            flex: 1;
+            padding: 0.75rem;
+            background: #16213e;
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            color: #eee;
+            font-size: 1rem;
+        }
+        .input-area input:focus {
+            outline: none;
+            border-color: #e94560;
+        }
+        button {
+            padding: 0.75rem 1.5rem;
+            background: #e94560;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        button:hover {
+            background: #d63850;
+        }
+        button:disabled {
+            background: #444;
+            cursor: not-allowed;
+        }
+        button.secondary {
+            background: #0f3460;
+        }
+        button.secondary:hover {
+            background: #1a4a7a;
+        }
+        .actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        code {
+            background: #1a1a2e;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Claude Agent SDK - SignalR Demo</h1>
+        <p>Real-time communication with Claude via SignalR</p>
+    </header>
+
+    <div class="container">
+        <aside class="sidebar">
+            <div class="status">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Disconnected</span>
+            </div>
+
+            <div class="mode-tabs">
+                <button class="mode-tab active" data-mode="query">Query</button>
+                <button class="mode-tab" data-mode="session">Session</button>
+            </div>
+
+            <div class="options">
+                <label>System Prompt (optional)</label>
+                <textarea id="systemPrompt" placeholder="You are a helpful assistant..."></textarea>
+
+                <label>Max Turns</label>
+                <input type="number" id="maxTurns" value="10" min="1" max="100">
+            </div>
+
+            <div class="actions" id="sessionActions" style="display: none;">
+                <button class="secondary" onclick="startSession()">Start Session</button>
+                <button class="secondary" onclick="endSession()">End Session</button>
+                <button class="secondary" onclick="interrupt()">Interrupt</button>
+            </div>
+
+            <div style="margin-top: 2rem; font-size: 0.8rem; color: #666;">
+                <p><strong>Query Mode:</strong> One-shot streaming query</p>
+                <p style="margin-top: 0.5rem;"><strong>Session Mode:</strong> Bidirectional conversation</p>
+            </div>
+        </aside>
+
+        <main class="main">
+            <div class="messages" id="messages">
+                <div class="message system">
+                    <div class="message-content">Welcome! Enter a prompt below to start chatting with Claude.</div>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <input type="text" id="promptInput" placeholder="Type your message..." onkeypress="handleKeyPress(event)">
+                <button id="sendBtn" onclick="send()">Send</button>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let connection = null;
+        let currentMode = 'query';
+        let isConnected = false;
+        let hasActiveSession = false;
+
+        // Initialize SignalR connection
+        async function initConnection() {
+            connection = new signalR.HubConnectionBuilder()
+                .withUrl('/claude')
+                .withAutomaticReconnect()
+                .configureLogging(signalR.LogLevel.Information)
+                .build();
+
+            // Handle incoming messages (for session mode)
+            connection.on('ReceiveMessage', (message) => {
+                displayMessage(message);
+            });
+
+            connection.onclose(() => {
+                updateStatus(false);
+                hasActiveSession = false;
+            });
+
+            connection.onreconnected(() => {
+                updateStatus(true);
+            });
+
+            try {
+                await connection.start();
+                updateStatus(true);
+                addSystemMessage('Connected to SignalR hub');
+            } catch (err) {
+                addSystemMessage('Failed to connect: ' + err.message, true);
+            }
+        }
+
+        function updateStatus(connected) {
+            isConnected = connected;
+            document.getElementById('statusDot').classList.toggle('connected', connected);
+            document.getElementById('statusText').textContent = connected ? 'Connected' : 'Disconnected';
+        }
+
+        // Mode switching
+        document.querySelectorAll('.mode-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentMode = tab.dataset.mode;
+                document.getElementById('sessionActions').style.display =
+                    currentMode === 'session' ? 'flex' : 'none';
+            });
+        });
+
+        // Send message
+        async function send() {
+            const input = document.getElementById('promptInput');
+            const prompt = input.value.trim();
+            if (!prompt || !isConnected) return;
+
+            input.value = '';
+            addUserMessage(prompt);
+
+            const options = getOptions();
+
+            try {
+                if (currentMode === 'query') {
+                    await queryMode(prompt, options);
+                } else {
+                    await sessionMode(prompt);
+                }
+            } catch (err) {
+                addSystemMessage('Error: ' + err.message, true);
+            }
+        }
+
+        async function queryMode(prompt, options) {
+            // Use streaming for query mode
+            const stream = connection.stream('Query', prompt, options);
+
+            let assistantDiv = null;
+            let textContent = '';
+
+            stream.subscribe({
+                next: (message) => {
+                    if (message.type === 'assistant') {
+                        if (!assistantDiv) {
+                            assistantDiv = createMessageDiv('assistant');
+                        }
+                        // Accumulate text content
+                        if (message.content) {
+                            message.content.forEach(block => {
+                                if (block.type === 'text') {
+                                    textContent = block.text || '';
+                                    updateMessageContent(assistantDiv, textContent);
+                                } else if (block.type === 'tool_use') {
+                                    appendToolUse(assistantDiv, block);
+                                }
+                            });
+                        }
+                    } else {
+                        displayMessage(message);
+                    }
+                },
+                error: (err) => {
+                    addSystemMessage('Stream error: ' + err.message, true);
+                },
+                complete: () => {
+                    // Stream completed
+                }
+            });
+        }
+
+        async function sessionMode(prompt) {
+            if (!hasActiveSession) {
+                addSystemMessage('No active session. Click "Start Session" first.', true);
+                return;
+            }
+            await connection.invoke('SendMessage', prompt);
+        }
+
+        async function startSession() {
+            try {
+                const options = getOptions();
+                const result = await connection.invoke('StartSession', options);
+                hasActiveSession = true;
+                addSystemMessage(`Session started: ${result.sessionId}`);
+            } catch (err) {
+                addSystemMessage('Failed to start session: ' + err.message, true);
+            }
+        }
+
+        async function endSession() {
+            try {
+                await connection.invoke('EndSession');
+                hasActiveSession = false;
+                addSystemMessage('Session ended');
+            } catch (err) {
+                addSystemMessage('Failed to end session: ' + err.message, true);
+            }
+        }
+
+        async function interrupt() {
+            try {
+                await connection.invoke('Interrupt');
+                addSystemMessage('Interrupted');
+            } catch (err) {
+                addSystemMessage('Failed to interrupt: ' + err.message, true);
+            }
+        }
+
+        function getOptions() {
+            const systemPrompt = document.getElementById('systemPrompt').value.trim();
+            const maxTurns = parseInt(document.getElementById('maxTurns').value) || 10;
+            return {
+                systemPrompt: systemPrompt || null,
+                maxTurns: maxTurns
+            };
+        }
+
+        function displayMessage(message) {
+            const div = document.createElement('div');
+            div.className = 'message ' + message.type;
+
+            if (message.type === 'assistant') {
+                let content = '';
+                if (message.content) {
+                    message.content.forEach(block => {
+                        if (block.type === 'text') {
+                            content += block.text;
+                        } else if (block.type === 'tool_use') {
+                            content += `\n<div class="tool-use">Tool: ${block.toolName}\nInput: ${block.input}</div>`;
+                        } else if (block.type === 'tool_result') {
+                            content += `\n<div class="tool-use">Result: ${block.content}</div>`;
+                        }
+                    });
+                }
+                div.innerHTML = `
+                    <div class="message-header">
+                        <span>Claude</span>
+                        <span>${message.model || ''}</span>
+                    </div>
+                    <div class="message-content">${escapeHtml(content) || '...'}</div>
+                `;
+            } else if (message.type === 'result') {
+                div.innerHTML = `
+                    <div class="message-content">
+                        Completed in ${message.durationMs}ms |
+                        ${message.numTurns} turns |
+                        Cost: $${message.totalCostUsd?.toFixed(4) || '0.0000'}
+                        ${message.isError ? ' | <span style="color: #f87171;">Error</span>' : ''}
+                    </div>
+                `;
+            } else if (message.type === 'system') {
+                div.innerHTML = `
+                    <div class="message-content">
+                        ${message.subtype}${message.isInit ? ' - Session initialized' : ''}
+                    </div>
+                `;
+            }
+
+            document.getElementById('messages').appendChild(div);
+            scrollToBottom();
+        }
+
+        function createMessageDiv(type) {
+            const div = document.createElement('div');
+            div.className = 'message ' + type;
+            div.innerHTML = `
+                <div class="message-header">
+                    <span>Claude</span>
+                </div>
+                <div class="message-content"></div>
+            `;
+            document.getElementById('messages').appendChild(div);
+            return div;
+        }
+
+        function updateMessageContent(div, content) {
+            div.querySelector('.message-content').textContent = content;
+            scrollToBottom();
+        }
+
+        function appendToolUse(div, block) {
+            const toolDiv = document.createElement('div');
+            toolDiv.className = 'tool-use';
+            toolDiv.textContent = `Tool: ${block.toolName}\nInput: ${block.input}`;
+            div.querySelector('.message-content').appendChild(toolDiv);
+            scrollToBottom();
+        }
+
+        function addUserMessage(text) {
+            const div = document.createElement('div');
+            div.className = 'message user';
+            div.innerHTML = `
+                <div class="message-header"><span>You</span></div>
+                <div class="message-content">${escapeHtml(text)}</div>
+            `;
+            document.getElementById('messages').appendChild(div);
+            scrollToBottom();
+        }
+
+        function addSystemMessage(text, isError = false) {
+            const div = document.createElement('div');
+            div.className = 'message ' + (isError ? 'error' : 'system');
+            div.innerHTML = `<div class="message-content">${escapeHtml(text)}</div>`;
+            document.getElementById('messages').appendChild(div);
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            const messages = document.getElementById('messages');
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                send();
+            }
+        }
+
+        // Initialize on page load
+        initConnection();
+    </script>
+</body>
+</html>

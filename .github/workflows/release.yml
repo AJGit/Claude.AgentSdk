@@ -1,0 +1,92 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0 or 1.0.0-beta.1)'
+        required: true
+        type: string
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_NOLOGO: true
+
+jobs:
+  release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # Required for creating releases
+      id-token: write   # Required for NuGet Trusted Publishing (OIDC)
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for versioning
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Extract version from tag
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          # Remove 'v' prefix from tag (refs/tags/v1.0.0 -> 1.0.0)
+          VERSION="${GITHUB_REF#refs/tags/v}"
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
+
+        # Check if pre-release (contains hyphen)
+        if [[ "$VERSION" == *"-"* ]]; then
+          echo "prerelease=true" >> $GITHUB_OUTPUT
+        else
+          echo "prerelease=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build
+      run: dotnet build --no-restore --configuration Release -p:Version=${{ steps.version.outputs.version }}
+
+    - name: Test
+      run: dotnet test --no-build --configuration Release --verbosity normal
+
+    - name: Pack
+      run: dotnet pack src/Claude.AgentSdk/Claude.AgentSdk.csproj --no-build --configuration Release --output ./artifacts -p:Version=${{ steps.version.outputs.version }}
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        name: v${{ steps.version.outputs.version }}
+        draft: false
+        prerelease: ${{ steps.version.outputs.prerelease }}
+        generate_release_notes: true
+        files: |
+          ./artifacts/*.nupkg
+          ./artifacts/*.snupkg
+
+    - name: Upload artifacts (for manual runs)
+      uses: actions/upload-artifact@v4
+      if: github.event_name == 'workflow_dispatch'
+      with:
+        name: nuget-package-${{ steps.version.outputs.version }}
+        path: ./artifacts/*
+
+    # Publish to NuGet using Trusted Publishing (OIDC) - no API key needed!
+    # Setup: https://learn.microsoft.com/nuget/nuget-org/trusted-publishing
+    - name: Publish to NuGet (Trusted Publishing)
+      run: |
+        dotnet nuget push ./artifacts/*.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://github.com/ajgit/Claude.AgentSdk#readme
+    about: Check the README for usage examples and API documentation
+  - name: Discussions
+    url: https://github.com/ajgit/Claude.AgentSdk/discussions
+    about: Ask questions and share ideas
