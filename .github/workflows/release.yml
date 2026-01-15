@@ -85,8 +85,10 @@ jobs:
         name: nuget-package-${{ steps.version.outputs.version }}
         path: ./artifacts/*
 
-    # Publish to NuGet using Trusted Publishing (OIDC) - no API key needed!
-    # Setup: https://learn.microsoft.com/nuget/nuget-org/trusted-publishing
-    - name: Publish to NuGet (Trusted Publishing)
+    # Publish to NuGet
+    # Requires NUGET_API_KEY secret to be configured in GitHub repository settings
+    - name: Publish to NuGet
+      env:
+        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
       run: |
-        dotnet nuget push ./artifacts/*.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate
+        dotnet nuget push ./artifacts/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
