@@ -27,9 +27,9 @@ Reference the project directly:
 <ProjectReference Include="path/to/Claude.AgentSdk.csproj" />
 ```
 
-Or (once published):
+Or:
 ```bash
-dotnet add package Claude.AgentSdk
+dotnet add package AJGit.Claude.AgentSdk
 ```
 
 ## Quick Start
@@ -1034,10 +1034,10 @@ This section describes the expected runtime behavior of the SDK in v1.
 
 ### ClaudeAgentClient
 
-| Method                                         | Description                                                  |
-| ---------------------------------------------- | ------------------------------------------------------------ |
-| `QueryAsync(prompt, options?, ct)`             | Execute a one-shot query, streaming responses                |
-| `QueryToCompletionAsync(prompt, options?, ct)` | Execute and wait for final result                            |
+| Method                                         | Description                                                   |
+| ---------------------------------------------- | ------------------------------------------------------------- |
+| `QueryAsync(prompt, options?, ct)`             | Execute a one-shot query, streaming responses                 |
+| `QueryToCompletionAsync(prompt, options?, ct)` | Execute and wait for final result                             |
 | `CreateSessionAsync(ct)`                       | Create a bidirectional session (returns `ClaudeAgentSession`) |
 
 ### ClaudeAgentSession
