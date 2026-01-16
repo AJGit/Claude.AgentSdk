@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Text.Json;
 using Claude.AgentSdk.Exceptions;
 using Claude.AgentSdk.Protocol;
@@ -12,7 +12,7 @@ namespace Claude.AgentSdk.Tests.Protocol;
 /// Extended mock transport for testing QueryHandler control protocol functionality.
 /// Supports configuring control responses, simulating timeouts, and auto-responding.
 /// </summary>
-public sealed class ControlMockTransport : MockTransport
+internal sealed class ControlMockTransport : MockTransport
 {
     private readonly ConcurrentDictionary<string, JsonElement> _configuredResponses = new();
     private bool _simulateTimeout;
