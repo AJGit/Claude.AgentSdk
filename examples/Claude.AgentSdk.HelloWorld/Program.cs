@@ -12,6 +12,7 @@
 using System.Text.Json;
 using Claude.AgentSdk.Messages;
 using Claude.AgentSdk.Protocol;
+using Claude.AgentSdk.Types;
 
 namespace Claude.AgentSdk.HelloWorld;
 
@@ -130,9 +131,21 @@ public static class Program
         {
             switch (message)
             {
+                // Handle system messages using SubtypeEnum accessor for type-safe checking
+                case SystemMessage system:
+                    // Use SubtypeEnum for strongly-typed enum check instead of string comparison
+                    if (system.SubtypeEnum == SystemMessageSubtype.Init)
+                    {
+                        Console.ForegroundColor = ConsoleColor.DarkGray;
+                        Console.WriteLine($"[Session: {system.SessionId}, Model: {system.Model}]");
+                        Console.ResetColor();
+                    }
+                    break;
+
                 case AssistantMessage assistant:
                     foreach (var block in assistant.MessageContent.Content)
                     {
+                        // Use pattern matching with ContentBlock types for type-safe handling
                         switch (block)
                         {
                             case TextBlock text:
@@ -144,14 +157,26 @@ public static class Program
                                 Console.WriteLine($"\n[Using tool: {toolUse.Name}]");
                                 Console.ResetColor();
                                 break;
+
+                            case ThinkingBlock thinking:
+                                Console.ForegroundColor = ConsoleColor.DarkGray;
+                                Console.WriteLine("[thinking...]");
+                                Console.ResetColor();
+                                break;
                         }
                     }
                     break;
 
                 case ResultMessage result:
+                    // Use SubtypeEnum for type-safe result checking
+                    var resultType = result.SubtypeEnum == ResultMessageSubtype.Success
+                        ? "Completed"
+                        : result.SubtypeEnum == ResultMessageSubtype.Error
+                            ? "Error"
+                            : "Partial";
                     Console.WriteLine();
                     Console.WriteLine(new string('-', 50));
-                    Console.WriteLine($"Completed in {result.DurationMs / 1000.0:F2}s | Cost: ${result.TotalCostUsd:F4}");
+                    Console.WriteLine($"{resultType} in {result.DurationMs / 1000.0:F2}s | Cost: ${result.TotalCostUsd:F4}");
                     break;
             }
         }

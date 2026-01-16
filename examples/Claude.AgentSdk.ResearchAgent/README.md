@@ -59,6 +59,150 @@ logs/
     └── tool_calls.jsonl   # Structured tool usage log
 ```
 
+## C#-Centric Features
+
+### Fluent Options Builder with Agent Definitions
+
+```csharp
+using Claude.AgentSdk.Builders;
+using Claude.AgentSdk.Types;
+
+var options = new ClaudeAgentOptionsBuilder()
+    .WithModel(ModelIdentifier.Sonnet)
+    .WithSystemPrompt(leadAgentPrompt)
+    .AllowTools(ToolName.Task)  // Only Task for delegation
+    .WithPermissionMode(PermissionMode.BypassPermissions)
+    .WithMaxTurns(50)
+    .AddAgent("researcher", new AgentDefinitionBuilder()
+        .WithDescription("Gather research information on specific topics")
+        .WithPrompt(researcherPrompt)
+        .WithTools(ToolName.WebSearch, ToolName.Read, ToolName.Write)
+        .WithModel(ModelIdentifier.Haiku)
+        .Build())
+    .AddAgent("report-writer", new AgentDefinitionBuilder()
+        .WithDescription("Create formal research reports from gathered data")
+        .WithPrompt(reportWriterPrompt)
+        .WithTools(ToolName.Glob, ToolName.Read, ToolName.Write)
+        .WithModel(ModelIdentifier.Haiku)
+        .Build())
+    .WithHooks(new HookConfigurationBuilder()
+        .OnPreToolUse(tracker.PreToolUseHookAsync)
+        .OnPostToolUse(tracker.PostToolUseHookAsync)
+        .OnSubagentStart(tracker.SubagentStartHookAsync)
+        .OnSubagentStop(tracker.SubagentStopHookAsync)
+        .Build())
+    .Build();
+```
+
+### ModelIdentifier for Type-Safe Model Selection
+
+```csharp
+using Claude.AgentSdk.Types;
+
+var options = new ClaudeAgentOptions
+{
+    ModelId = ModelIdentifier.Sonnet,  // Main agent uses Sonnet
+    // ...
+};
+
+// Subagents use Haiku for speed
+["researcher"] = new AgentDefinition
+{
+    Model = "haiku",  // Or use ModelIdentifier.Haiku.Value
+    // ...
+}
+```
+
+### Fluent Hook Configuration for Subagent Tracking
+
+```csharp
+using Claude.AgentSdk.Builders;
+
+var hooks = new HookConfigurationBuilder()
+    .OnPreToolUse(tracker.PreToolUseHookAsync)
+    .OnPostToolUse(tracker.PostToolUseHookAsync)
+    .OnSubagentStart(tracker.SubagentStartHookAsync)
+    .OnSubagentStop(tracker.SubagentStopHookAsync)
+    .Build();
+```
+
+### Declarative Agent Registration
+
+Instead of building dictionaries manually, use attributes:
+
+```csharp
+using Claude.AgentSdk.Attributes;
+
+[GenerateAgentRegistration]  // Generates GetAgentsCompiled() extension
+public class ResearchAgents
+{
+    [ClaudeAgent("researcher",
+        Description = "Gather research information on specific topics",
+        Model = "haiku")]
+    [AgentTools("WebSearch", "Read", "Write")]
+    public static string ResearcherPrompt => File.ReadAllText("Prompts/Researcher.txt");
+
+    [ClaudeAgent("report-writer",
+        Description = "Create formal research reports from gathered data",
+        Model = "haiku")]
+    [AgentTools("Glob", "Read", "Write")]
+    public static string ReportWriterPrompt => File.ReadAllText("Prompts/ReportWriter.txt");
+}
+
+// Usage
+var agents = new ResearchAgents();
+var options = new ClaudeAgentOptions
+{
+    Agents = agents.GetAgentsCompiled()  // No manual dictionary building!
+};
+```
+
+### Declarative Hook Registration
+
+```csharp
+[GenerateHookRegistration]
+public class SubagentTracker
+{
+    [HookHandler(HookEvent.PreToolUse)]
+    public Task<HookOutput> PreToolUse(HookInput input, string? toolUseId,
+        HookContext ctx, CancellationToken ct) { /* tracking logic */ }
+
+    [HookHandler(HookEvent.PostToolUse)]
+    public Task<HookOutput> PostToolUse(HookInput input, string? toolUseId,
+        HookContext ctx, CancellationToken ct) { /* tracking logic */ }
+
+    [HookHandler(HookEvent.SubagentStart)]
+    public Task<HookOutput> OnSubagentStart(HookInput input, string? toolUseId,
+        HookContext ctx, CancellationToken ct) { /* tracking logic */ }
+
+    [HookHandler(HookEvent.SubagentStop)]
+    public Task<HookOutput> OnSubagentStop(HookInput input, string? toolUseId,
+        HookContext ctx, CancellationToken ct) { /* tracking logic */ }
+}
+
+// Usage
+var tracker = new SubagentTracker();
+var options = new ClaudeAgentOptions { Hooks = tracker.GetHooksCompiled() };
+```
+
+### Functional Match Patterns
+
+```csharp
+using Claude.AgentSdk.Messages;
+
+await foreach (var message in session.ReceiveResponseAsync())
+{
+    // Exhaustive pattern matching
+    message.Match(
+        assistantMessage: a => ProcessAssistant(a),
+        resultMessage: r => Console.WriteLine($"[${r.TotalCostUsd:F4}]"),
+        systemMessage: _ => { },
+        userMessage: _ => { },
+        streamEvent: _ => { }
+    );
+}
+```
+
 ## Key Code Patterns
 
 ### Defining Subagents

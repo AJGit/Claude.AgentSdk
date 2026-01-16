@@ -293,4 +293,4 @@ __pycache__/
 .claude/skills/dotnet-refactor-expert/resources
 
 # Claude Code local settings (user-specific)
-.claude/settings.local.json
+.claude/

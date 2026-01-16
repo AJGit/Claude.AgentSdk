@@ -86,9 +86,10 @@ public static class Program
         var emailStore = new MockEmailStore();
 
         // Create MCP tool server with email tools
+        // Uses compile-time generated registration (no reflection)
         var toolServer = new McpToolServer("email-tools", "1.0.0");
         var emailTools = new EmailTools(emailStore);
-        emailTools.RegisterTools(toolServer);
+        toolServer.RegisterToolsCompiled(emailTools);
 
         Console.ForegroundColor = ConsoleColor.DarkGray;
         Console.WriteLine($"Loaded {emailStore.GetInbox().Count} emails in mock inbox");

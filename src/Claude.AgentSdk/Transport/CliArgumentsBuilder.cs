@@ -93,16 +93,20 @@ internal sealed class CliArgumentsBuilder
 
     private CliArgumentsBuilder AddModel()
     {
-        if (!string.IsNullOrEmpty(_options.Model))
+        // ModelId takes precedence over Model for the new strongly-typed API
+        var model = _options.ModelId?.Value ?? _options.Model;
+        if (!string.IsNullOrEmpty(model))
         {
             _args.Add("--model");
-            _args.Add(_options.Model);
+            _args.Add(model);
         }
 
-        if (!string.IsNullOrEmpty(_options.FallbackModel))
+        // FallbackModelId takes precedence over FallbackModel
+        var fallbackModel = _options.FallbackModelId?.Value ?? _options.FallbackModel;
+        if (!string.IsNullOrEmpty(fallbackModel))
         {
             _args.Add("--fallback-model");
-            _args.Add(_options.FallbackModel);
+            _args.Add(fallbackModel);
         }
 
         return this;

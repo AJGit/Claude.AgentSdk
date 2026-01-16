@@ -75,10 +75,43 @@ public sealed class ToolDefinition
 ///     Attribute to mark a method as a Claude tool.
 /// </summary>
 [AttributeUsage(AttributeTargets.Method)]
-public sealed class ClaudeToolAttribute(string name, string description) : Attribute
+public sealed class ClaudeToolAttribute : Attribute
 {
-    public string Name { get; } = name;
-    public string Description { get; } = description;
+    /// <summary>
+    ///     Creates a new ClaudeTool attribute.
+    /// </summary>
+    /// <param name="name">The tool name as exposed to Claude.</param>
+    /// <param name="description">Description of what the tool does.</param>
+    public ClaudeToolAttribute(string name, string description)
+    {
+        Name = name;
+        Description = description;
+    }
+
+    /// <summary>
+    ///     The tool name as exposed to Claude.
+    /// </summary>
+    public string Name { get; }
+
+    /// <summary>
+    ///     Description of what the tool does.
+    /// </summary>
+    public string Description { get; }
+
+    /// <summary>
+    ///     Categories for organizing tools (e.g., "file", "network", "database").
+    /// </summary>
+    public string[]? Categories { get; init; }
+
+    /// <summary>
+    ///     Indicates whether this tool performs dangerous operations that require extra caution.
+    /// </summary>
+    public bool Dangerous { get; init; }
+
+    /// <summary>
+    ///     Timeout in seconds for the tool execution. Zero means no timeout.
+    /// </summary>
+    public int TimeoutSeconds { get; init; }
 }
 
 /// <summary>
@@ -185,10 +218,45 @@ public sealed class McpToolServer(string name, string version = "1.0.0") : IMcpT
 
     /// <summary>
     ///     Register tools from an object with [ClaudeTool] attributes.
+    ///     When <paramref name="preferCompileTime"/> is true, attempts to use generated
+    ///     compile-time registration first, falling back to reflection.
     /// </summary>
     /// <param name="instance">The object containing tool methods.</param>
+    /// <param name="preferCompileTime">
+    ///     If true, attempts to find and use a source-generated extension method first.
+    ///     Defaults to false for backward compatibility.
+    /// </param>
     /// <returns>The number of tools registered.</returns>
-    public int RegisterToolsFrom(object instance)
+    public int RegisterToolsFrom(object instance, bool preferCompileTime = false)
+    {
+        if (preferCompileTime)
+        {
+            var compiledMethod = FindCompiledRegistrationMethod(instance.GetType());
+            if (compiledMethod != null)
+            {
+                return (int)compiledMethod.Invoke(null, new object[] { this, instance })!;
+            }
+        }
+
+        return RegisterToolsFromReflection(instance);
+    }
+
+    /// <summary>
+    ///     Finds the source-generated RegisterToolsCompiled extension method for the given type.
+    /// </summary>
+    private static MethodInfo? FindCompiledRegistrationMethod(Type instanceType)
+    {
+        // The generated extension class follows the naming pattern: {ClassName}ToolRegistrationExtensions
+        var extensionClassName = $"{instanceType.Name}ToolRegistrationExtensions";
+        var extensionType = instanceType.Assembly.GetType($"{instanceType.Namespace}.{extensionClassName}");
+
+        return extensionType?.GetMethod("RegisterToolsCompiled", BindingFlags.Public | BindingFlags.Static);
+    }
+
+    /// <summary>
+    ///     Register tools from an object using reflection.
+    /// </summary>
+    private int RegisterToolsFromReflection(object instance)
     {
         var type = instance.GetType();
         var methods = type.GetMethods(BindingFlags.Public | BindingFlags.Instance);

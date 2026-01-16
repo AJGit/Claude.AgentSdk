@@ -1,61 +1,87 @@
+using System.Runtime.Serialization;
+using Claude.AgentSdk.Attributes;
 using Claude.AgentSdk.Protocol;
 using Claude.AgentSdk.Tools;
+using Claude.AgentSdk.Types;
 
 namespace Claude.AgentSdk;
 
 /// <summary>
 ///     Permission modes for tool usage.
 /// </summary>
+[GenerateEnumStrings]
 public enum PermissionMode
 {
+    /// <summary>Default permission mode.</summary>
+    [EnumMember(Value = "default")]
     Default,
+
+    /// <summary>Auto-accept file edits.</summary>
+    [EnumMember(Value = "acceptEdits")]
     AcceptEdits,
+
+    /// <summary>Plan mode for planning-only sessions.</summary>
+    [EnumMember(Value = "plan")]
     Plan,
+
+    /// <summary>Bypass all permission checks.</summary>
+    [EnumMember(Value = "bypassPermissions")]
     BypassPermissions,
+
+    /// <summary>Don't ask for any permissions.</summary>
+    [EnumMember(Value = "dontAsk")]
     DontAsk
 }
 
 /// <summary>
 ///     Sources for loading settings (e.g., CLAUDE.md files).
 /// </summary>
+[GenerateEnumStrings]
 public enum SettingSource
 {
     /// <summary>
     ///     Load project-level settings (CLAUDE.md or .claude/CLAUDE.md in working directory).
     ///     Traverses up parent directories looking for project root.
     /// </summary>
+    [EnumMember(Value = "project")]
     Project,
 
     /// <summary>
     ///     Load user-level settings (~/.claude/CLAUDE.md).
     /// </summary>
+    [EnumMember(Value = "user")]
     User,
 
     /// <summary>
     ///     Load settings from the current working directory only (no parent traversal).
     ///     Useful for workspace-specific settings.
     /// </summary>
+    [EnumMember(Value = "local")]
     Local
 }
 
 /// <summary>
 ///     Sandboxing mode for command execution.
 /// </summary>
+[GenerateEnumStrings]
 public enum SandboxMode
 {
     /// <summary>
     ///     No sandboxing - commands run with full permissions.
     /// </summary>
+    [EnumMember(Value = "off")]
     Off,
 
     /// <summary>
     ///     Permissive sandboxing - allows most operations with some restrictions.
     /// </summary>
+    [EnumMember(Value = "permissive")]
     Permissive,
 
     /// <summary>
     ///     Strict sandboxing - limits file system and network access.
     /// </summary>
+    [EnumMember(Value = "strict")]
     Strict
 }
 
@@ -461,12 +487,42 @@ public sealed record ClaudeAgentOptions
     /// <summary>
     ///     Model to use (e.g., "sonnet", "opus", "haiku").
     /// </summary>
+    /// <remarks>
+    ///     Consider using <see cref="ModelId"/> for strongly-typed model selection.
+    /// </remarks>
     public string? Model { get; init; }
+
+    /// <summary>
+    ///     Strongly-typed model identifier. Use this instead of <see cref="Model"/> for type safety.
+    /// </summary>
+    /// <remarks>
+    ///     If both <see cref="Model"/> and <see cref="ModelId"/> are set, <see cref="ModelId"/> takes precedence.
+    /// </remarks>
+    /// <example>
+    ///     <code>
+    ///     // Using predefined models
+    ///     ModelId = ModelIdentifier.Sonnet
+    ///     ModelId = ModelIdentifier.ClaudeOpus45
+    ///
+    ///     // Custom model (e.g., fine-tuned)
+    ///     ModelId = ModelIdentifier.Custom("my-custom-model")
+    ///     </code>
+    /// </example>
+    public ModelIdentifier? ModelId { get; init; }
 
     /// <summary>
     ///     Fallback model if primary is unavailable.
     /// </summary>
     public string? FallbackModel { get; init; }
+
+    /// <summary>
+    ///     Strongly-typed fallback model identifier.
+    /// </summary>
+    /// <remarks>
+    ///     If both <see cref="FallbackModel"/> and <see cref="FallbackModelId"/> are set,
+    ///     <see cref="FallbackModelId"/> takes precedence.
+    /// </remarks>
+    public ModelIdentifier? FallbackModelId { get; init; }
 
     /// <summary>
     ///     Working directory for the agent.
@@ -503,7 +559,7 @@ public sealed record ClaudeAgentOptions
     /// <summary>
     ///     Hook configurations by event type.
     /// </summary>
-    public IReadOnlyDictionary<HookEvent, IReadOnlyList<HookMatcher>>? Hooks { get; init; }
+    public IReadOnlyDictionary<Protocol.HookEvent, IReadOnlyList<HookMatcher>>? Hooks { get; init; }
 
     /// <summary>
     ///     Whether to include partial message streaming events.

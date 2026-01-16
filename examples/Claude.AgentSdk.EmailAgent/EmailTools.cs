@@ -1,11 +1,14 @@
 using System.Text.Json;
+using Claude.AgentSdk.Attributes;
 using Claude.AgentSdk.Tools;
 
 namespace Claude.AgentSdk.EmailAgent;
 
 /// <summary>
 /// Custom MCP tools for email operations.
+/// Uses [GenerateToolRegistration] for compile-time tool registration.
 /// </summary>
+[GenerateToolRegistration]
 public class EmailTools
 {
     private readonly MockEmailStore _store;
@@ -16,90 +19,42 @@ public class EmailTools
     }
 
     /// <summary>
-    /// Registers all email tools with the MCP server.
+    /// Search emails using Gmail-like query syntax.
     /// </summary>
-    public void RegisterTools(McpToolServer server)
-    {
-        server.RegisterTool<SearchInboxInput>(
-            "search_inbox",
-            """
-            Search emails using Gmail-like query syntax.
+    [ClaudeTool("search_inbox",
+        """
+        Search emails using Gmail-like query syntax.
 
-            Supported operators:
-            - from:sender@example.com - Filter by sender
-            - to:recipient@example.com - Filter by recipient
-            - is:unread - Only unread emails
-            - is:starred - Only starred emails
-            - has:attachment - Only emails with attachments
-            - label:category - Filter by label
-            - newer_than:7d - Emails from last N days
-            - Plain text - Full-text search in subject/body
+        Supported operators:
+        - from:sender@example.com - Filter by sender
+        - to:recipient@example.com - Filter by recipient
+        - is:unread - Only unread emails
+        - is:starred - Only starred emails
+        - has:attachment - Only emails with attachments
+        - label:category - Filter by label
+        - newer_than:7d - Emails from last N days
+        - Plain text - Full-text search in subject/body
 
-            Examples:
-            - "from:boss is:unread" - Unread emails from boss
-            - "budget newer_than:30d" - Emails mentioning budget in last 30 days
-            - "label:finance has:attachment" - Finance emails with attachments
-            """,
-            SearchInboxAsync);
-
-        server.RegisterTool<ReadEmailsInput>(
-            "read_emails",
-            "Read full email content by IDs. Returns complete email details including body.",
-            ReadEmailsAsync);
-
-        server.RegisterTool<GetInboxInput>(
-            "get_inbox",
-            "Get recent emails from inbox. Returns up to 'limit' most recent non-archived emails.",
-            GetInboxAsync);
-
-        server.RegisterTool<MarkAsReadInput>(
-            "mark_as_read",
-            "Mark one or more emails as read.",
-            MarkAsReadAsync);
-
-        server.RegisterTool<MarkAsUnreadInput>(
-            "mark_as_unread",
-            "Mark one or more emails as unread.",
-            MarkAsUnreadAsync);
-
-        server.RegisterTool<StarEmailInput>(
-            "star_email",
-            "Star one or more emails.",
-            StarEmailAsync);
-
-        server.RegisterTool<UnstarEmailInput>(
-            "unstar_email",
-            "Remove star from one or more emails.",
-            UnstarEmailAsync);
-
-        server.RegisterTool<ArchiveEmailInput>(
-            "archive_email",
-            "Archive one or more emails (remove from inbox).",
-            ArchiveEmailAsync);
-
-        server.RegisterTool<AddLabelInput>(
-            "add_label",
-            "Add a label to one or more emails.",
-            AddLabelAsync);
-
-        server.RegisterTool<RemoveLabelInput>(
-            "remove_label",
-            "Remove a label from one or more emails.",
-            RemoveLabelAsync);
-    }
-
-    private Task<ToolResult> SearchInboxAsync(SearchInboxInput input, CancellationToken ct)
+        Examples:
+        - "from:boss is:unread" - Unread emails from boss
+        - "budget newer_than:30d" - Emails mentioning budget in last 30 days
+        - "label:finance has:attachment" - Finance emails with attachments
+        """,
+        Categories = ["email"])]
+    public string SearchInbox(
+        [ToolParameter(Description = "Gmail-style search query")] string query,
+        [ToolParameter(Description = "Maximum number of results to return")] int? limit = 20)
     {
         try
         {
-            var results = _store.Search(input.Query);
+            var results = _store.Search(query);
 
             if (results.Count == 0)
             {
-                return Task.FromResult(ToolResult.Text($"No emails found matching: {input.Query}"));
+                return $"No emails found matching: {query}";
             }
 
-            var summary = results.Take(input.Limit ?? 20).Select(e => new
+            var summary = results.Take(limit ?? 20).Select(e => new
             {
                 id = e.Id,
                 from = e.From,
@@ -111,30 +66,35 @@ public class EmailTools
                 snippet = e.Snippet
             });
 
-            var json = JsonSerializer.Serialize(new
+            return JsonSerializer.Serialize(new
             {
                 total_results = results.Count,
-                showing = Math.Min(results.Count, input.Limit ?? 20),
+                showing = Math.Min(results.Count, limit ?? 20),
                 emails = summary
             }, new JsonSerializerOptions { WriteIndented = true });
-
-            return Task.FromResult(ToolResult.Text(json));
         }
         catch (Exception ex)
         {
-            return Task.FromResult(ToolResult.Error($"Search failed: {ex.Message}"));
+            return $"Search failed: {ex.Message}";
         }
     }
 
-    private Task<ToolResult> ReadEmailsAsync(ReadEmailsInput input, CancellationToken ct)
+    /// <summary>
+    /// Read full email content by IDs.
+    /// </summary>
+    [ClaudeTool("read_emails",
+        "Read full email content by IDs. Returns complete email details including body.",
+        Categories = ["email"])]
+    public string ReadEmails(
+        [ToolParameter(Description = "Array of email IDs to read")] string[] ids)
     {
         try
         {
-            var emails = _store.GetByIds(input.Ids);
+            var emails = _store.GetByIds(ids);
 
             if (emails.Count == 0)
             {
-                return Task.FromResult(ToolResult.Text("No emails found with the specified IDs."));
+                return "No emails found with the specified IDs.";
             }
 
             var fullEmails = emails.Select(e => new
@@ -152,28 +112,33 @@ public class EmailTools
                 labels = e.Labels
             });
 
-            var json = JsonSerializer.Serialize(new { emails = fullEmails },
-                new JsonSerializerOptions { WriteIndented = true });
-
             // Mark as read when reading
             foreach (var email in emails)
             {
                 _store.MarkAsRead(email.Id);
             }
 
-            return Task.FromResult(ToolResult.Text(json));
+            return JsonSerializer.Serialize(new { emails = fullEmails },
+                new JsonSerializerOptions { WriteIndented = true });
         }
         catch (Exception ex)
         {
-            return Task.FromResult(ToolResult.Error($"Failed to read emails: {ex.Message}"));
+            return $"Failed to read emails: {ex.Message}";
         }
     }
 
-    private Task<ToolResult> GetInboxAsync(GetInboxInput input, CancellationToken ct)
+    /// <summary>
+    /// Get recent emails from inbox.
+    /// </summary>
+    [ClaudeTool("get_inbox",
+        "Get recent emails from inbox. Returns up to 'limit' most recent non-archived emails.",
+        Categories = ["email"])]
+    public string GetInbox(
+        [ToolParameter(Description = "Maximum number of emails to return")] int? limit = 20)
     {
         try
         {
-            var emails = _store.GetInbox(input.Limit ?? 20);
+            var emails = _store.GetInbox(limit ?? 20);
 
             var summary = emails.Select(e => new
             {
@@ -189,185 +154,270 @@ public class EmailTools
 
             var unreadCount = emails.Count(e => !e.IsRead);
 
-            var json = JsonSerializer.Serialize(new
+            return JsonSerializer.Serialize(new
             {
                 total_in_inbox = emails.Count,
                 unread_count = unreadCount,
                 emails = summary
             }, new JsonSerializerOptions { WriteIndented = true });
-
-            return Task.FromResult(ToolResult.Text(json));
         }
         catch (Exception ex)
         {
-            return Task.FromResult(ToolResult.Error($"Failed to get inbox: {ex.Message}"));
+            return $"Failed to get inbox: {ex.Message}";
         }
     }
 
-    private Task<ToolResult> MarkAsReadAsync(MarkAsReadInput input, CancellationToken ct)
+    /// <summary>
+    /// Mark one or more emails as read.
+    /// </summary>
+    [ClaudeTool("mark_as_read",
+        "Mark one or more emails as read.",
+        Categories = ["email"])]
+    public string MarkAsRead(
+        [ToolParameter(Description = "Array of email IDs to mark as read")] string[] ids)
     {
         try
         {
-            foreach (var id in input.Ids)
+            foreach (var id in ids)
             {
                 _store.MarkAsRead(id);
             }
-            return Task.FromResult(ToolResult.Text($"Marked {input.Ids.Length} email(s) as read."));
+            return $"Marked {ids.Length} email(s) as read.";
         }
         catch (Exception ex)
         {
-            return Task.FromResult(ToolResult.Error($"Failed to mark as read: {ex.Message}"));
+            return $"Failed to mark as read: {ex.Message}";
         }
     }
 
-    private Task<ToolResult> MarkAsUnreadAsync(MarkAsUnreadInput input, CancellationToken ct)
+    /// <summary>
+    /// Mark one or more emails as unread.
+    /// </summary>
+    [ClaudeTool("mark_as_unread",
+        "Mark one or more emails as unread.",
+        Categories = ["email"])]
+    public string MarkAsUnread(
+        [ToolParameter(Description = "Array of email IDs to mark as unread")] string[] ids)
     {
         try
         {
-            foreach (var id in input.Ids)
+            foreach (var id in ids)
             {
                 _store.MarkAsUnread(id);
             }
-            return Task.FromResult(ToolResult.Text($"Marked {input.Ids.Length} email(s) as unread."));
+            return $"Marked {ids.Length} email(s) as unread.";
         }
         catch (Exception ex)
         {
-            return Task.FromResult(ToolResult.Error($"Failed to mark as unread: {ex.Message}"));
+            return $"Failed to mark as unread: {ex.Message}";
         }
     }
 
-    private Task<ToolResult> StarEmailAsync(StarEmailInput input, CancellationToken ct)
+    /// <summary>
+    /// Star one or more emails.
+    /// </summary>
+    [ClaudeTool("star_email",
+        "Star one or more emails.",
+        Categories = ["email"])]
+    public string StarEmail(
+        [ToolParameter(Description = "Array of email IDs to star")] string[] ids)
     {
         try
         {
-            foreach (var id in input.Ids)
+            foreach (var id in ids)
             {
                 _store.Star(id);
             }
-            return Task.FromResult(ToolResult.Text($"Starred {input.Ids.Length} email(s)."));
+            return $"Starred {ids.Length} email(s).";
         }
         catch (Exception ex)
         {
-            return Task.FromResult(ToolResult.Error($"Failed to star emails: {ex.Message}"));
+            return $"Failed to star emails: {ex.Message}";
         }
     }
 
-    private Task<ToolResult> UnstarEmailAsync(UnstarEmailInput input, CancellationToken ct)
+    /// <summary>
+    /// Remove star from one or more emails.
+    /// </summary>
+    [ClaudeTool("unstar_email",
+        "Remove star from one or more emails.",
+        Categories = ["email"])]
+    public string UnstarEmail(
+        [ToolParameter(Description = "Array of email IDs to unstar")] string[] ids)
     {
         try
         {
-            foreach (var id in input.Ids)
+            foreach (var id in ids)
             {
                 _store.Unstar(id);
             }
-            return Task.FromResult(ToolResult.Text($"Unstarred {input.Ids.Length} email(s)."));
+            return $"Unstarred {ids.Length} email(s).";
         }
         catch (Exception ex)
         {
-            return Task.FromResult(ToolResult.Error($"Failed to unstar emails: {ex.Message}"));
+            return $"Failed to unstar emails: {ex.Message}";
         }
     }
 
-    private Task<ToolResult> ArchiveEmailAsync(ArchiveEmailInput input, CancellationToken ct)
+    /// <summary>
+    /// Archive one or more emails (remove from inbox).
+    /// </summary>
+    [ClaudeTool("archive_email",
+        "Archive one or more emails (remove from inbox).",
+        Categories = ["email"])]
+    public string ArchiveEmail(
+        [ToolParameter(Description = "Array of email IDs to archive")] string[] ids)
     {
         try
         {
-            foreach (var id in input.Ids)
+            foreach (var id in ids)
             {
                 _store.Archive(id);
             }
-            return Task.FromResult(ToolResult.Text($"Archived {input.Ids.Length} email(s)."));
+            return $"Archived {ids.Length} email(s).";
         }
         catch (Exception ex)
         {
-            return Task.FromResult(ToolResult.Error($"Failed to archive emails: {ex.Message}"));
+            return $"Failed to archive emails: {ex.Message}";
         }
     }
 
-    private Task<ToolResult> AddLabelAsync(AddLabelInput input, CancellationToken ct)
+    /// <summary>
+    /// Add a label to one or more emails.
+    /// </summary>
+    [ClaudeTool("add_label",
+        "Add a label to one or more emails.",
+        Categories = ["email"])]
+    public string AddLabel(
+        [ToolParameter(Description = "Array of email IDs to label")] string[] ids,
+        [ToolParameter(Description = "Label name to add")] string label)
     {
         try
         {
-            foreach (var id in input.Ids)
+            foreach (var id in ids)
             {
-                _store.AddLabel(id, input.Label);
+                _store.AddLabel(id, label);
             }
-            return Task.FromResult(ToolResult.Text($"Added label '{input.Label}' to {input.Ids.Length} email(s)."));
+            return $"Added label '{label}' to {ids.Length} email(s).";
         }
         catch (Exception ex)
         {
-            return Task.FromResult(ToolResult.Error($"Failed to add label: {ex.Message}"));
+            return $"Failed to add label: {ex.Message}";
         }
     }
 
-    private Task<ToolResult> RemoveLabelAsync(RemoveLabelInput input, CancellationToken ct)
+    /// <summary>
+    /// Remove a label from one or more emails.
+    /// </summary>
+    [ClaudeTool("remove_label",
+        "Remove a label from one or more emails.",
+        Categories = ["email"])]
+    public string RemoveLabel(
+        [ToolParameter(Description = "Array of email IDs to unlabel")] string[] ids,
+        [ToolParameter(Description = "Label name to remove")] string label)
     {
         try
         {
-            foreach (var id in input.Ids)
+            foreach (var id in ids)
             {
-                _store.RemoveLabel(id, input.Label);
+                _store.RemoveLabel(id, label);
             }
-            return Task.FromResult(ToolResult.Text($"Removed label '{input.Label}' from {input.Ids.Length} email(s)."));
+            return $"Removed label '{label}' from {ids.Length} email(s).";
         }
         catch (Exception ex)
         {
-            return Task.FromResult(ToolResult.Error($"Failed to remove label: {ex.Message}"));
+            return $"Failed to remove label: {ex.Message}";
         }
     }
 }
 
-// Input types for email tools
+// Input types for email tools - marked with [GenerateSchema] for compile-time schema generation
 
+/// <summary>Input for searching the inbox.</summary>
+[GenerateSchema]
 public record SearchInboxInput
 {
+    [ToolParameter(Description = "Gmail-style search query")]
     public required string Query { get; init; }
+
+    [ToolParameter(Description = "Maximum number of results to return")]
     public int? Limit { get; init; }
 }
 
+/// <summary>Input for reading emails.</summary>
+[GenerateSchema]
 public record ReadEmailsInput
 {
+    [ToolParameter(Description = "Array of email IDs to read")]
     public required string[] Ids { get; init; }
 }
 
+/// <summary>Input for getting inbox.</summary>
+[GenerateSchema]
 public record GetInboxInput
 {
+    [ToolParameter(Description = "Maximum number of emails to return")]
     public int? Limit { get; init; }
 }
 
+/// <summary>Input for marking emails as read.</summary>
+[GenerateSchema]
 public record MarkAsReadInput
 {
+    [ToolParameter(Description = "Array of email IDs to mark as read")]
     public required string[] Ids { get; init; }
 }
 
+/// <summary>Input for marking emails as unread.</summary>
+[GenerateSchema]
 public record MarkAsUnreadInput
 {
+    [ToolParameter(Description = "Array of email IDs to mark as unread")]
     public required string[] Ids { get; init; }
 }
 
+/// <summary>Input for starring emails.</summary>
+[GenerateSchema]
 public record StarEmailInput
 {
+    [ToolParameter(Description = "Array of email IDs to star")]
     public required string[] Ids { get; init; }
 }
 
+/// <summary>Input for unstarring emails.</summary>
+[GenerateSchema]
 public record UnstarEmailInput
 {
+    [ToolParameter(Description = "Array of email IDs to unstar")]
     public required string[] Ids { get; init; }
 }
 
+/// <summary>Input for archiving emails.</summary>
+[GenerateSchema]
 public record ArchiveEmailInput
 {
+    [ToolParameter(Description = "Array of email IDs to archive")]
     public required string[] Ids { get; init; }
 }
 
+/// <summary>Input for adding labels to emails.</summary>
+[GenerateSchema]
 public record AddLabelInput
 {
+    [ToolParameter(Description = "Array of email IDs to label")]
     public required string[] Ids { get; init; }
+
+    [ToolParameter(Description = "Label name to add")]
     public required string Label { get; init; }
 }
 
+/// <summary>Input for removing labels from emails.</summary>
+[GenerateSchema]
 public record RemoveLabelInput
 {
+    [ToolParameter(Description = "Array of email IDs to unlabel")]
     public required string[] Ids { get; init; }
+
+    [ToolParameter(Description = "Label name to remove")]
     public required string Label { get; init; }
 }

@@ -1,10 +1,12 @@
 using Claude.AgentSdk.Messages;
 using Claude.AgentSdk.Protocol;
+using Claude.AgentSdk.Types;
 
 namespace Claude.AgentSdk.Examples.Examples;
 
 /// <summary>
 /// Demonstrates using hooks to intercept and modify tool execution.
+/// Shows usage of strongly-typed enum accessors for hook inputs.
 /// </summary>
 public class HooksExample : IExample
 {
@@ -97,6 +99,107 @@ public class HooksExample : IExample
                             }
                         ]
                     }
+                },
+
+                // SessionStart hook: demonstrates using SourceEnum accessor
+                [HookEvent.SessionStart] = new List<HookMatcher>
+                {
+                    new()
+                    {
+                        Hooks =
+                        [
+                            async (input, toolUseId, context, ct) =>
+                            {
+                                if (input is SessionStartHookInput sessionStart)
+                                {
+                                    Console.ForegroundColor = ConsoleColor.Magenta;
+                                    Console.WriteLine($"[Hook: SessionStart]");
+
+                                    // Use SourceEnum for type-safe source checking
+                                    var sourceDescription = sessionStart.SourceEnum switch
+                                    {
+                                        SessionStartSource.Startup => "Fresh startup",
+                                        SessionStartSource.Resume => "Resumed from previous session",
+                                        SessionStartSource.Clear => "Session was cleared",
+                                        SessionStartSource.Compact => "Session was compacted",
+                                        _ => "Unknown"
+                                    };
+                                    Console.WriteLine($"  Source: {sessionStart.SourceEnum} ({sourceDescription})");
+                                    Console.ResetColor();
+                                }
+
+                                return new SyncHookOutput { Continue = true };
+                            }
+                        ]
+                    }
+                },
+
+                // SessionEnd hook: demonstrates using ReasonEnum accessor
+                [HookEvent.SessionEnd] = new List<HookMatcher>
+                {
+                    new()
+                    {
+                        Hooks =
+                        [
+                            async (input, toolUseId, context, ct) =>
+                            {
+                                if (input is SessionEndHookInput sessionEnd)
+                                {
+                                    Console.ForegroundColor = ConsoleColor.DarkMagenta;
+                                    Console.WriteLine($"[Hook: SessionEnd]");
+
+                                    // Use ReasonEnum for type-safe reason checking
+                                    var reasonDescription = sessionEnd.ReasonEnum switch
+                                    {
+                                        SessionEndReason.Clear => "User cleared the session",
+                                        SessionEndReason.Logout => "User logged out",
+                                        SessionEndReason.PromptInputExit => "User exited at prompt",
+                                        SessionEndReason.BypassPermissionsDisabled => "Bypass permissions was disabled",
+                                        SessionEndReason.Other => "Other reason",
+                                        _ => "Unknown"
+                                    };
+                                    Console.WriteLine($"  Reason: {sessionEnd.ReasonEnum} ({reasonDescription})");
+                                    Console.ResetColor();
+                                }
+
+                                return new SyncHookOutput { Continue = true };
+                            }
+                        ]
+                    }
+                },
+
+                // Notification hook: demonstrates using NotificationTypeEnum accessor
+                [HookEvent.Notification] = new List<HookMatcher>
+                {
+                    new()
+                    {
+                        Hooks =
+                        [
+                            async (input, toolUseId, context, ct) =>
+                            {
+                                if (input is NotificationHookInput notification)
+                                {
+                                    Console.ForegroundColor = ConsoleColor.DarkYellow;
+                                    Console.WriteLine($"[Hook: Notification]");
+
+                                    // Use NotificationTypeEnum for type-safe notification type checking
+                                    var icon = notification.NotificationTypeEnum switch
+                                    {
+                                        NotificationType.PermissionPrompt => "Permission Required",
+                                        NotificationType.IdlePrompt => "Idle",
+                                        NotificationType.AuthSuccess => "Authenticated",
+                                        NotificationType.ElicitationDialog => "Input Needed",
+                                        _ => "Unknown"
+                                    };
+                                    Console.WriteLine($"  Type: {notification.NotificationTypeEnum} ({icon})");
+                                    Console.WriteLine($"  Message: {notification.Message}");
+                                    Console.ResetColor();
+                                }
+
+                                return new SyncHookOutput { Continue = true };
+                            }
+                        ]
+                    }
                 }
             }
         };
@@ -124,7 +227,15 @@ public class HooksExample : IExample
                     break;
 
                 case ResultMessage result:
-                    Console.WriteLine($"\n[Completed - Cost: ${result.TotalCostUsd:F4}]");
+                    // Use SubtypeEnum for type-safe result checking
+                    var status = result.SubtypeEnum switch
+                    {
+                        ResultMessageSubtype.Success => "Completed successfully",
+                        ResultMessageSubtype.Error => "Completed with error",
+                        ResultMessageSubtype.Partial => "Partial result",
+                        _ => "Unknown status"
+                    };
+                    Console.WriteLine($"\n[{status} - Cost: ${result.TotalCostUsd:F4}]");
                     break;
             }
         }

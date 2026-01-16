@@ -92,9 +92,10 @@ public static class Program
         Console.WriteLine();
 
         // Create MCP tool server with Excel tools
+        // Uses compile-time generated registration (no reflection)
         var toolServer = new McpToolServer("excel-tools", "1.0.0");
         var excelTools = new ExcelTools(outputDir);
-        excelTools.RegisterTools(toolServer);
+        toolServer.RegisterToolsCompiled(excelTools);
 
         var options = new ClaudeAgentOptions
         {

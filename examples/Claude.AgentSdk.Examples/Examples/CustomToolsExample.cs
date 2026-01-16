@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Claude.AgentSdk.Attributes;
 using Claude.AgentSdk.Messages;
 using Claude.AgentSdk.Tools;
 
@@ -20,9 +21,9 @@ public class CustomToolsExample : IExample
         // Create an MCP tool server with custom tools
         var toolServer = new McpToolServer("demo-tools");
 
-        // Register tools using the attribute-based approach on an instance
+        // Register tools using compile-time generated registration (no reflection)
         var tools = new DemoTools();
-        toolServer.RegisterToolsFrom(tools);
+        toolServer.RegisterToolsCompiled(tools);
 
         var options = new ClaudeAgentOptions
         {
@@ -88,14 +89,22 @@ public class CustomToolsExample : IExample
 /// <summary>
 /// Class containing demo tool methods.
 /// Methods marked with [ClaudeTool] will be registered as MCP tools.
+/// Uses [GenerateToolRegistration] for compile-time tool registration.
 /// </summary>
+[GenerateToolRegistration]
 public class DemoTools
 {
     /// <summary>
     /// Perform basic arithmetic calculations.
     /// </summary>
-    [ClaudeTool("calculate", "Perform basic arithmetic calculations")]
-    public string Calculate(string operation, double a, double b)
+    [ClaudeTool("calculate", "Perform basic arithmetic calculations (add, subtract, multiply, divide)",
+        Categories = ["math"])]
+    public string Calculate(
+        [ToolParameter(Description = "The operation to perform: add, subtract, multiply, or divide",
+                       AllowedValues = ["add", "subtract", "multiply", "divide"])]
+        string operation,
+        [ToolParameter(Description = "The first numeric operand")] double a,
+        [ToolParameter(Description = "The second numeric operand")] double b)
     {
         var result = operation.ToLower() switch
         {
@@ -113,8 +122,14 @@ public class DemoTools
     /// <summary>
     /// Get current weather for a city.
     /// </summary>
-    [ClaudeTool("get_weather", "Get current weather for a city")]
-    public string GetWeather(string city, string unit = "celsius")
+    [ClaudeTool("get_weather", "Get current weather for a city (mock data for demonstration)",
+        Categories = ["weather"],
+        TimeoutSeconds = 5)]
+    public string GetWeather(
+        [ToolParameter(Description = "City name to get weather for", Example = "Tokyo")] string city,
+        [ToolParameter(Description = "Temperature unit: celsius or fahrenheit",
+                       AllowedValues = ["celsius", "fahrenheit"])]
+        string unit = "celsius")
     {
         // Mock weather data
         var random = new Random(city.GetHashCode());

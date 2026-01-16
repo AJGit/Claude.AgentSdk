@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Claude.AgentSdk.Attributes;
 using Claude.AgentSdk.Messages;
 using Claude.AgentSdk.Tools;
 
@@ -75,7 +76,8 @@ public class McpServersExample : IExample
         // Create an in-process MCP server
         var toolServer = new McpToolServer("time-tools");
         var timeTools = new TimeTools();
-        toolServer.RegisterToolsFrom(timeTools);
+        // Use compile-time generated registration (no reflection)
+        toolServer.RegisterToolsCompiled(timeTools);
 
         var options = new ClaudeAgentOptions
         {
@@ -154,14 +156,21 @@ public class McpServersExample : IExample
 
 /// <summary>
 /// Class containing time-related tool methods.
+/// Uses [GenerateToolRegistration] for compile-time tool registration.
 /// </summary>
+[GenerateToolRegistration]
 public class TimeTools
 {
     /// <summary>
     /// Get the current date and time.
     /// </summary>
-    [ClaudeTool("current_time", "Get the current date and time")]
-    public string GetCurrentTime(string? timezone = null)
+    [ClaudeTool("current_time", "Get the current date and time in a specified timezone",
+        Categories = ["time"],
+        TimeoutSeconds = 3)]
+    public string GetCurrentTime(
+        [ToolParameter(Description = "IANA timezone identifier like 'America/New_York' or 'Europe/London'. If not specified, returns UTC time.",
+                       Example = "America/New_York")]
+        string? timezone = null)
     {
         var now = DateTime.UtcNow;
 
@@ -190,8 +199,16 @@ public class TimeTools
     /// <summary>
     /// Calculate the difference between two dates.
     /// </summary>
-    [ClaudeTool("time_difference", "Calculate the difference between two dates")]
-    public string GetTimeDifference(string startDate, string endDate)
+    [ClaudeTool("time_difference", "Calculate the difference between two dates in days, hours, and minutes",
+        Categories = ["time"],
+        TimeoutSeconds = 3)]
+    public string GetTimeDifference(
+        [ToolParameter(Description = "Start date in ISO 8601 format (e.g., '2024-01-01' or '2024-01-01T12:00:00')",
+                       Example = "2024-01-01")]
+        string startDate,
+        [ToolParameter(Description = "End date in ISO 8601 format (e.g., '2024-12-31' or '2024-12-31T23:59:59')",
+                       Example = "2024-12-31")]
+        string endDate)
     {
         if (!DateTime.TryParse(startDate, out var start))
         {

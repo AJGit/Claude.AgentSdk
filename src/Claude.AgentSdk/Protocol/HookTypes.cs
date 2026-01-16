@@ -1,3 +1,5 @@
+using Claude.AgentSdk.Types;
+
 namespace Claude.AgentSdk.Protocol;
 
 /// <summary>
@@ -231,6 +233,12 @@ public sealed record SessionStartHookInput : HookInput
     /// </summary>
     [JsonPropertyName("source")]
     public required string Source { get; init; }
+
+    /// <summary>
+    ///     Gets the strongly-typed source enum value.
+    /// </summary>
+    [JsonIgnore]
+    public SessionStartSource SourceEnum => EnumStringMappings.ParseSessionStartSource(Source);
 }
 
 /// <summary>
@@ -245,6 +253,12 @@ public sealed record SessionEndHookInput : HookInput
     /// </summary>
     [JsonPropertyName("reason")]
     public required string Reason { get; init; }
+
+    /// <summary>
+    ///     Gets the strongly-typed reason enum value.
+    /// </summary>
+    [JsonIgnore]
+    public SessionEndReason ReasonEnum => EnumStringMappings.ParseSessionEndReason(Reason);
 }
 
 /// <summary>
@@ -265,6 +279,12 @@ public sealed record NotificationHookInput : HookInput
     /// </summary>
     [JsonPropertyName("notification_type")]
     public required string NotificationType { get; init; }
+
+    /// <summary>
+    ///     Gets the strongly-typed notification type enum value.
+    /// </summary>
+    [JsonIgnore]
+    public Types.NotificationType NotificationTypeEnum => EnumStringMappings.ParseNotificationType(NotificationType);
 
     /// <summary>
     ///     Optional title set by the agent.

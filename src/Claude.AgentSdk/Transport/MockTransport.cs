@@ -35,7 +35,11 @@ internal class MockTransport : ITransport
 
     private readonly Channel<JsonDocument> _messageChannel;
     private readonly List<JsonElement> _writtenMessages = [];
+#if NET9_0_OR_GREATER
     private readonly Lock _lock = new();
+#else
+    private readonly object _lock = new();
+#endif
     private bool _disposed;
     private bool _connected;
     private TaskCompletionSource? _inputEndedTcs;

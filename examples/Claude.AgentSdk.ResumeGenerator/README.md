@@ -61,6 +61,105 @@ Experienced software engineer with 10+ years...
 - Cloud: AWS, GCP, Kubernetes
 ```
 
+## C#-Centric Features
+
+### Fluent Options Builder
+
+```csharp
+using Claude.AgentSdk.Builders;
+using Claude.AgentSdk.Types;
+
+var options = new ClaudeAgentOptionsBuilder()
+    .WithModel(ModelIdentifier.Sonnet)
+    .WithFallbackModel(ModelIdentifier.Haiku)
+    .WithSystemPrompt(SystemPrompt)
+    .WithMaxTurns(30)
+    .WithPermissionMode(PermissionMode.AcceptEdits)
+    .AllowTools(ToolName.WebSearch, ToolName.WebFetch, ToolName.Write,
+                ToolName.Read, ToolName.Glob, ToolName.Bash)
+    .Build();
+
+await using var client = new ClaudeAgentClient(options);
+```
+
+### ModelIdentifier for Type-Safe Model Selection
+
+```csharp
+using Claude.AgentSdk.Types;
+
+var options = new ClaudeAgentOptions
+{
+    ModelId = ModelIdentifier.Sonnet,  // Type-safe model selection
+    FallbackModelId = ModelIdentifier.Haiku,  // Fallback if primary unavailable
+    // ...
+};
+```
+
+### Message Extensions for Processing
+
+```csharp
+using Claude.AgentSdk.Extensions;
+
+await foreach (var message in client.QueryAsync(prompt))
+{
+    if (message is AssistantMessage assistant)
+    {
+        // Get all text at once
+        Console.WriteLine(assistant.GetText());
+
+        // Check for specific tool usage
+        if (assistant.HasToolUse(ToolName.WebSearch))
+            Console.WriteLine("Searching the web...");
+
+        if (assistant.HasToolUse(ToolName.Write))
+            Console.WriteLine("Writing resume...");
+    }
+}
+```
+
+### Functional Match Patterns
+
+```csharp
+using Claude.AgentSdk.Messages;
+
+await foreach (var message in client.QueryAsync(prompt))
+{
+    // Exhaustive pattern matching with type inference
+    message.Match(
+        assistantMessage: a => {
+            foreach (var block in a.MessageContent.Content)
+            {
+                block.Match(
+                    textBlock: t => Console.Write(t.Text),
+                    toolUseBlock: t => Console.WriteLine($"[{t.Name}]"),
+                    thinkingBlock: _ => Console.Write("[thinking...]"),
+                    toolResultBlock: _ => { }
+                );
+            }
+        },
+        resultMessage: r => Console.WriteLine($"[{r.DurationMs/1000.0:F1}s | ${r.TotalCostUsd:F4}]"),
+        systemMessage: _ => { },
+        userMessage: _ => { },
+        streamEvent: _ => { }
+    );
+}
+```
+
+### Generated Enum String Mappings
+
+```csharp
+using Claude.AgentSdk.Types;
+
+// Convert enum to JSON string
+var resultStr = ResultMessageSubtype.Success.ToJsonString();  // "success"
+
+// Parse string to enum (with safety)
+if (EnumStringMappings.TryParseResultMessageSubtype(jsonValue, out var subtype))
+{
+    // Handle parsed value
+}
+```
+
 ## Key Code Patterns
 
 ### System Prompt for Resume Writing

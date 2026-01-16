@@ -62,7 +62,7 @@ await foreach (var message in client.QueryAsync("What is the capital of France?"
 ```csharp
 var options = new ClaudeAgentOptions
 {
-    Model = "sonnet",                              // Model to use
+    Model = "sonnet",                              // Model to use (string)
     MaxTurns = 10,                                 // Limit conversation turns
     SystemPrompt = "You are a helpful assistant.", // Custom system prompt (string)
     AllowedTools = ["Read", "Glob", "Grep"],       // Tools Claude can use
@@ -70,6 +70,130 @@ var options = new ClaudeAgentOptions
 };
 
 var client = new ClaudeAgentClient(options);
+```
+
+### Strongly-Typed Model Selection
+
+Use `ModelIdentifier` for type-safe model selection with IntelliSense support:
+
+```csharp
+using Claude.AgentSdk.Types;
+
+var options = new ClaudeAgentOptions
+{
+    // New: Strongly-typed model selection
+    ModelId = ModelIdentifier.Sonnet,              // Use predefined model aliases
+    FallbackModelId = ModelIdentifier.Haiku,       // Type-safe fallback
+
+    // Specific versions also available
+    // ModelId = ModelIdentifier.ClaudeOpus45,     // claude-opus-4-5-20251101
+    // ModelId = ModelIdentifier.ClaudeSonnet4,    // claude-sonnet-4-20250514
+
+    // Custom models supported
+    // ModelId = ModelIdentifier.Custom("my-fine-tuned-model"),
+
+    MaxTurns = 10,
+    AllowedTools = ["Read", "Glob", "Grep"]
+};
+
+// Backward compatible: string Model property still works
+var legacyOptions = new ClaudeAgentOptions { Model = "sonnet" };
+```
+
+#### Available Model Identifiers
+
+| Identifier | Value |
+|------------|-------|
+| `ModelIdentifier.Sonnet` | `"sonnet"` |
+| `ModelIdentifier.Opus` | `"opus"` |
+| `ModelIdentifier.Haiku` | `"haiku"` |
+| `ModelIdentifier.ClaudeSonnet4` | `"claude-sonnet-4-20250514"` |
+| `ModelIdentifier.ClaudeOpus45` | `"claude-opus-4-5-20251101"` |
+| `ModelIdentifier.ClaudeHaiku35` | `"claude-3-5-haiku-20241022"` |
+
+### Strongly-Typed Tool Names
+
+Use `ToolName` for type-safe tool references with IntelliSense support:
+
+```csharp
+using Claude.AgentSdk.Types;
+
+var options = new ClaudeAgentOptions
+{
+    // Strongly-typed tool names
+    AllowedTools = [ToolName.Read, ToolName.Write, ToolName.Bash, ToolName.Grep],
+    DisallowedTools = [ToolName.WebSearch, ToolName.WebFetch],
+
+    // MCP tool names use factory method
+    // AllowedTools = [ToolName.Mcp("email-tools", "search_inbox")]
+};
+
+// Backward compatible: string arrays still work
+var legacyOptions = new ClaudeAgentOptions
+{
+    AllowedTools = ["Read", "Write", "Bash"]
+};
+```
+
+#### Available Built-in Tools
+
+| Tool Name | Description |
+|-----------|-------------|
+| `ToolName.Read` | Read files from filesystem |
+| `ToolName.Write` | Write files to filesystem |
+| `ToolName.Edit` | Edit existing files |
+| `ToolName.MultiEdit` | Multiple edits in one operation |
+| `ToolName.Bash` | Execute bash commands |
+| `ToolName.Grep` | Search file contents |
+| `ToolName.Glob` | Find files by pattern |
+| `ToolName.Task` | Spawn subagents |
+| `ToolName.WebFetch` | Fetch web content |
+| `ToolName.WebSearch` | Search the web |
+| `ToolName.TodoRead` | Read todo list |
+| `ToolName.TodoWrite` | Update todo list |
+| `ToolName.NotebookEdit` | Edit Jupyter notebooks |
+| `ToolName.AskUserQuestion` | Ask user questions |
+| `ToolName.Skill` | Invoke skills |
+| `ToolName.TaskOutput` | Get background task output |
+| `ToolName.KillShell` | Terminate background shell |
+
+#### MCP Tool Names
+
+Create MCP tool names using the factory method:
+
+```csharp
+// Format: mcp__<server>__<tool>
+var mcpTool = ToolName.Mcp("email-tools", "search_inbox");
+// Result: "mcp__email-tools__search_inbox"
+
+// Or use McpServerName for even more type safety
+var server = McpServerName.Sdk("email-tools");
+var tool = server.Tool("search_inbox");  // Returns ToolName
+```
+
+### Strongly-Typed MCP Server Names
+
+Use `McpServerName` for type-safe MCP server references:
+
+```csharp
+using Claude.AgentSdk.Types;
+
+// Create server name
+var server = McpServerName.Sdk("my-tools");
+
+// Get tool names from server
+var searchTool = server.Tool("search");       // ToolName: "mcp__my-tools__search"
+var readTool = server.Tool("read_file");      // ToolName: "mcp__my-tools__read_file"
+
+// Use with AllowedTools
+var options = new ClaudeAgentOptions
+{
+    AllowedTools = [
+        server.Tool("search"),
+        server.Tool("read_file"),
+        server.Tool("write_file")
+    ]
+};
 ```
 
 ### Using CLAUDE.md Files
@@ -242,6 +366,7 @@ var options = new ClaudeAgentOptions
 Define tools directly in C# that Claude can call:
 
 ```csharp
+using Claude.AgentSdk.Attributes;
 using Claude.AgentSdk.Tools;
 
 // Create a tool server
@@ -262,17 +387,24 @@ toolServer.RegisterTool<CalculatorInput>(
         return ToolResult.Text($"Result: {result}");
     });
 
-// Or use attributes
+// Or use attributes with compile-time registration (recommended)
+[GenerateToolRegistration]  // Generates RegisterToolsCompiled() extension
 public class MyTools
 {
-    [ClaudeTool("get_weather", "Get weather for a location")]
-    public Task<string> GetWeather(string location)
+    [ClaudeTool("get_weather", "Get weather for a location",
+        Categories = ["weather"],
+        TimeoutSeconds = 5)]
+    public string GetWeather(
+        [ToolParameter(Description = "City name", Example = "Tokyo")] string location,
+        [ToolParameter(Description = "Unit: celsius or fahrenheit",
+                       AllowedValues = ["celsius", "fahrenheit"])] string unit = "celsius")
     {
-        return Task.FromResult($"Weather in {location}: 72°F, sunny");
+        return $"Weather in {location}: 72°F, sunny";
     }
 }
 
-toolServer.RegisterToolsFrom(new MyTools());
+var myTools = new MyTools();
+toolServer.RegisterToolsCompiled(myTools);  // No reflection!
 
 // Use with client
 var options = new ClaudeAgentOptions
@@ -288,6 +420,84 @@ var options = new ClaudeAgentOptions
 };
 
 record CalculatorInput(double A, double B, string Operation);
+```
+
+#### Compile-Time Tool Registration (Recommended)
+
+Use source generators to register tools without reflection:
+
+```csharp
+// Add generator reference to your project:
+// <ProjectReference Include="Claude.AgentSdk.Generators.csproj"
+//                   OutputItemType="Analyzer"
+//                   ReferenceOutputAssembly="false" />
+
+[GenerateToolRegistration]  // Marker attribute for source generator
+public class EmailTools
+{
+    [ClaudeTool("search_inbox", "Search emails with Gmail-like syntax",
+        Categories = ["email"],
+        TimeoutSeconds = 10)]
+    public string SearchInbox(
+        [ToolParameter(Description = "Gmail-style search query")] string query,
+        [ToolParameter(Description = "Max results (1-100)", MinValue = 1, MaxValue = 100)] int? limit = 20)
+    {
+        // Implementation
+    }
+
+    [ClaudeTool("delete_email", "Delete an email by ID",
+        Categories = ["email"],
+        Dangerous = true)]  // Mark destructive operations
+    public string DeleteEmail([ToolParameter(Description = "Email ID")] string id)
+    {
+        // Implementation
+    }
+}
+
+// Generated extension method (no reflection)
+var emailTools = new EmailTools();
+toolServer.RegisterToolsCompiled(emailTools);
+
+// Get tool names for AllowedTools configuration
+var toolNames = emailTools.GetToolNamesCompiled();
+// Returns: ["search_inbox", "delete_email", ...]
+
+// Get MCP-prefixed tool names for a server
+var mcpToolNames = emailTools.GetMcpToolNamesCompiled("email-tools");
+// Returns: ["mcp__email-tools__search_inbox", "mcp__email-tools__delete_email", ...]
+
+// Get AllowedTools array directly
+var options = new ClaudeAgentOptions
+{
+    AllowedTools = emailTools.GetAllowedToolsCompiled("email-tools")
+};
+```
+
+**Generated Tool Name Methods:**
+
+| Method | Description |
+|--------|-------------|
+| `GetToolNamesCompiled()` | Returns `IReadOnlyList<string>` of tool names |
+| `GetMcpToolNamesCompiled(serverName)` | Returns MCP-prefixed tool names |
+| `GetAllowedToolsCompiled(serverName)` | Returns `string[]` for `AllowedTools` |
+
+#### Compile-Time Schema Generation
+
+Generate JSON schemas at compile-time for input types:
+
+```csharp
+[GenerateSchema]  // Generates static schema string
+public record SearchInboxInput
+{
+    [ToolParameter(Description = "Gmail-style search query")]
+    public required string Query { get; init; }
+
+    [ToolParameter(Description = "Max results", MinValue = 1, MaxValue = 100)]
+    public int? Limit { get; init; }
+}
+
+// Access generated schema
+var schema = SearchInboxInputSchemaExtensions.GetSchema();
 ```
 
 #### Combining Multiple MCP Servers
@@ -321,6 +531,201 @@ var options = new ClaudeAgentOptions
         "mcp__remote-api__query",
         "mcp__custom__calculate"
     ]
+};
+```
+
+#### Fluent MCP Server Builder
+
+Use `McpServerBuilder` for a more ergonomic configuration experience:
+
+```csharp
+using Claude.AgentSdk.Builders;
+
+var servers = new McpServerBuilder()
+    // Add stdio server with environment variables
+    .AddStdio("file-tools", "python", "file_tools.py")
+        .WithEnvironment("DEBUG", "true")
+        .WithEnvironment("MAX_FILES", "100")
+
+    // Add SSE server with authentication headers
+    .AddSse("remote-api", "https://api.example.com/mcp/sse")
+        .WithHeaders("Authorization", "Bearer your-token")
+        .WithHeaders("X-API-Version", "2")
+
+    // Add HTTP server
+    .AddHttp("http-service", "https://api.example.com/mcp")
+        .WithHeaders("X-API-Key", "your-api-key")
+
+    // Add in-process SDK server
+    .AddSdk("excel-tools", excelToolServer)
+
+    .Build();
+
+var options = new ClaudeAgentOptions
+{
+    McpServers = servers,
+    AllowedTools = ["mcp__file-tools__read", "mcp__remote-api__query"]
+};
+```
+
+The builder provides:
+- **Fluent chaining**: Configure multiple servers in a readable flow
+- **Context-aware methods**: `WithEnvironment()` for stdio, `WithHeaders()` for SSE/HTTP
+- **Type safety**: Compile-time checking of configuration
+
+#### Fluent Options Builder
+
+Use `ClaudeAgentOptionsBuilder` for a comprehensive fluent configuration experience:
+
+```csharp
+using Claude.AgentSdk.Builders;
+using Claude.AgentSdk.Types;
+
+var options = new ClaudeAgentOptionsBuilder()
+    // Model configuration
+    .WithModel(ModelIdentifier.Sonnet)
+    .WithFallbackModel(ModelIdentifier.Haiku)
+    .WithMaxTurns(50)
+
+    // System prompt options
+    .WithSystemPrompt("You are a helpful assistant.")
+    // Or: .UseClaudeCodePreset()
+    // Or: .UseClaudeCodePreset(append: "Focus on C# code.")
+
+    // Tool configuration with strongly-typed names
+    .AllowTools(ToolName.Read, ToolName.Write, ToolName.Bash, ToolName.Task)
+    .DisallowTools(ToolName.WebSearch)
+    // Or: .AllowAllToolsExcept(ToolName.Bash)
+
+    // MCP servers
+    .AddMcpServer("my-tools", new McpSdkServerConfig
+    {
+        Name = "my-tools",
+        Instance = toolServer
+    })
+
+    // Permission handling
+    .WithPermissionMode(PermissionMode.AcceptEdits)
+    .WithToolPermissionHandler(async (request, ct) =>
+    {
+        if (request.ToolName == "Bash")
+            return new PermissionResultDeny { Message = "No shell access" };
+        return new PermissionResultAllow();
+    })
+
+    // Hooks using builder
+    .WithHooks(new HookConfigurationBuilder()
+        .OnPreToolUse(handler, matcher: "Write|Edit")
+        .OnSessionStart(sessionHandler)
+        .Build())
+
+    // Subagents using builder
+    .AddAgent("reviewer", new AgentDefinitionBuilder()
+        .WithDescription("Code review specialist")
+        .WithPrompt("You review code for quality and security.")
+        .WithTools(ToolName.Read, ToolName.Grep, ToolName.Glob)
+        .WithModel(ModelIdentifier.Haiku)
+        .Build())
+
+    // Additional settings
+    .WithWorkingDirectory("/path/to/project")
+    .LoadSettingsFrom(SettingSource.Project, SettingSource.User)
+
+    .Build();
+
+var client = new ClaudeAgentClient(options);
+```
+
+The `ClaudeAgentOptionsBuilder` provides:
+- **Full IntelliSense support**: Discover all options via method chaining
+- **Type safety**: Strongly-typed identifiers for models, tools, and settings
+- **Composability**: Combine with other builders (HookConfigurationBuilder, AgentDefinitionBuilder)
+- **Validation**: Catches configuration errors at build time
+
+#### Fluent Hook Configuration Builder
+
+Use `HookConfigurationBuilder` to simplify hook setup:
+
+```csharp
+using Claude.AgentSdk.Builders;
+using Claude.AgentSdk.Protocol;
+
+var hooks = new HookConfigurationBuilder()
+    // Pre-tool hooks with pattern matching
+    .OnPreToolUse(ValidateBashCommand, matcher: "Bash")
+    .OnPreToolUse(ValidateFileWrites, matcher: "Write|Edit|MultiEdit")
+
+    // Post-tool hooks
+    .OnPostToolUse(LogToolUsage)
+    .OnPostToolUseFailure(HandleToolError)
+
+    // Session lifecycle
+    .OnSessionStart(InitializeTelemetry)
+    .OnSessionEnd(CleanupResources)
+
+    // Subagent tracking
+    .OnSubagentStart(TrackSubagent)
+    .OnSubagentStop(AggregateResults)
+
+    // Other events
+    .OnUserPromptSubmit(InjectContext)
+    .OnNotification(SendToSlack)
+    .OnPermissionRequest(CustomPermissionHandler)
+
+    .Build();
+
+var options = new ClaudeAgentOptions { Hooks = hooks };
+```
+
+#### Fluent Agent Definition Builder
+
+Use `AgentDefinitionBuilder` for subagent configuration:
+
+```csharp
+using Claude.AgentSdk.Builders;
+using Claude.AgentSdk.Types;
+
+// Basic agent definition
+var codeReviewer = new AgentDefinitionBuilder()
+    .WithDescription("Expert code reviewer for security and quality")
+    .WithPrompt("""
+        You are a code review specialist. Focus on:
+        - Security vulnerabilities
+        - Performance issues
+        - Clean code principles
+        """)
+    .WithTools(ToolName.Read, ToolName.Grep, ToolName.Glob)
+    .WithModel(ModelIdentifier.Haiku)
+    .Build();
+
+// Using convenience presets
+var readOnlyAgent = new AgentDefinitionBuilder()
+    .WithDescription("Read-only code analyzer")
+    .WithPrompt("Analyze code without making changes.")
+    .AsReadOnlyAnalyzer()  // Sets Read, Grep, Glob tools
+    .Build();
+
+var testRunner = new AgentDefinitionBuilder()
+    .WithDescription("Test execution specialist")
+    .WithPrompt("Run and analyze test suites.")
+    .AsTestRunner()  // Sets Bash, Read, Grep tools
+    .Build();
+
+var fullAccessAgent = new AgentDefinitionBuilder()
+    .WithDescription("Full-stack developer")
+    .WithPrompt("Implement features with full file access.")
+    .AsFullAccessDeveloper()  // Sets Read, Write, Edit, Bash, Grep, Glob
+    .Build();
+
+// Use with options
+var options = new ClaudeAgentOptions
+{
+    AllowedTools = [ToolName.Task, ToolName.Read, ToolName.Write],
+    Agents = new Dictionary<string, AgentDefinition>
+    {
+        ["code-reviewer"] = codeReviewer,
+        ["test-runner"] = testRunner
+    }
 };
 ```
 
@@ -458,6 +863,78 @@ var options = new ClaudeAgentOptions
 
 If main agent has `Tools = ["Task"]` only (without Read/Write), subagents cannot write files even if Write is in their Tools list. The shared tools must be in the main agent's pool.
 
+#### Declarative Agent Registration
+
+Use attributes to define agents declaratively:
+
+```csharp
+using Claude.AgentSdk.Attributes;
+
+[GenerateAgentRegistration]  // Generates GetAgentsCompiled() extension method
+public class MyAgents
+{
+    [ClaudeAgent("code-reviewer",
+        Description = "Expert code reviewer for quality, security, and maintainability")]
+    [AgentTools("Read", "Grep", "Glob")]
+    public static string CodeReviewerPrompt => """
+        You are a code review specialist with expertise in:
+        - Security vulnerability detection
+        - Performance optimization
+        - Clean code principles
+        - SOLID design patterns
+
+        When reviewing code:
+        1. Identify potential security issues
+        2. Check for performance bottlenecks
+        3. Suggest specific improvements with code examples
+        Be thorough but concise.
+        """;
+
+    [ClaudeAgent("test-runner",
+        Description = "Test execution specialist for running and analyzing test suites",
+        Model = "haiku")]  // Use faster model for test execution
+    [AgentTools("Bash", "Read", "Grep")]
+    public static string TestRunnerPrompt => """
+        You are a test execution specialist. Your responsibilities:
+        - Run test suites using appropriate commands
+        - Analyze test results and failures
+        - Provide clear summaries of test coverage
+        """;
+
+    [ClaudeAgent("documentation-writer",
+        Description = "Technical writer for API docs, READMEs, and code comments")]
+    [AgentTools("Read", "Write", "Edit", "Glob")]
+    public static string DocumentationWriterPrompt => """
+        You are a technical documentation specialist. Create clear, accurate documentation
+        that helps developers understand and use the code effectively.
+        """;
+}
+
+// Usage with generated extension method
+var agents = new MyAgents();
+var options = new ClaudeAgentOptions
+{
+    AllowedTools = ["Task", "Read", "Write", "Grep", "Glob", "Bash"],
+    Agents = agents.GetAgentsCompiled()  // Returns IReadOnlyDictionary<string, AgentDefinition>
+};
+```
+
+**Attribute Reference:**
+
+| Attribute | Target | Description |
+|-----------|--------|-------------|
+| `[GenerateAgentRegistration]` | Class | Enables `GetAgentsCompiled()` extension |
+| `[ClaudeAgent(name)]` | Property | Defines an agent with name and metadata |
+| `[AgentTools(...)]` | Property | Specifies tools available to the agent |
+
+**ClaudeAgent Properties:**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Name` | `string` | Required. Unique agent identifier |
+| `Description` | `string?` | When Claude should use this agent |
+| `Model` | `string?` | Model override (e.g., "haiku" for speed) |
+
 ### Slash Commands
 
 Slash commands control Claude Code sessions with special `/` prefixed commands.
@@ -585,6 +1062,270 @@ Include bash command output using `!`:
 | `CompactMetadata`   | `CompactMetadata?`                | Compaction details (for compact_boundary)          |
 | `IsInit`            | `bool`                            | True if subtype == "init"                          |
 | `IsCompactBoundary` | `bool`                            | True if subtype == "compact_boundary"              |
+| `SubtypeEnum`       | `SystemMessageSubtype`            | Strongly-typed enum accessor for subtype           |
+
+### Strongly-Typed Enum Accessors
+
+The SDK provides strongly-typed enum accessors for type-safe message handling:
+
+```csharp
+using Claude.AgentSdk.Types;
+
+await foreach (var message in client.QueryAsync(prompt))
+{
+    switch (message)
+    {
+        case SystemMessage system:
+            // Use SubtypeEnum instead of string comparison
+            if (system.SubtypeEnum == SystemMessageSubtype.Init)
+            {
+                Console.WriteLine($"Session initialized: {system.SessionId}");
+
+                // Check MCP server status with StatusEnum
+                foreach (var server in system.McpServers ?? [])
+                {
+                    if (server.StatusEnum == McpServerStatusType.Connected)
+                        Console.WriteLine($"  {server.Name}: Connected");
+                    else if (server.StatusEnum == McpServerStatusType.Failed)
+                        Console.WriteLine($"  {server.Name}: Failed - {server.Error}");
+                }
+            }
+            break;
+
+        case ResultMessage result:
+            // Use SubtypeEnum for type-safe result checking
+            var status = result.SubtypeEnum switch
+            {
+                ResultMessageSubtype.Success => "Completed",
+                ResultMessageSubtype.Error => "Failed",
+                ResultMessageSubtype.Partial => "Partial",
+                _ => "Unknown"
+            };
+            Console.WriteLine($"{status}: ${result.TotalCostUsd:F4}");
+            break;
+    }
+}
+```
+
+#### Available Enum Types
+
+| Type                    | Values                                                             |
+| ----------------------- | ------------------------------------------------------------------ |
+| `MessageType`           | `User`, `Assistant`, `System`, `Result`, `StreamEvent`             |
+| `ContentBlockType`      | `Text`, `Thinking`, `ToolUse`, `ToolResult`                        |
+| `SystemMessageSubtype`  | `Init`, `CompactBoundary`                                          |
+| `ResultMessageSubtype`  | `Success`, `Error`, `Partial`                                      |
+| `McpServerStatusType`   | `Connected`, `Failed`, `NeedsAuth`, `Pending`                      |
+| `SessionStartSource`    | `Startup`, `Resume`, `Clear`, `Compact`                            |
+| `SessionEndReason`      | `Clear`, `Logout`, `PromptInputExit`, `BypassPermissionsDisabled`  |
+| `NotificationType`      | `PermissionPrompt`, `IdlePrompt`, `AuthSuccess`, `ElicitationDialog` |
+
+#### Generated Enum String Mappings
+
+Enums with `[GenerateEnumStrings]` have compile-time generated conversion methods:
+
+```csharp
+using Claude.AgentSdk.Types;
+
+// Convert enum to JSON string
+var jsonValue = MessageType.StreamEvent.ToJsonString();  // "stream_event"
+var status = McpServerStatusType.NeedsAuth.ToJsonString();  // "needs-auth"
+
+// Parse string to enum
+var messageType = EnumStringMappings.ParseMessageType("assistant");  // MessageType.Assistant
+var serverStatus = EnumStringMappings.ParseMcpServerStatusType("connected");  // McpServerStatusType.Connected
+
+// Safe parsing with TryParse
+if (EnumStringMappings.TryParseResultMessageSubtype("success", out var subtype))
+{
+    Console.WriteLine($"Parsed: {subtype}");  // ResultMessageSubtype.Success
+}
+```
+
+**Benefits over `Enum.Parse`:**
+- **Compile-time generated**: No reflection, better performance
+- **Type-safe**: Each enum has dedicated Parse/TryParse methods
+- **JSON-compatible**: Handles snake_case and kebab-case naming conventions
+
+#### Functional Match Patterns
+
+The SDK generates functional `Match` extension methods for discriminated union types like `Message` and `ContentBlock`. Use them for exhaustive, type-safe pattern matching:
+
+```csharp
+using Claude.AgentSdk.Messages;
+
+// Match with all cases (exhaustive)
+var description = message.Match(
+    userMessage: u => $"User: {u.MessageContent.Content}",
+    assistantMessage: a => $"Assistant response with {a.MessageContent.Content.Count} blocks",
+    systemMessage: s => $"System: {s.Subtype}",
+    resultMessage: r => $"Result: ${r.TotalCostUsd:F4}",
+    streamEvent: e => $"Stream event: {e.Uuid}"
+);
+
+// Match with default for partial handling
+var isFromClaude = message.Match(
+    assistantMessage: _ => true,
+    defaultCase: () => false
+);
+
+// Match on content blocks
+foreach (var block in assistant.MessageContent.Content)
+{
+    var text = block.Match(
+        textBlock: t => t.Text,
+        thinkingBlock: t => $"[thinking: {t.Thinking.Length} chars]",
+        toolUseBlock: t => $"[tool: {t.Name}]",
+        toolResultBlock: t => t.Content?.ToString() ?? ""
+    );
+    Console.WriteLine(text);
+}
+
+// Action-based matching (void return)
+message.Match(
+    userMessage: u => Console.WriteLine($"User said: {u.MessageContent.Content}"),
+    assistantMessage: a => ProcessAssistantResponse(a),
+    systemMessage: s => LogSystemEvent(s),
+    resultMessage: r => RecordCost(r),
+    streamEvent: _ => { }  // Ignore stream events
+);
+```
+
+**Benefits:**
+- **Exhaustive checking**: Compiler ensures all cases are handled
+- **Type inference**: Each handler receives the correct derived type
+- **Default support**: Handle subset of cases with `defaultCase`
+- **Generated at compile-time**: No runtime reflection
+
+#### Message Processing Extensions
+
+The SDK provides extension methods to simplify common message processing tasks:
+
+```csharp
+using Claude.AgentSdk.Extensions;
+using Claude.AgentSdk.Messages;
+
+await foreach (var message in client.QueryAsync(prompt))
+{
+    if (message is AssistantMessage assistant)
+    {
+        // Get all text content combined
+        var fullText = assistant.GetText();
+        Console.WriteLine(fullText);
+
+        // Get all tool uses
+        foreach (var toolUse in assistant.GetToolUses())
+        {
+            Console.WriteLine($"Tool: {toolUse.Name}");
+
+            // Get typed input
+            var input = toolUse.GetInput<SearchInput>();
+            if (input != null)
+                Console.WriteLine($"Query: {input.Query}");
+        }
+
+        // Check if specific tool was used
+        if (assistant.HasToolUse(ToolName.Bash))
+            Console.WriteLine("Bash command executed");
+
+        // Get thinking blocks (for extended thinking)
+        foreach (var thinking in assistant.GetThinking())
+        {
+            Console.WriteLine($"[Thinking: {thinking.Thinking.Length} chars]");
+        }
+    }
+}
+
+record SearchInput(string Query, int? Limit);
+```
+
+#### Content Block Extensions
+
+Extension methods for type-safe content block handling:
+
+```csharp
+using Claude.AgentSdk.Extensions;
+using Claude.AgentSdk.Messages;
+
+foreach (var block in assistant.MessageContent.Content)
+{
+    // Type checking
+    if (block.IsText())
+        Console.Write(block.AsText());
+
+    if (block.IsToolUse())
+    {
+        var toolUse = block.AsToolUse()!;
+        Console.WriteLine($"[{toolUse.Name}]");
+    }
+
+    if (block.IsThinking())
+        Console.Write("[thinking...]");
+
+    if (block.IsToolResult())
+    {
+        var result = block.AsToolResult()!;
+        Console.WriteLine($"Result: {result.Content}");
+    }
+}
+```
+
+**Available Extension Methods:**
+
+| Method | Description |
+|--------|-------------|
+| `GetText()` | Concatenates all text blocks |
+| `GetToolUses()` | Returns all tool use blocks |
+| `GetThinking()` | Returns all thinking blocks |
+| `HasToolUse(ToolName)` | Checks if specific tool was used |
+| `GetInput<T>()` | Deserializes tool input to type |
+| `IsText()` / `AsText()` | Type check and conversion for text |
+| `IsToolUse()` / `AsToolUse()` | Type check and conversion for tool use |
+| `IsThinking()` / `AsThinking()` | Type check and conversion for thinking |
+| `IsToolResult()` / `AsToolResult()` | Type check and conversion for tool result |
+
+#### Hook Input Enum Accessors
+
+```csharp
+[HookEvent.SessionStart] = new[]
+{
+    new HookMatcher
+    {
+        Hooks = new HookCallback[]
+        {
+            async (input, toolUseId, context, ct) =>
+            {
+                if (input is SessionStartHookInput start)
+                {
+                    // Use SourceEnum for type-safe source checking
+                    if (start.SourceEnum == SessionStartSource.Resume)
+                        Console.WriteLine("Resumed previous session");
+                }
+                return new SyncHookOutput { Continue = true };
+            }
+        }
+    }
+},
+[HookEvent.Notification] = new[]
+{
+    new HookMatcher
+    {
+        Hooks = new HookCallback[]
+        {
+            async (input, toolUseId, context, ct) =>
+            {
+                if (input is NotificationHookInput notification)
+                {
+                    // Use NotificationTypeEnum for type-safe handling
+                    if (notification.NotificationTypeEnum == NotificationType.PermissionPrompt)
+                        await SendSlackNotification(notification.Message);
+                }
+                return new SyncHookOutput { Continue = true };
+            }
+        }
+    }
+}
+```
 
 ### Skills
 
@@ -1003,6 +1744,116 @@ var options = new ClaudeAgentOptions
 | `NotificationHookInput`       | `Message`, `NotificationType`, `Title`             |
 
 All input types also include common fields: `SessionId`, `TranscriptPath`, `Cwd`, `PermissionMode`.
+
+#### Declarative Hook Registration
+
+Use attributes to define hooks declaratively instead of building dictionaries manually:
+
+```csharp
+using Claude.AgentSdk.Attributes;
+using Claude.AgentSdk.Protocol;
+
+[GenerateHookRegistration]  // Generates GetHooksCompiled() extension method
+public class SecurityHooks
+{
+    [HookHandler(HookEvent.PreToolUse, Matcher = "Bash")]
+    public Task<HookOutput> ValidateBashCommand(HookInput input, string? toolUseId,
+        HookContext ctx, CancellationToken ct)
+    {
+        if (input is PreToolUseHookInput pre)
+        {
+            var command = pre.ToolInput.GetProperty("command").GetString();
+            if (command?.Contains("rm -rf") == true)
+            {
+                return Task.FromResult<HookOutput>(new SyncHookOutput
+                {
+                    Continue = false,
+                    Decision = "block",
+                    StopReason = "Dangerous command blocked"
+                });
+            }
+        }
+        return Task.FromResult<HookOutput>(new SyncHookOutput { Continue = true });
+    }
+
+    [HookHandler(HookEvent.PreToolUse, Matcher = "Write|Edit")]
+    public Task<HookOutput> ValidateFileWrites(HookInput input, string? toolUseId,
+        HookContext ctx, CancellationToken ct)
+    {
+        if (input is PreToolUseHookInput pre)
+        {
+            var path = pre.ToolInput.GetProperty("file_path").GetString();
+            if (path?.EndsWith(".env") == true)
+            {
+                return Task.FromResult<HookOutput>(new SyncHookOutput
+                {
+                    Continue = false,
+                    Decision = "block",
+                    StopReason = "Cannot modify .env files"
+                });
+            }
+        }
+        return Task.FromResult<HookOutput>(new SyncHookOutput { Continue = true });
+    }
+
+    [HookHandler(HookEvent.SessionStart)]
+    public Task<HookOutput> OnSessionStart(HookInput input, string? toolUseId,
+        HookContext ctx, CancellationToken ct)
+    {
+        Console.WriteLine($"Session started: {ctx.SessionId}");
+        return Task.FromResult<HookOutput>(new SyncHookOutput { Continue = true });
+    }
+}
+
+// Usage with generated extension method
+var hooks = new SecurityHooks();
+var options = new ClaudeAgentOptions
+{
+    Hooks = hooks.GetHooksCompiled(),  // No manual dictionary building!
+    AllowedTools = ["Bash", "Write", "Edit", "Read"]
+};
+```
+
+**HookHandler Attribute Properties:**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `HookEvent` | `HookEvent` | Required. The event type (constructor parameter) |
+| `Matcher` | `string?` | Regex pattern to match (e.g., tool names) |
+| `Timeout` | `double` | Timeout in seconds for this hook |
+
+#### Parameter Validation in Tools
+
+The `[ToolParameter]` attribute constraints are now enforced at runtime:
+
+```csharp
+[GenerateToolRegistration]
+public class ValidatedTools
+{
+    [ClaudeTool("search", "Search for items")]
+    public string Search(
+        [ToolParameter(Description = "Search query", MinLength = 1, MaxLength = 100)]
+        string query,
+
+        [ToolParameter(Description = "Results limit", MinValue = 1, MaxValue = 50)]
+        int limit = 10,
+
+        [ToolParameter(Description = "Filter pattern", Pattern = @"^[a-zA-Z0-9_-]+$")]
+        string? filter = null)
+    {
+        // Implementation - validation happens before this code runs
+        return $"Searching for: {query}";
+    }
+}
+```
+
+**Generated Validation:**
+- String length checks (`MinLength`, `MaxLength`)
+- Numeric range checks (`MinValue`, `MaxValue`)
+- Pattern matching via regex (`Pattern`)
+- Array length checks for collection parameters
+
+Invalid inputs return `ToolResult.Error()` with descriptive messages before the method executes.
 
 ## v1 Behavioral Contract
 
