@@ -1,0 +1,597 @@
+namespace Claude.AgentSdk.Functional;
+
+/// <summary>
+///     Async extension methods for functional types.
+///     Enables fluent chaining with async operations on Option, Result, and Either.
+/// </summary>
+/// <remarks>
+///     <para>
+///     These extensions allow seamless composition of async and sync operations:
+///     <code>
+///     var result = await GetUserAsync(id)           // Task&lt;Option&lt;User&gt;&gt;
+///         .MapAsync(u => u.Email)                    // Task&lt;Option&lt;string&gt;&gt;
+///         .BindAsync(ValidateEmailAsync)             // Task&lt;Option&lt;string&gt;&gt;
+///         .GetValueOrDefaultAsync("unknown@email"); // Task&lt;string&gt;
+///     </code>
+///     </para>
+/// </remarks>
+public static class AsyncExtensions
+{
+    #region Task<Option<T>> Extensions
+
+    /// <summary>
+    ///     Maps the value inside an async Option.
+    /// </summary>
+    public static async Task<Option<TResult>> MapAsync<T, TResult>(
+        this Task<Option<T>> optionTask,
+        Func<T, TResult> mapper)
+    {
+        ArgumentNullException.ThrowIfNull(mapper);
+        var option = await optionTask.ConfigureAwait(false);
+        return option.Map(mapper);
+    }
+
+    /// <summary>
+    ///     Maps the value inside an async Option with an async mapper.
+    /// </summary>
+    public static async Task<Option<TResult>> MapAsync<T, TResult>(
+        this Task<Option<T>> optionTask,
+        Func<T, Task<TResult>> mapper)
+    {
+        ArgumentNullException.ThrowIfNull(mapper);
+        var option = await optionTask.ConfigureAwait(false);
+        return await option.MapAsync(mapper).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    ///     Binds an async Option with a sync binder.
+    /// </summary>
+    public static async Task<Option<TResult>> BindAsync<T, TResult>(
+        this Task<Option<T>> optionTask,
+        Func<T, Option<TResult>> binder)
+    {
+        ArgumentNullException.ThrowIfNull(binder);
+        var option = await optionTask.ConfigureAwait(false);
+        return option.Bind(binder);
+    }
+
+    /// <summary>
+    ///     Binds an async Option with an async binder.
+    /// </summary>
+    public static async Task<Option<TResult>> BindAsync<T, TResult>(
+        this Task<Option<T>> optionTask,
+        Func<T, Task<Option<TResult>>> binder)
+    {
+        ArgumentNullException.ThrowIfNull(binder);
+        var option = await optionTask.ConfigureAwait(false);
+        return await option.BindAsync(binder).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    ///     Filters an async Option with a predicate.
+    /// </summary>
+    public static async Task<Option<T>> WhereAsync<T>(
+        this Task<Option<T>> optionTask,
+        Func<T, bool> predicate)
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+        var option = await optionTask.ConfigureAwait(false);
+        return option.Where(predicate);
+    }
+
+    /// <summary>
+    ///     Filters an async Option with an async predicate.
+    /// </summary>
+    public static async Task<Option<T>> WhereAsync<T>(
+        this Task<Option<T>> optionTask,
+        Func<T, Task<bool>> predicate)
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+        var option = await optionTask.ConfigureAwait(false);
+        if (option.IsNone)
+            return Option<T>.None;
+        return await predicate(option.Value).ConfigureAwait(false) ? option : Option<T>.None;
+    }
+
+    /// <summary>
+    ///     Pattern matches on an async Option.
+    /// </summary>
+    public static async Task<TResult> MatchAsync<T, TResult>(
+        this Task<Option<T>> optionTask,
+        Func<T, TResult> some,
+        Func<TResult> none)
+    {
+        ArgumentNullException.ThrowIfNull(some);
+        ArgumentNullException.ThrowIfNull(none);
+        var option = await optionTask.ConfigureAwait(false);
+        return option.Match(some, none);
+    }
+
+    /// <summary>
+    ///     Pattern matches on an async Option with async handlers.
+    /// </summary>
+    public static async Task<TResult> MatchAsync<T, TResult>(
+        this Task<Option<T>> optionTask,
+        Func<T, Task<TResult>> some,
+        Func<Task<TResult>> none)
+    {
+        ArgumentNullException.ThrowIfNull(some);
+        ArgumentNullException.ThrowIfNull(none);
+        var option = await optionTask.ConfigureAwait(false);
+        return option.IsSome
+            ? await some(option.Value).ConfigureAwait(false)
+            : await none().ConfigureAwait(false);
+    }
+
+    /// <summary>
+    ///     Gets the value or default from an async Option.
+    /// </summary>
+    public static async Task<T> GetValueOrDefaultAsync<T>(
+        this Task<Option<T>> optionTask,
+        T defaultValue = default!)
+    {
+        var option = await optionTask.ConfigureAwait(false);
+        return option.GetValueOrDefault(defaultValue);
+    }
+
+    /// <summary>
+    ///     Gets the value or computes a default from an async Option.
+    /// </summary>
+    public static async Task<T> GetValueOrElseAsync<T>(
+        this Task<Option<T>> optionTask,
+        Func<T> defaultFactory)
+    {
+        ArgumentNullException.ThrowIfNull(defaultFactory);
+        var option = await optionTask.ConfigureAwait(false);
+        return option.GetValueOrElse(defaultFactory);
+    }
+
+    /// <summary>
+    ///     Gets the value or computes a default asynchronously from an async Option.
+    /// </summary>
+    public static async Task<T> GetValueOrElseAsync<T>(
+        this Task<Option<T>> optionTask,
+        Func<Task<T>> defaultFactory)
+    {
+        ArgumentNullException.ThrowIfNull(defaultFactory);
+        var option = await optionTask.ConfigureAwait(false);
+        return option.IsSome ? option.Value : await defaultFactory().ConfigureAwait(false);
+    }
+
+    /// <summary>
+    ///     Executes an action on an async Option if it has a value.
+    /// </summary>
+    public static async Task<Option<T>> DoAsync<T>(
+        this Task<Option<T>> optionTask,
+        Action<T> action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        var option = await optionTask.ConfigureAwait(false);
+        return option.Do(action);
+    }
+
+    /// <summary>
+    ///     Returns this option or an alternative if none.
+    /// </summary>
+    public static async Task<Option<T>> OrAsync<T>(
+        this Task<Option<T>> optionTask,
+        Option<T> alternative)
+    {
+        var option = await optionTask.ConfigureAwait(false);
+        return option.Or(alternative);
+    }
+
+    /// <summary>
+    ///     Returns this option or computes an alternative if none.
+    /// </summary>
+    public static async Task<Option<T>> OrElseAsync<T>(
+        this Task<Option<T>> optionTask,
+        Func<Task<Option<T>>> alternativeFactory)
+    {
+        ArgumentNullException.ThrowIfNull(alternativeFactory);
+        var option = await optionTask.ConfigureAwait(false);
+        return option.IsSome ? option : await alternativeFactory().ConfigureAwait(false);
+    }
+
+    /// <summary>
+    ///     Converts an async Option to a Result.
+    /// </summary>
+    public static async Task<Result<T, TError>> ToResultAsync<T, TError>(
+        this Task<Option<T>> optionTask,
+        TError error)
+    {
+        var option = await optionTask.ConfigureAwait(false);
+        return option.ToResult(error);
+    }
+
+    #endregion
+
+    #region Task<Result<T, TError>> Extensions
+
+    /// <summary>
+    ///     Maps the success value inside an async Result.
+    /// </summary>
+    public static async Task<Result<TResult, TError>> MapAsync<T, TResult, TError>(
+        this Task<Result<T, TError>> resultTask,
+        Func<T, TResult> mapper)
+    {
+        ArgumentNullException.ThrowIfNull(mapper);
+        var result = await resultTask.ConfigureAwait(false);
+        return result.Map(mapper);
+    }
+
+    /// <summary>
+    ///     Maps the success value inside an async Result with an async mapper.
+    /// </summary>
+    public static async Task<Result<TResult, TError>> MapAsync<T, TResult, TError>(
+        this Task<Result<T, TError>> resultTask,
+        Func<T, Task<TResult>> mapper)
+    {
+        ArgumentNullException.ThrowIfNull(mapper);
+        var result = await resultTask.ConfigureAwait(false);
+        return await result.MapAsync(mapper).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    ///     Binds an async Result with a sync binder.
+    /// </summary>
+    public static async Task<Result<TResult, TError>> BindAsync<T, TResult, TError>(
+        this Task<Result<T, TError>> resultTask,
+        Func<T, Result<TResult, TError>> binder)
+    {
+        ArgumentNullException.ThrowIfNull(binder);
+        var result = await resultTask.ConfigureAwait(false);
+        return result.Bind(binder);
+    }
+
+    /// <summary>
+    ///     Binds an async Result with an async binder.
+    /// </summary>
+    public static async Task<Result<TResult, TError>> BindAsync<T, TResult, TError>(
+        this Task<Result<T, TError>> resultTask,
+        Func<T, Task<Result<TResult, TError>>> binder)
+    {
+        ArgumentNullException.ThrowIfNull(binder);
+        var result = await resultTask.ConfigureAwait(false);
+        return await result.BindAsync(binder).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    ///     Pattern matches on an async Result.
+    /// </summary>
+    public static async Task<TResult> MatchAsync<T, TError, TResult>(
+        this Task<Result<T, TError>> resultTask,
+        Func<T, TResult> success,
+        Func<TError, TResult> failure)
+    {
+        ArgumentNullException.ThrowIfNull(success);
+        ArgumentNullException.ThrowIfNull(failure);
+        var result = await resultTask.ConfigureAwait(false);
+        return result.Match(success, failure);
+    }
+
+    /// <summary>
+    ///     Pattern matches on an async Result with async handlers.
+    /// </summary>
+    public static async Task<TResult> MatchAsync<T, TError, TResult>(
+        this Task<Result<T, TError>> resultTask,
+        Func<T, Task<TResult>> success,
+        Func<TError, Task<TResult>> failure)
+    {
+        ArgumentNullException.ThrowIfNull(success);
+        ArgumentNullException.ThrowIfNull(failure);
+        var result = await resultTask.ConfigureAwait(false);
+        return result.IsSuccess
+            ? await success(result.Value).ConfigureAwait(false)
+            : await failure(result.Error).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    ///     Gets the value or default from an async Result.
+    /// </summary>
+    public static async Task<T> GetValueOrDefaultAsync<T, TError>(
+        this Task<Result<T, TError>> resultTask,
+        T defaultValue = default!)
+    {
+        var result = await resultTask.ConfigureAwait(false);
+        return result.GetValueOrDefault(defaultValue);
+    }
+
+    /// <summary>
+    ///     Gets the value or computes a default from an async Result.
+    /// </summary>
+    public static async Task<T> GetValueOrElseAsync<T, TError>(
+        this Task<Result<T, TError>> resultTask,
+        Func<TError, T> defaultFactory)
+    {
+        ArgumentNullException.ThrowIfNull(defaultFactory);
+        var result = await resultTask.ConfigureAwait(false);
+        return result.GetValueOrElse(defaultFactory);
+    }
+
+    /// <summary>
+    ///     Executes an action on success.
+    /// </summary>
+    public static async Task<Result<T, TError>> DoAsync<T, TError>(
+        this Task<Result<T, TError>> resultTask,
+        Action<T> action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        var result = await resultTask.ConfigureAwait(false);
+        return result.Do(action);
+    }
+
+    /// <summary>
+    ///     Executes an action on failure.
+    /// </summary>
+    public static async Task<Result<T, TError>> DoOnErrorAsync<T, TError>(
+        this Task<Result<T, TError>> resultTask,
+        Action<TError> action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        var result = await resultTask.ConfigureAwait(false);
+        return result.DoOnError(action);
+    }
+
+    /// <summary>
+    ///     Ensures a condition is met.
+    /// </summary>
+    public static async Task<Result<T, TError>> EnsureAsync<T, TError>(
+        this Task<Result<T, TError>> resultTask,
+        Func<T, bool> predicate,
+        TError error)
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+        var result = await resultTask.ConfigureAwait(false);
+        return result.Ensure(predicate, error);
+    }
+
+    /// <summary>
+    ///     Ensures a condition is met with async predicate.
+    /// </summary>
+    public static async Task<Result<T, TError>> EnsureAsync<T, TError>(
+        this Task<Result<T, TError>> resultTask,
+        Func<T, Task<bool>> predicate,
+        TError error)
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+        var result = await resultTask.ConfigureAwait(false);
+        if (result.IsFailure)
+            return result;
+        return await predicate(result.Value).ConfigureAwait(false)
+            ? result
+            : Result<T, TError>.Failure(error);
+    }
+
+    /// <summary>
+    ///     Converts an async Result to an Option.
+    /// </summary>
+    public static async Task<Option<T>> ToOptionAsync<T, TError>(
+        this Task<Result<T, TError>> resultTask)
+    {
+        var result = await resultTask.ConfigureAwait(false);
+        return result.ToOption();
+    }
+
+    #endregion
+
+    #region Task<Result<T>> (string error) Extensions
+
+    /// <summary>
+    ///     Maps the success value inside an async Result.
+    /// </summary>
+    public static async Task<Result<TResult>> MapAsync<T, TResult>(
+        this Task<Result<T>> resultTask,
+        Func<T, TResult> mapper)
+    {
+        ArgumentNullException.ThrowIfNull(mapper);
+        var result = await resultTask.ConfigureAwait(false);
+        return result.Map(mapper);
+    }
+
+    /// <summary>
+    ///     Maps the success value inside an async Result with an async mapper.
+    /// </summary>
+    public static async Task<Result<TResult>> MapAsync<T, TResult>(
+        this Task<Result<T>> resultTask,
+        Func<T, Task<TResult>> mapper)
+    {
+        ArgumentNullException.ThrowIfNull(mapper);
+        var result = await resultTask.ConfigureAwait(false);
+        return await result.MapAsync(mapper).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    ///     Binds an async Result with a sync binder.
+    /// </summary>
+    public static async Task<Result<TResult>> BindAsync<T, TResult>(
+        this Task<Result<T>> resultTask,
+        Func<T, Result<TResult>> binder)
+    {
+        ArgumentNullException.ThrowIfNull(binder);
+        var result = await resultTask.ConfigureAwait(false);
+        return result.Bind(binder);
+    }
+
+    /// <summary>
+    ///     Binds an async Result with an async binder.
+    /// </summary>
+    public static async Task<Result<TResult>> BindAsync<T, TResult>(
+        this Task<Result<T>> resultTask,
+        Func<T, Task<Result<TResult>>> binder)
+    {
+        ArgumentNullException.ThrowIfNull(binder);
+        var result = await resultTask.ConfigureAwait(false);
+        return await result.BindAsync(binder).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    ///     Pattern matches on an async Result.
+    /// </summary>
+    public static async Task<TResult> MatchAsync<T, TResult>(
+        this Task<Result<T>> resultTask,
+        Func<T, TResult> success,
+        Func<string, TResult> failure)
+    {
+        ArgumentNullException.ThrowIfNull(success);
+        ArgumentNullException.ThrowIfNull(failure);
+        var result = await resultTask.ConfigureAwait(false);
+        return result.Match(success, failure);
+    }
+
+    /// <summary>
+    ///     Gets the value or default from an async Result.
+    /// </summary>
+    public static async Task<T> GetValueOrDefaultAsync<T>(
+        this Task<Result<T>> resultTask,
+        T defaultValue = default!)
+    {
+        var result = await resultTask.ConfigureAwait(false);
+        return result.GetValueOrDefault(defaultValue);
+    }
+
+    /// <summary>
+    ///     Ensures a condition is met.
+    /// </summary>
+    public static async Task<Result<T>> EnsureAsync<T>(
+        this Task<Result<T>> resultTask,
+        Func<T, bool> predicate,
+        string error)
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+        var result = await resultTask.ConfigureAwait(false);
+        return result.Ensure(predicate, error);
+    }
+
+    #endregion
+
+    #region Task<Either<TLeft, TRight>> Extensions
+
+    /// <summary>
+    ///     Maps the Right value inside an async Either.
+    /// </summary>
+    public static async Task<Either<TLeft, TResult>> MapAsync<TLeft, TRight, TResult>(
+        this Task<Either<TLeft, TRight>> eitherTask,
+        Func<TRight, TResult> mapper)
+    {
+        ArgumentNullException.ThrowIfNull(mapper);
+        var either = await eitherTask.ConfigureAwait(false);
+        return either.Map(mapper);
+    }
+
+    /// <summary>
+    ///     Binds an async Either with a sync binder.
+    /// </summary>
+    public static async Task<Either<TLeft, TResult>> BindAsync<TLeft, TRight, TResult>(
+        this Task<Either<TLeft, TRight>> eitherTask,
+        Func<TRight, Either<TLeft, TResult>> binder)
+    {
+        ArgumentNullException.ThrowIfNull(binder);
+        var either = await eitherTask.ConfigureAwait(false);
+        return either.Bind(binder);
+    }
+
+    /// <summary>
+    ///     Binds an async Either with an async binder.
+    /// </summary>
+    public static async Task<Either<TLeft, TResult>> BindAsync<TLeft, TRight, TResult>(
+        this Task<Either<TLeft, TRight>> eitherTask,
+        Func<TRight, Task<Either<TLeft, TResult>>> binder)
+    {
+        ArgumentNullException.ThrowIfNull(binder);
+        var either = await eitherTask.ConfigureAwait(false);
+        return await either.BindAsync(binder).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    ///     Pattern matches on an async Either.
+    /// </summary>
+    public static async Task<TResult> MatchAsync<TLeft, TRight, TResult>(
+        this Task<Either<TLeft, TRight>> eitherTask,
+        Func<TLeft, TResult> left,
+        Func<TRight, TResult> right)
+    {
+        ArgumentNullException.ThrowIfNull(left);
+        ArgumentNullException.ThrowIfNull(right);
+        var either = await eitherTask.ConfigureAwait(false);
+        return either.Match(left, right);
+    }
+
+    #endregion
+
+    #region Async Traversal
+
+    /// <summary>
+    ///     Traverses a collection with an async Option-returning function.
+    /// </summary>
+    public static async Task<Option<IReadOnlyList<TResult>>> TraverseAsync<T, TResult>(
+        this IEnumerable<T> source,
+        Func<T, Task<Option<TResult>>> mapper)
+    {
+        ArgumentNullException.ThrowIfNull(mapper);
+        var results = new List<TResult>();
+        foreach (var item in source)
+        {
+            var result = await mapper(item).ConfigureAwait(false);
+            if (result.IsNone)
+                return Option.NoneOf<IReadOnlyList<TResult>>();
+            results.Add(result.Value);
+        }
+        return Option.Some<IReadOnlyList<TResult>>(results);
+    }
+
+    /// <summary>
+    ///     Traverses a collection with an async Result-returning function.
+    /// </summary>
+    public static async Task<Result<IReadOnlyList<TResult>>> TraverseAsync<T, TResult>(
+        this IEnumerable<T> source,
+        Func<T, Task<Result<TResult>>> mapper)
+    {
+        ArgumentNullException.ThrowIfNull(mapper);
+        var results = new List<TResult>();
+        foreach (var item in source)
+        {
+            var result = await mapper(item).ConfigureAwait(false);
+            if (result.IsFailure)
+                return Result.Failure<IReadOnlyList<TResult>>(result.Error);
+            results.Add(result.Value);
+        }
+        return Result.Success<IReadOnlyList<TResult>>(results);
+    }
+
+    /// <summary>
+    ///     Sequences a collection of async Options.
+    /// </summary>
+    public static async Task<Option<IReadOnlyList<T>>> SequenceAsync<T>(
+        this IEnumerable<Task<Option<T>>> tasks)
+    {
+        var results = new List<T>();
+        foreach (var task in tasks)
+        {
+            var result = await task.ConfigureAwait(false);
+            if (result.IsNone)
+                return Option.NoneOf<IReadOnlyList<T>>();
+            results.Add(result.Value);
+        }
+        return Option.Some<IReadOnlyList<T>>(results);
+    }
+
+    /// <summary>
+    ///     Sequences a collection of async Results.
+    /// </summary>
+    public static async Task<Result<IReadOnlyList<T>>> SequenceAsync<T>(
+        this IEnumerable<Task<Result<T>>> tasks)
+    {
+        var results = new List<T>();
+        foreach (var task in tasks)
+        {
+            var result = await task.ConfigureAwait(false);
+            if (result.IsFailure)
+                return Result.Failure<IReadOnlyList<T>>(result.Error);
+            results.Add(result.Value);
+        }
+        return Result.Success<IReadOnlyList<T>>(results);
+    }
+
+    #endregion
+}

@@ -1004,7 +1004,7 @@ public class ContentBlockTests
     /// <summary>
     ///     Simple helper for building JSON objects in tests.
     /// </summary>
-    private class JsonObject : Dictionary<string, object?>
+    private sealed class JsonObject : Dictionary<string, object?>
     {
         public string ToJsonString()
         {

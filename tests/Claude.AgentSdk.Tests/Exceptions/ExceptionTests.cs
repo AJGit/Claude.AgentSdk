@@ -725,7 +725,8 @@ public class ExceptionTests
 }
 
 // Helper class for testing - System.Text.Json exception
-file class JsonException : Exception
+#pragma warning disable CA2201 // Exception type System.Exception is not sufficiently specific - intentional test mock
+file sealed class JsonException : Exception
 {
     public JsonException(string message) : base(message) { }
 }

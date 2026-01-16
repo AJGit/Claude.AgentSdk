@@ -22,6 +22,7 @@ public static class Program
         new SystemPromptExample(),
         new SettingsSourcesExample(),
         new McpServersExample(),
+        new FunctionalPatternsExample(),
     ];
 
     public static async Task Main(string[] args)

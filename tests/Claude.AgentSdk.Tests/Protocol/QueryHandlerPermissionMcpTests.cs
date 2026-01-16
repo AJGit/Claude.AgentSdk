@@ -958,7 +958,7 @@ public class QueryHandlerPermissionMcpTests
         var transport = new MockTransport();
         var options = new ClaudeAgentOptions
         {
-            CanUseTool = (request, ct) => throw new Exception("Handler explosion")
+            CanUseTool = (request, ct) => throw new InvalidOperationException("Handler explosion")
         };
 
         await using var handler = new QueryHandler(transport, options);

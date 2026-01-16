@@ -1187,7 +1187,7 @@ public class McpToolServerTests
     public async Task IMcpToolServer_HandleRequestAsync_WorksThroughInterface()
     {
         // Arrange
-        IMcpToolServer server = new McpToolServer("test-server");
+        McpToolServer server = new McpToolServer("test-server");
         var request = CreateJsonRpcRequest("initialize", 1);
 
         // Act

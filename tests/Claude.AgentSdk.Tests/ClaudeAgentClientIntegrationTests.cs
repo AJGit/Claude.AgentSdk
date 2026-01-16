@@ -1701,7 +1701,7 @@ public class ErrorPropagationTests
                         {
                             (input, toolUseId, context, ct) =>
                             {
-                                throw new Exception("Hook failed");
+                                throw new InvalidOperationException("Hook failed");
                             }
                         }
                     }
