@@ -8,10 +8,10 @@ using Claude.AgentSdk.Messages;
 using Claude.AgentSdk.Protocol;
 using Claude.AgentSdk.Tools;
 using Claude.AgentSdk.Transport;
-using Claude.AgentSdk.Tests.Protocol;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
+using MockTransport = Claude.AgentSdk.Tests.Protocol.MockTransport;
 
 namespace Claude.AgentSdk.Tests.Integration;
 

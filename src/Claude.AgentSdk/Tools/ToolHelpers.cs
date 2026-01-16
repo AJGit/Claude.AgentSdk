@@ -161,4 +161,68 @@ public static class ToolHelpers
             Instance = server
         };
     }
+
+    /// <summary>
+    ///     Creates an MCP server from a type containing methods marked with <see cref="ClaudeToolAttribute" />.
+    /// </summary>
+    /// <typeparam name="T">The type containing tool methods.</typeparam>
+    /// <param name="name">The name of the MCP server.</param>
+    /// <param name="version">Optional version string (default: "1.0.0").</param>
+    /// <returns>An MCP server configuration ready for use.</returns>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when the type has no methods marked with <see cref="ClaudeToolAttribute" />.
+    /// </exception>
+    /// <example>
+    ///     <code>
+    /// public class Calculator
+    /// {
+    ///     [ClaudeTool("add", "Add two numbers")]
+    ///     public string Add(AddArgs args) => $"Result: {args.A + args.B}";
+    /// }
+    ///
+    /// var server = ToolHelpers.FromType&lt;Calculator&gt;("calculator");
+    /// </code>
+    /// </example>
+    public static McpSdkServerConfig FromType<T>(string name, string? version = null)
+        where T : new()
+    {
+        return FromInstance(new T(), name, version);
+    }
+
+    /// <summary>
+    ///     Creates an MCP server from an instance containing methods marked with <see cref="ClaudeToolAttribute" />.
+    /// </summary>
+    /// <typeparam name="T">The type of the instance.</typeparam>
+    /// <param name="instance">The instance containing tool methods.</param>
+    /// <param name="name">The name of the MCP server.</param>
+    /// <param name="version">Optional version string (default: "1.0.0").</param>
+    /// <returns>An MCP server configuration ready for use.</returns>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when the instance has no methods marked with <see cref="ClaudeToolAttribute" />.
+    /// </exception>
+    /// <example>
+    ///     <code>
+    /// var calculator = new Calculator();
+    /// var server = ToolHelpers.FromInstance(calculator, "calculator");
+    /// </code>
+    /// </example>
+    public static McpSdkServerConfig FromInstance<T>(T instance, string name, string? version = null)
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+
+        var server = new McpToolServer(name, version ?? "1.0.0");
+        var toolCount = server.RegisterToolsFrom(instance);
+
+        if (toolCount == 0)
+        {
+            throw new InvalidOperationException(
+                $"Type '{typeof(T).Name}' has no methods marked with [ClaudeTool] attribute.");
+        }
+
+        return new McpSdkServerConfig
+        {
+            Name = name,
+            Instance = server
+        };
+    }
 }

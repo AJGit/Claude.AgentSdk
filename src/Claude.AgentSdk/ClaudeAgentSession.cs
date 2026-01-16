@@ -353,6 +353,31 @@ public sealed class ClaudeAgentSession : IAsyncDisposable
         return json.Deserialize<AccountInfo>(JsonOptions) ?? new AccountInfo();
     }
 
+    /// <summary>
+    ///     Rewind files to a specific user message state.
+    /// </summary>
+    /// <param name="userMessageId">The user message ID to rewind to.</param>
+    /// <param name="cancellationToken">Cancellation token for this operation.</param>
+    /// <remarks>
+    ///     <para>
+    ///         This method restores file state to what it was at the specified user message.
+    ///         Requires <see cref="ClaudeAgentOptions.EnableFileCheckpointing" /> to be enabled.
+    ///     </para>
+    ///     <para>
+    ///         Use this in combination with session resumption to replay or undo file changes
+    ///         made during a conversation.
+    ///     </para>
+    /// </remarks>
+    public async Task RewindFilesAsync(string userMessageId, CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+            _sessionCts.Token, cancellationToken);
+
+        await _handler.RewindFilesAsync(userMessageId, linkedCts.Token).ConfigureAwait(false);
+    }
+
     private static string GenerateCorrelationId()
     {
         return $"corr_{DateTime.UtcNow:yyyyMMddHHmmss}_{Guid.NewGuid():N}"[..32];

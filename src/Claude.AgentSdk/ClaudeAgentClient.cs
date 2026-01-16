@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using Claude.AgentSdk.Logging;
 using Claude.AgentSdk.Messages;
 using Claude.AgentSdk.Protocol;
@@ -24,6 +24,7 @@ public sealed class ClaudeAgentClient : IAsyncDisposable
 
     private readonly ILogger<ClaudeAgentClient>? _logger;
     private readonly ILoggerFactory? _loggerFactory;
+    private readonly Func<ClaudeAgentOptions, string?, ITransport>? _transportFactory;
 
     private readonly ClaudeAgentOptions _options;
     private bool _disposed;
@@ -36,6 +37,64 @@ public sealed class ClaudeAgentClient : IAsyncDisposable
         _options = options ?? new ClaudeAgentOptions();
         _loggerFactory = loggerFactory;
         _logger = loggerFactory?.CreateLogger<ClaudeAgentClient>();
+    }
+
+    /// <summary>
+    ///     Internal constructor for testing with a custom transport factory.
+    /// </summary>
+    internal ClaudeAgentClient(
+        ClaudeAgentOptions options,
+        Func<ClaudeAgentOptions, string?, ITransport> transportFactory,
+        ILoggerFactory? loggerFactory = null)
+    {
+        _options = options;
+        _transportFactory = transportFactory;
+        _loggerFactory = loggerFactory;
+        _logger = loggerFactory?.CreateLogger<ClaudeAgentClient>();
+    }
+
+    /// <summary>
+    ///     Create a client configured for testing with a mock transport.
+    /// </summary>
+    /// <param name="options">Optional configuration options.</param>
+    /// <param name="transport">The mock transport to use. If null, creates a new <see cref="MockTransport" />.</param>
+    /// <param name="loggerFactory">Optional logger factory for diagnostics.</param>
+    /// <returns>A client that uses the provided mock transport.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         Use this factory method in unit tests to avoid requiring the Claude CLI.
+    ///         The mock transport allows you to control the messages returned and verify
+    ///         what was sent.
+    ///     </para>
+    ///     <para>
+    ///         Note that the same transport instance is used for all queries and sessions.
+    ///         For tests that require fresh transport state, create a new client.
+    ///     </para>
+    /// </remarks>
+    /// <example>
+    ///     <code>
+    /// var transport = new MockTransport();
+    /// transport.EnqueueMessage("""{"type":"system","subtype":"init"}""");
+    /// transport.EnqueueMessage("""{"type":"result","subtype":"success","is_error":false,"session_id":"test"}""");
+    ///
+    /// var client = ClaudeAgentClient.CreateForTesting(transport: transport);
+    /// await foreach (var message in client.QueryAsync("Test"))
+    /// {
+    ///     // Process messages
+    /// }
+    ///
+    /// // Verify what was sent
+    /// var sent = transport.WrittenMessages;
+    /// </code>
+    /// </example>
+    internal static ClaudeAgentClient CreateForTesting(
+        ClaudeAgentOptions? options = null,
+        MockTransport? transport = null,
+        ILoggerFactory? loggerFactory = null)
+    {
+        var opts = options ?? new ClaudeAgentOptions();
+        var mock = transport ?? new MockTransport();
+        return new ClaudeAgentClient(opts, (_, _) => mock, loggerFactory);
     }
 
     public async ValueTask DisposeAsync()
@@ -70,10 +129,11 @@ public sealed class ClaudeAgentClient : IAsyncDisposable
         // SDK MCP servers require bidirectional mode
         var hasSdkMcpServers = effectiveOptions.McpServers?.Values.Any(c => c is McpSdkServerConfig) ?? false;
 
-        var transport = new SubprocessTransport(
-            effectiveOptions,
-            prompt,
-            _loggerFactory?.CreateLogger<SubprocessTransport>());
+        var transport = _transportFactory?.Invoke(effectiveOptions, prompt)
+                        ?? new SubprocessTransport(
+                            effectiveOptions,
+                            prompt,
+                            _loggerFactory?.CreateLogger<SubprocessTransport>());
 
         var handler = new QueryHandler(
             transport,
@@ -150,10 +210,11 @@ public sealed class ClaudeAgentClient : IAsyncDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var transport = new SubprocessTransport(
-            _options,
-            null, // No prompt in bidirectional mode
-            _loggerFactory?.CreateLogger<SubprocessTransport>());
+        var transport = _transportFactory?.Invoke(_options, null)
+                        ?? new SubprocessTransport(
+                            _options,
+                            null, // No prompt in bidirectional mode
+                            _loggerFactory?.CreateLogger<SubprocessTransport>());
 
         var handler = new QueryHandler(
             transport,

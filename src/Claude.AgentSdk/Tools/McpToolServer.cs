@@ -186,10 +186,13 @@ public sealed class McpToolServer(string name, string version = "1.0.0") : IMcpT
     /// <summary>
     ///     Register tools from an object with [ClaudeTool] attributes.
     /// </summary>
-    public McpToolServer RegisterToolsFrom(object instance)
+    /// <param name="instance">The object containing tool methods.</param>
+    /// <returns>The number of tools registered.</returns>
+    public int RegisterToolsFrom(object instance)
     {
         var type = instance.GetType();
         var methods = type.GetMethods(BindingFlags.Public | BindingFlags.Instance);
+        var registeredCount = 0;
 
         foreach (var method in methods)
         {
@@ -242,9 +245,10 @@ public sealed class McpToolServer(string name, string version = "1.0.0") : IMcpT
                     }
                 }
             };
+            registeredCount++;
         }
 
-        return this;
+        return registeredCount;
     }
 
     private async Task<object?> DispatchMethodAsync(string method, JsonElement request,
@@ -437,6 +441,37 @@ public sealed class McpToolServer(string name, string version = "1.0.0") : IMcpT
     {
         var args = new object?[parameters.Length];
 
+        // Count non-CancellationToken parameters
+        var nonCtParams = parameters.Where(p => p.ParameterType != typeof(CancellationToken)).ToArray();
+
+        // If there's exactly one non-CancellationToken parameter and it's a complex type,
+        // deserialize the entire input to that type (common pattern for tool methods)
+        if (nonCtParams.Length == 1 && IsComplexType(nonCtParams[0].ParameterType))
+        {
+            var singleParam = nonCtParams[0];
+            // First try to find a matching property, otherwise deserialize whole input
+            if (!input.TryGetProperty(singleParam.Name!, out _) &&
+                !input.TryGetProperty(ToCamelCase(singleParam.Name!), out _))
+            {
+                // No property matches parameter name - deserialize whole input to the type
+                for (var i = 0; i < parameters.Length; i++)
+                {
+                    if (parameters[i].ParameterType == typeof(CancellationToken))
+                    {
+                        args[i] = CancellationToken.None;
+                    }
+                    else
+                    {
+                        args[i] = JsonSerializer.Deserialize(input.GetRawText(), parameters[i].ParameterType,
+                            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    }
+                }
+
+                return args;
+            }
+        }
+
+        // Standard path: match properties to parameters
         for (var i = 0; i < parameters.Length; i++)
         {
             var param = parameters[i];
@@ -447,9 +482,12 @@ public sealed class McpToolServer(string name, string version = "1.0.0") : IMcpT
                 continue;
             }
 
-            if (input.TryGetProperty(param.Name!, out var value))
+            // Try exact name match first, then camelCase
+            if (input.TryGetProperty(param.Name!, out var value) ||
+                input.TryGetProperty(ToCamelCase(param.Name!), out value))
             {
-                args[i] = JsonSerializer.Deserialize(value.GetRawText(), param.ParameterType);
+                args[i] = JsonSerializer.Deserialize(value.GetRawText(), param.ParameterType,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             }
             else if (param.HasDefaultValue)
             {
@@ -462,6 +500,24 @@ public sealed class McpToolServer(string name, string version = "1.0.0") : IMcpT
         }
 
         return args;
+    }
+
+    private static bool IsComplexType(Type type)
+    {
+        if (type.IsPrimitive || type == typeof(string) || type == typeof(decimal) || type.IsEnum)
+        {
+            return false;
+        }
+
+        // Check if it's a nullable value type
+        var underlying = Nullable.GetUnderlyingType(type);
+        if (underlying != null)
+        {
+            // It's nullable - check if underlying is primitive
+            return !underlying.IsPrimitive && underlying != typeof(decimal);
+        }
+
+        return true;
     }
 
     private static string ToCamelCase(string name)
