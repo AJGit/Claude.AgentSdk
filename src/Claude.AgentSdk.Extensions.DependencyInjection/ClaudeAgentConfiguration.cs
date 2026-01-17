@@ -187,10 +187,8 @@ public class ClaudeAgentConfiguration
             Environment = Environment ?? new Dictionary<string, string>(),
             User = User,
             MessageChannelCapacity = MessageChannelCapacity,
-            ModelId = !string.IsNullOrEmpty(Model) ? new ModelIdentifier(Model) : null!,
-            FallbackModelId = !string.IsNullOrEmpty(FallbackModel)
-                ? new ModelIdentifier(FallbackModel)
-                : null!,
+            ModelId = !string.IsNullOrEmpty(Model) ? new ModelIdentifier(Model) : default(ModelIdentifier?),
+            FallbackModelId = !string.IsNullOrEmpty(FallbackModel) ? new ModelIdentifier(FallbackModel) : default(ModelIdentifier?),
             SystemPrompt = systemPrompt,
             PermissionMode = permissionMode,
             McpServers = mcpServers

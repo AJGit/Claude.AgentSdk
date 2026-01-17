@@ -162,7 +162,7 @@ public static class ContentBlockExtensions
         /// <returns>True if this is an MCP server tool.</returns>
         public bool IsMcpTool()
         {
-            return toolUse.Name.StartsWith("mcp__", StringComparison.Ordinal);
+            return toolUse.Name?.StartsWith("mcp__", StringComparison.Ordinal) == true;
         }
 
         /// <summary>

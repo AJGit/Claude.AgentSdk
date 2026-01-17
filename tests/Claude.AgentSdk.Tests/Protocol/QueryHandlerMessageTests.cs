@@ -1423,7 +1423,7 @@ public class MessageChannelCompletionTests
 
         // Act - cancel
         await cts.CancelAsync();
-        await Task.Delay(100, cts.Token);
+        await Task.Delay(100);
 
         // Clean up
         await handler.DisposeAsync();

@@ -42,7 +42,7 @@ public static class MessageExtensions
         /// <returns>The concatenated text from all text blocks, separated by newlines.</returns>
         public string GetText()
         {
-            if (message?.MessageContent.Content is null)
+            if (message?.MessageContent?.Content is null)
             {
                 return string.Empty;
             }
