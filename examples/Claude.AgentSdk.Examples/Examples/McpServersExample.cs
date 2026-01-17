@@ -1,11 +1,12 @@
 using System.Text.Json;
+using Claude.AgentSdk.Attributes;
 using Claude.AgentSdk.Messages;
 using Claude.AgentSdk.Tools;
 
 namespace Claude.AgentSdk.Examples.Examples;
 
 /// <summary>
-/// Demonstrates different MCP server configurations.
+///     Demonstrates different MCP server configurations.
 /// </summary>
 public class McpServersExample : IExample
 {
@@ -73,11 +74,12 @@ public class McpServersExample : IExample
         Console.WriteLine();
 
         // Create an in-process MCP server
-        var toolServer = new McpToolServer("time-tools");
-        var timeTools = new TimeTools();
-        toolServer.RegisterToolsFrom(timeTools);
+        McpToolServer toolServer = new("time-tools");
+        TimeTools timeTools = new();
+        // Use compile-time generated registration (no reflection)
+        toolServer.RegisterToolsCompiled(timeTools);
 
-        var options = new ClaudeAgentOptions
+        ClaudeAgentOptions options = new()
         {
             McpServers = new Dictionary<string, McpServerConfig>
             {
@@ -93,19 +95,20 @@ public class McpServersExample : IExample
             MaxTurns = 3
         };
 
-        await using var client = new ClaudeAgentClient(options);
+        await using ClaudeAgentClient client = new(options);
 
-        var prompt = "What is the current time? Also, how many days are between January 1, 2024 and December 31, 2024?";
+        string prompt =
+            "What is the current time? Also, how many days are between January 1, 2024 and December 31, 2024?";
         Console.WriteLine($"Prompt: {prompt}\n");
         Console.WriteLine("Response:");
         Console.WriteLine("---------");
 
-        await foreach (var message in client.QueryAsync(prompt))
+        await foreach (Message message in client.QueryAsync(prompt))
         {
             switch (message)
             {
                 case AssistantMessage assistant:
-                    foreach (var block in assistant.MessageContent.Content)
+                    foreach (ContentBlock block in assistant.MessageContent.Content)
                     {
                         switch (block)
                         {
@@ -126,6 +129,7 @@ public class McpServersExample : IExample
                                 break;
                         }
                     }
+
                     break;
 
                 case ResultMessage result:
@@ -153,24 +157,33 @@ public class McpServersExample : IExample
 }
 
 /// <summary>
-/// Class containing time-related tool methods.
+///     Class containing time-related tool methods.
+///     Uses [GenerateToolRegistration] for compile-time tool registration.
 /// </summary>
+[GenerateToolRegistration]
 public class TimeTools
 {
     /// <summary>
-    /// Get the current date and time.
+    ///     Get the current date and time.
     /// </summary>
-    [ClaudeTool("current_time", "Get the current date and time")]
-    public string GetCurrentTime(string? timezone = null)
+    [ClaudeTool("current_time", "Get the current date and time in a specified timezone",
+        Categories = ["time"],
+        TimeoutSeconds = 3)]
+    public string GetCurrentTime(
+        [ToolParameter(
+            Description =
+                "IANA timezone identifier like 'America/New_York' or 'Europe/London'. If not specified, returns UTC time.",
+            Example = "America/New_York")]
+        string? timezone = null)
     {
-        var now = DateTime.UtcNow;
+        DateTime now = DateTime.UtcNow;
 
         // Simple timezone handling for demo
         if (!string.IsNullOrEmpty(timezone))
         {
             try
             {
-                var tz = TimeZoneInfo.FindSystemTimeZoneById(timezone);
+                TimeZoneInfo tz = TimeZoneInfo.FindSystemTimeZoneById(timezone);
                 now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
             }
             catch
@@ -188,22 +201,30 @@ public class TimeTools
     }
 
     /// <summary>
-    /// Calculate the difference between two dates.
+    ///     Calculate the difference between two dates.
     /// </summary>
-    [ClaudeTool("time_difference", "Calculate the difference between two dates")]
-    public string GetTimeDifference(string startDate, string endDate)
+    [ClaudeTool("time_difference", "Calculate the difference between two dates in days, hours, and minutes",
+        Categories = ["time"],
+        TimeoutSeconds = 3)]
+    public string GetTimeDifference(
+        [ToolParameter(Description = "Start date in ISO 8601 format (e.g., '2024-01-01' or '2024-01-01T12:00:00')",
+            Example = "2024-01-01")]
+        string startDate,
+        [ToolParameter(Description = "End date in ISO 8601 format (e.g., '2024-12-31' or '2024-12-31T23:59:59')",
+            Example = "2024-12-31")]
+        string endDate)
     {
-        if (!DateTime.TryParse(startDate, out var start))
+        if (!DateTime.TryParse(startDate, out DateTime start))
         {
             return JsonSerializer.Serialize(new { error = $"Invalid start date: {startDate}" });
         }
 
-        if (!DateTime.TryParse(endDate, out var end))
+        if (!DateTime.TryParse(endDate, out DateTime end))
         {
             return JsonSerializer.Serialize(new { error = $"Invalid end date: {endDate}" });
         }
 
-        var diff = end - start;
+        TimeSpan diff = end - start;
 
         return JsonSerializer.Serialize(new
         {

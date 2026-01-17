@@ -1,18 +1,15 @@
+﻿using System.Text.Json;
 using Claude.AgentSdk.Protocol;
 using Claude.AgentSdk.Tools;
 using Moq;
-using System.Text.Json;
-using Xunit;
 
 namespace Claude.AgentSdk.Tests;
 
 /// <summary>
-/// Comprehensive tests for ClaudeAgentOptions and related configuration types.
+///     Comprehensive tests for ClaudeAgentOptions and related configuration types.
 /// </summary>
 public class ClaudeAgentOptionsTests
 {
-    #region ClaudeAgentOptions Default Values Tests
-
     [Fact]
     public void ClaudeAgentOptions_DefaultValues_AreCorrect()
     {
@@ -60,8 +57,9 @@ public class ClaudeAgentOptionsTests
     public void ClaudeAgentOptions_WithAllProperties_SetsCorrectly()
     {
         var mockMcpServer = new Mock<IMcpToolServer>();
-        var toolPermissionCallback = new Func<ToolPermissionRequest, CancellationToken, Task<PermissionResult>>(
-            (_, _) => Task.FromResult<PermissionResult>(new PermissionResultAllow()));
+        var toolPermissionCallback =
+            new Func<ToolPermissionRequest, CancellationToken, Task<PermissionResult>>((_, _) =>
+                Task.FromResult<PermissionResult>(new PermissionResultAllow()));
         var stderrCallback = new Action<string>(_ => { });
 
         var options = new ClaudeAgentOptions
@@ -77,14 +75,14 @@ public class ClaudeAgentOptionsTests
             },
             Agents = new Dictionary<string, AgentDefinition>
             {
-                ["test-agent"] = new AgentDefinition
+                ["test-agent"] = new()
                 {
                     Description = "Test agent",
                     Prompt = "Test prompt"
                 }
             },
             Plugins = [new PluginConfig { Path = "./test-plugin" }],
-            PermissionMode = Claude.AgentSdk.PermissionMode.AcceptEdits,
+            PermissionMode = PermissionMode.AcceptEdits,
             ContinueConversation = true,
             Resume = "session-123",
             MaxTurns = 10,
@@ -125,7 +123,7 @@ public class ClaudeAgentOptionsTests
         Assert.Single(options.McpServers);
         Assert.Single(options.Agents);
         Assert.Single(options.Plugins);
-        Assert.Equal(Claude.AgentSdk.PermissionMode.AcceptEdits, options.PermissionMode);
+        Assert.Equal(PermissionMode.AcceptEdits, options.PermissionMode);
         Assert.True(options.ContinueConversation);
         Assert.Equal("session-123", options.Resume);
         Assert.Equal(10, options.MaxTurns);
@@ -155,10 +153,6 @@ public class ClaudeAgentOptionsTests
         Assert.NotNull(options.OnStderr);
     }
 
-    #endregion
-
-    #region PermissionMode Enum Tests
-
     [Theory]
     [InlineData(PermissionMode.Default)]
     [InlineData(PermissionMode.AcceptEdits)]
@@ -181,10 +175,6 @@ public class ClaudeAgentOptionsTests
         Assert.Contains(PermissionMode.BypassPermissions, values);
         Assert.Contains(PermissionMode.DontAsk, values);
     }
-
-    #endregion
-
-    #region SettingSource Enum Tests
 
     [Theory]
     [InlineData(SettingSource.Project)]
@@ -220,10 +210,6 @@ public class ClaudeAgentOptionsTests
         Assert.Equal(SettingSource.User, options.SettingSources[1]);
         Assert.Equal(SettingSource.Local, options.SettingSources[2]);
     }
-
-    #endregion
-
-    #region ToolsConfig Tests
 
     [Fact]
     public void ToolsConfig_ImplicitConversion_FromStringArray()
@@ -291,10 +277,6 @@ public class ClaudeAgentOptionsTests
         Assert.Equal(2, ((ToolsList)options.Tools).Tools.Count);
     }
 
-    #endregion
-
-    #region SystemPromptConfig Tests
-
     [Fact]
     public void SystemPromptConfig_ImplicitConversion_FromString()
     {
@@ -319,7 +301,7 @@ public class ClaudeAgentOptionsTests
     [Fact]
     public void SystemPromptConfig_ClaudeCode_WithAppend()
     {
-        var config = SystemPromptConfig.ClaudeCode(append: "Always use TypeScript.");
+        var config = SystemPromptConfig.ClaudeCode("Always use TypeScript.");
 
         Assert.IsType<PresetSystemPrompt>(config);
         var preset = (PresetSystemPrompt)config;
@@ -358,10 +340,6 @@ public class ClaudeAgentOptionsTests
         Assert.IsType<CustomSystemPrompt>(options.SystemPrompt);
         Assert.Equal("Custom system prompt", ((CustomSystemPrompt)options.SystemPrompt).Prompt);
     }
-
-    #endregion
-
-    #region SandboxConfig Tests
 
     [Fact]
     public void SandboxConfig_StaticOff_ReturnsSimpleSandboxConfig()
@@ -408,7 +386,7 @@ public class ClaudeAgentOptionsTests
         var config = SandboxConfig.WithSettings();
 
         Assert.IsType<SandboxSettings>(config);
-        var settings = (SandboxSettings)config;
+        var settings = config;
         Assert.True(settings.IsEnabled);
     }
 
@@ -424,7 +402,7 @@ public class ClaudeAgentOptionsTests
         });
 
         Assert.IsType<SandboxSettings>(config);
-        var settings = (SandboxSettings)config;
+        var settings = config;
         Assert.True(settings.IsEnabled);
         Assert.True(settings.AutoAllowBashIfSandboxed);
         Assert.Equal(2, settings.ExcludedCommands!.Count);
@@ -528,10 +506,6 @@ public class ClaudeAgentOptionsTests
         Assert.IsType<SimpleSandboxConfig>(options.Sandbox);
         Assert.Equal(SandboxMode.Strict, ((SimpleSandboxConfig)options.Sandbox).Mode);
     }
-
-    #endregion
-
-    #region McpServerConfig Tests
 
     [Fact]
     public void McpStdioServerConfig_RequiresCommand()
@@ -650,10 +624,6 @@ public class ClaudeAgentOptionsTests
         Assert.IsType<McpSdkServerConfig>(options.McpServers["sdk-server"]);
     }
 
-    #endregion
-
-    #region AgentDefinition Tests
-
     [Fact]
     public void AgentDefinition_RequiresDescriptionAndPrompt()
     {
@@ -694,19 +664,19 @@ public class ClaudeAgentOptionsTests
         {
             Agents = new Dictionary<string, AgentDefinition>
             {
-                ["code-reviewer"] = new AgentDefinition
+                ["code-reviewer"] = new()
                 {
                     Description = "Reviews code for quality",
                     Prompt = "Review code systematically",
                     Tools = ["Read", "Grep"]
                 },
-                ["security-analyst"] = new AgentDefinition
+                ["security-analyst"] = new()
                 {
                     Description = "Analyzes security vulnerabilities",
                     Prompt = "Find security issues",
                     Model = "opus"
                 },
-                ["documentation-writer"] = new AgentDefinition
+                ["documentation-writer"] = new()
                 {
                     Description = "Writes documentation",
                     Prompt = "Create clear documentation"
@@ -721,10 +691,6 @@ public class ClaudeAgentOptionsTests
         Assert.Equal(2, options.Agents["code-reviewer"].Tools!.Count);
         Assert.Equal("opus", options.Agents["security-analyst"].Model);
     }
-
-    #endregion
-
-    #region PluginConfig Tests
 
     [Fact]
     public void PluginConfig_DefaultType()
@@ -758,10 +724,6 @@ public class ClaudeAgentOptionsTests
         Assert.Equal(3, options.Plugins!.Count);
         Assert.All(options.Plugins, p => Assert.Equal("local", p.Type));
     }
-
-    #endregion
-
-    #region HookEvent Enum Tests
 
     [Fact]
     public void HookEvent_HasAllExpectedValues()
@@ -799,10 +761,6 @@ public class ClaudeAgentOptionsTests
         Assert.Single(options.Hooks!);
         Assert.True(options.Hooks.ContainsKey(hookEvent));
     }
-
-    #endregion
-
-    #region HookMatcher Tests
 
     [Fact]
     public void HookMatcher_RequiresHooks()
@@ -848,10 +806,6 @@ public class ClaudeAgentOptionsTests
 
         Assert.Equal(2, matcher.Hooks.Count);
     }
-
-    #endregion
-
-    #region Permission Types Tests
 
     [Fact]
     public void ToolPermissionRequest_RequiredProperties()
@@ -961,7 +915,7 @@ public class ClaudeAgentOptionsTests
                 new PermissionRuleValue { ToolName = "Bash", RuleContent = "ls" }
             ],
             Behavior = PermissionBehavior.Allow,
-            Mode = Claude.AgentSdk.PermissionMode.AcceptEdits,
+            Mode = PermissionMode.AcceptEdits,
             Directories = ["/allowed/dir"],
             Destination = PermissionUpdateDestination.ProjectSettings
         };
@@ -969,7 +923,7 @@ public class ClaudeAgentOptionsTests
         Assert.Equal(PermissionUpdateType.AddRules, update.Type);
         Assert.Single(update.Rules!);
         Assert.Equal(PermissionBehavior.Allow, update.Behavior);
-        Assert.Equal(Claude.AgentSdk.PermissionMode.AcceptEdits, update.Mode);
+        Assert.Equal(PermissionMode.AcceptEdits, update.Mode);
         Assert.Single(update.Directories!);
         Assert.Equal(PermissionUpdateDestination.ProjectSettings, update.Destination);
     }
@@ -1007,10 +961,6 @@ public class ClaudeAgentOptionsTests
         Assert.Equal("Write", rule.ToolName);
         Assert.Equal("*.txt", rule.RuleContent);
     }
-
-    #endregion
-
-    #region Record Equality Tests
 
     [Fact]
     public void ClaudeAgentOptions_RecordEquality_SameValues()
@@ -1082,10 +1032,6 @@ public class ClaudeAgentOptionsTests
         Assert.Equal(agent1, agent2);
     }
 
-    #endregion
-
-    #region Record With Expression Tests
-
     [Fact]
     public void ClaudeAgentOptions_WithExpression_CreatesModifiedCopy()
     {
@@ -1135,10 +1081,6 @@ public class ClaudeAgentOptionsTests
         Assert.Equal("opus", modified.Model);
         Assert.Equal("Original description", modified.Description);
     }
-
-    #endregion
-
-    #region Callback Tests
 
     [Fact]
     public async Task CanUseTool_Callback_IsInvoked()
@@ -1197,10 +1139,6 @@ public class ClaudeAgentOptionsTests
         Assert.Equal("Test error message", capturedStderr);
     }
 
-    #endregion
-
-    #region Integration-like Tests
-
     [Fact]
     public void CompleteAgentConfiguration_AllOptionsSet()
     {
@@ -1210,7 +1148,7 @@ public class ClaudeAgentOptionsTests
         {
             Model = "opus",
             FallbackModel = "sonnet",
-            SystemPrompt = SystemPromptConfig.ClaudeCode(append: "Focus on security"),
+            SystemPrompt = SystemPromptConfig.ClaudeCode("Focus on security"),
             Tools = ToolsConfig.ClaudeCode(),
             AllowedTools = ["Task", "WebFetch"],
             DisallowedTools = ["Bash"],
@@ -1230,7 +1168,7 @@ public class ClaudeAgentOptionsTests
             },
             Agents = new Dictionary<string, AgentDefinition>
             {
-                ["security-auditor"] = new AgentDefinition
+                ["security-auditor"] = new()
                 {
                     Description = "Security vulnerability scanner",
                     Prompt = "Analyze code for OWASP vulnerabilities",
@@ -1238,7 +1176,7 @@ public class ClaudeAgentOptionsTests
                     Model = "opus"
                 }
             },
-            PermissionMode = Claude.AgentSdk.PermissionMode.AcceptEdits,
+            PermissionMode = PermissionMode.AcceptEdits,
             MaxTurns = 50,
             MaxBudgetUsd = 10.0,
             WorkingDirectory = "/project",
@@ -1279,6 +1217,4 @@ public class ClaudeAgentOptionsTests
         Assert.False(options.ContinueConversation);
         Assert.Null(options.Sandbox);
     }
-
-    #endregion
 }

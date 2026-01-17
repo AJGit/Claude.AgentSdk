@@ -1,8 +1,4 @@
-using System.Text.Json;
-using Claude.AgentSdk.Protocol;
-using Claude.AgentSdk.Transport;
-
-namespace Claude.AgentSdk.Tests;
+﻿namespace Claude.AgentSdk.Tests;
 
 /// <summary>
 ///     Tests for ClaudeAgentSession.RewindFilesAsync functionality.
@@ -10,8 +6,6 @@ namespace Claude.AgentSdk.Tests;
 [UnitTest]
 public class ClaudeAgentSessionRewindTests
 {
-    #region RewindFilesAsync Tests
-
     [Fact]
     public void RewindFilesAsync_OnSession_IsExposed()
     {
@@ -62,10 +56,6 @@ public class ClaudeAgentSessionRewindTests
         Assert.True(parameters[1].HasDefaultValue);
     }
 
-    #endregion
-
-    #region ClaudeAgentOptions.EnableFileCheckpointing Tests
-
     [Fact]
     public void EnableFileCheckpointing_ExistsOnOptions()
     {
@@ -88,6 +78,4 @@ public class ClaudeAgentSessionRewindTests
         var options = new ClaudeAgentOptions { EnableFileCheckpointing = true };
         Assert.True(options.EnableFileCheckpointing);
     }
-
-    #endregion
 }

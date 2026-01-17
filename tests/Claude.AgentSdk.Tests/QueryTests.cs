@@ -1,6 +1,6 @@
-using System.Text.Json;
-using Claude.AgentSdk.Messages;
+﻿using Claude.AgentSdk.Messages;
 using Claude.AgentSdk.Transport;
+using Microsoft.Extensions.Logging;
 
 namespace Claude.AgentSdk.Tests;
 
@@ -10,7 +10,14 @@ namespace Claude.AgentSdk.Tests;
 [UnitTest]
 public class QueryTests
 {
-    #region Query.RunAsync Tests
+    [Fact]
+    public async Task RunToCompletionAsync_MethodSignature_IsCorrect()
+    {
+        // Verify the API shape
+        Assert.NotNull(
+            (Func<string, ClaudeAgentOptions?, ILoggerFactory?, CancellationToken, Task<ResultMessage?>>)Query
+                .RunToCompletionAsync);
+    }
 
     [Fact]
     public async Task RunAsync_WithPrompt_ReturnsMessages()
@@ -27,7 +34,9 @@ public class QueryTests
         };
 
         // Assert - the method exists and is callable
-        Assert.NotNull((Func<string, ClaudeAgentOptions?, Microsoft.Extensions.Logging.ILoggerFactory?, CancellationToken, IAsyncEnumerable<Message>>)Query.RunAsync);
+        Assert.NotNull(
+            (Func<string, ClaudeAgentOptions?, ILoggerFactory?, CancellationToken, IAsyncEnumerable<Message>>)Query
+                .RunAsync);
     }
 
     [Fact]
@@ -43,24 +52,21 @@ public class QueryTests
         // We can't actually execute without the CLI
         var enumerable = Query.RunAsync(
             "test prompt",
-            model: testModel,
-            maxTurns: testMaxTurns,
-            systemPrompt: testSystemPrompt,
-            permissionMode: testPermissionMode);
+            testModel,
+            testMaxTurns,
+            testSystemPrompt,
+            testPermissionMode);
 
         // Assert - the method returns an IAsyncEnumerable
         Assert.NotNull(enumerable);
     }
 
-    #endregion
-
-    #region Query.GetTextAsync Tests
-
     [Fact]
     public async Task GetTextAsync_MethodSignature_IsCorrect()
     {
         // Verify the API shape
-        Assert.NotNull((Func<string, ClaudeAgentOptions?, Microsoft.Extensions.Logging.ILoggerFactory?, CancellationToken, Task<string>>)Query.GetTextAsync);
+        Assert.NotNull(
+            (Func<string, ClaudeAgentOptions?, ILoggerFactory?, CancellationToken, Task<string>>)Query.GetTextAsync);
     }
 
     [Fact]
@@ -70,27 +76,14 @@ public class QueryTests
         Assert.NotNull((Func<string, string, CancellationToken, Task<string>>)Query.GetTextAsync);
     }
 
-    #endregion
-
-    #region Query.RunToCompletionAsync Tests
-
-    [Fact]
-    public async Task RunToCompletionAsync_MethodSignature_IsCorrect()
-    {
-        // Verify the API shape
-        Assert.NotNull((Func<string, ClaudeAgentOptions?, Microsoft.Extensions.Logging.ILoggerFactory?, CancellationToken, Task<ResultMessage?>>)Query.RunToCompletionAsync);
-    }
-
-    #endregion
-
-    #region ClaudeAgent Alias Tests
-
     [Fact]
     public async Task ClaudeAgent_RunAsync_IsSameAsQuery()
     {
         // Verify ClaudeAgent is an alias for Query
-        var queryMethod = typeof(Query).GetMethod("RunAsync", [typeof(string), typeof(ClaudeAgentOptions), typeof(Microsoft.Extensions.Logging.ILoggerFactory), typeof(CancellationToken)]);
-        var agentMethod = typeof(ClaudeAgent).GetMethod("RunAsync", [typeof(string), typeof(ClaudeAgentOptions), typeof(Microsoft.Extensions.Logging.ILoggerFactory), typeof(CancellationToken)]);
+        var queryMethod = typeof(Query).GetMethod("RunAsync",
+            [typeof(string), typeof(ClaudeAgentOptions), typeof(ILoggerFactory), typeof(CancellationToken)]);
+        var agentMethod = typeof(ClaudeAgent).GetMethod("RunAsync",
+            [typeof(string), typeof(ClaudeAgentOptions), typeof(ILoggerFactory), typeof(CancellationToken)]);
 
         Assert.NotNull(queryMethod);
         Assert.NotNull(agentMethod);
@@ -102,8 +95,10 @@ public class QueryTests
     [Fact]
     public async Task ClaudeAgent_GetTextAsync_IsSameAsQuery()
     {
-        var queryMethod = typeof(Query).GetMethod("GetTextAsync", [typeof(string), typeof(ClaudeAgentOptions), typeof(Microsoft.Extensions.Logging.ILoggerFactory), typeof(CancellationToken)]);
-        var agentMethod = typeof(ClaudeAgent).GetMethod("GetTextAsync", [typeof(string), typeof(ClaudeAgentOptions), typeof(Microsoft.Extensions.Logging.ILoggerFactory), typeof(CancellationToken)]);
+        var queryMethod = typeof(Query).GetMethod("GetTextAsync",
+            [typeof(string), typeof(ClaudeAgentOptions), typeof(ILoggerFactory), typeof(CancellationToken)]);
+        var agentMethod = typeof(ClaudeAgent).GetMethod("GetTextAsync",
+            [typeof(string), typeof(ClaudeAgentOptions), typeof(ILoggerFactory), typeof(CancellationToken)]);
 
         Assert.NotNull(queryMethod);
         Assert.NotNull(agentMethod);
@@ -120,10 +115,6 @@ public class QueryTests
         Assert.NotNull(agentMethod);
         Assert.Equal(queryMethod!.ReturnType, agentMethod!.ReturnType);
     }
-
-    #endregion
-
-    #region ClaudeAgentClient.CreateForTesting Tests
 
     [Fact]
     public async Task CreateForTesting_WithMockTransport_ReturnsClient()
@@ -151,7 +142,7 @@ public class QueryTests
         var transport = new MockTransport();
 
         // Act
-        var client = ClaudeAgentClient.CreateForTesting(options: options, transport: transport);
+        var client = ClaudeAgentClient.CreateForTesting(options, transport);
 
         // Assert
         Assert.NotNull(client);
@@ -168,6 +159,4 @@ public class QueryTests
         Assert.NotNull(client);
         await client.DisposeAsync();
     }
-
-    #endregion
 }

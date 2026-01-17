@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+
+    <!-- Source generator requirements -->
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <IsRoslynComponent>true</IsRoslynComponent>
+
+    <!-- Package Info -->
+    <PackageId>AJGit.Claude.AgentSdk.Generators</PackageId>
+    <!-- Version is set via -p:Version during CI/CD; this is the fallback for local builds -->
+    <Version>0.0.0-dev</Version>
+    <Authors>AJGit</Authors>
+    <Company>AJGit</Company>
+    <Product>Claude.AgentSdk.Generators</Product>
+    <Description>Source generators for Claude.AgentSdk providing compile-time tool registration and JSON schema generation.</Description>
+    <PackageTags>anthropic;claude;agent;sdk;ai;llm;mcp;source-generator;roslyn</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Copyright>Copyright (c) 2025 AJGit</Copyright>
+
+    <!-- Repository Info -->
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/ajgit/Claude.AgentSdk</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/ajgit/Claude.AgentSdk</PackageProjectUrl>
+
+    <!-- Build Settings -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- Suppress RS1035 for Symbol.Name usage in generators -->
+    <NoWarn>$(NoWarn);RS1035</NoWarn>
+  </PropertyGroup>
+
+  <!-- Roslyn Analyzers and Code Analysis dependencies -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" PrivateAssets="all" />
+    <PackageReference Include="PolySharp" Version="1.15.0" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- Ensure the generator is packaged correctly as an analyzer -->
+  <ItemGroup>
+    <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+  </ItemGroup>
+
+</Project>

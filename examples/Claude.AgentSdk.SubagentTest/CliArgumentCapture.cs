@@ -1,26 +1,25 @@
-/// <summary>
+﻿/// <summary>
 /// Utility to capture and display the exact CLI arguments that would be passed to Claude CLI.
 /// This helps diagnose configuration issues by showing what the SDK actually sends.
 /// </summary>
 
 using System.Text.Json;
-using Claude.AgentSdk;
 
 namespace Claude.AgentSdk.SubagentTest;
 
 public static class CliArgumentCapture
 {
     /// <summary>
-    /// Reconstructs the CLI arguments that would be built from the given options.
-    /// This mirrors the logic in SubprocessTransport.BuildArguments().
+    ///     Reconstructs the CLI arguments that would be built from the given options.
+    ///     This mirrors the logic in SubprocessTransport.BuildArguments().
     /// </summary>
     public static List<string> BuildExpectedArguments(ClaudeAgentOptions options, string? prompt = null)
     {
-        var args = new List<string>
-        {
+        List<string> args =
+        [
             "--output-format", "stream-json",
             "--verbose"
-        };
+        ];
 
         // Add prompt if provided (one-shot mode)
         if (!string.IsNullOrEmpty(prompt))
@@ -56,6 +55,7 @@ public static class CliArgumentCapture
                     args.Add("--tools");
                     args.Add(string.Join(",", toolsList.Tools));
                 }
+
                 break;
 
             case ToolsPreset toolsPreset:
@@ -92,6 +92,7 @@ public static class CliArgumentCapture
                     args.Add("--append-system-prompt");
                     args.Add(preset.Append);
                 }
+
                 break;
         }
 
@@ -119,11 +120,11 @@ public static class CliArgumentCapture
         // Agents (subagent definitions)
         if (options.Agents is { Count: > 0 })
         {
-            var agentsConfig = new Dictionary<string, object>();
+            Dictionary<string, object> agentsConfig = new();
 
-            foreach (var (name, agent) in options.Agents)
+            foreach ((string name, AgentDefinition agent) in options.Agents)
             {
-                var agentConfig = new Dictionary<string, object>
+                Dictionary<string, object> agentConfig = new()
                 {
                     ["description"] = agent.Description,
                     ["prompt"] = agent.Prompt
@@ -142,7 +143,8 @@ public static class CliArgumentCapture
                 agentsConfig[name] = agentConfig;
             }
 
-            var agentsJson = JsonSerializer.Serialize(agentsConfig, new JsonSerializerOptions { WriteIndented = false });
+            string agentsJson =
+                JsonSerializer.Serialize(agentsConfig, new JsonSerializerOptions { WriteIndented = false });
             args.Add("--agents");
             args.Add(agentsJson);
         }
@@ -151,7 +153,7 @@ public static class CliArgumentCapture
     }
 
     /// <summary>
-    /// Formats CLI arguments for display, with special handling for JSON payloads.
+    ///     Formats CLI arguments for display, with special handling for JSON payloads.
     /// </summary>
     public static void PrintCliArguments(List<string> args, Action<string> log)
     {
@@ -163,13 +165,13 @@ public static class CliArgumentCapture
 
         for (int i = 0; i < args.Count; i++)
         {
-            var arg = args[i];
-            var continuation = i < args.Count - 1 ? " \\" : "";
+            string arg = args[i];
+            string continuation = i < args.Count - 1 ? " \\" : "";
 
             // Check if this is a flag that takes a value
             if (arg.StartsWith("--") && i + 1 < args.Count)
             {
-                var nextArg = args[i + 1];
+                string nextArg = args[i + 1];
                 i++; // Skip the value in next iteration
 
                 // Special handling for long values
@@ -184,9 +186,10 @@ public static class CliArgumentCapture
                         {
                             try
                             {
-                                var parsed = JsonSerializer.Deserialize<JsonElement>(nextArg);
-                                var pretty = JsonSerializer.Serialize(parsed, new JsonSerializerOptions { WriteIndented = true });
-                                foreach (var line in pretty.Split('\n'))
+                                JsonElement parsed = JsonSerializer.Deserialize<JsonElement>(nextArg);
+                                string pretty = JsonSerializer.Serialize(parsed,
+                                    new JsonSerializerOptions { WriteIndented = true });
+                                foreach (string line in pretty.Split('\n'))
                                 {
                                     log($"    {line}");
                                 }
@@ -201,6 +204,7 @@ public static class CliArgumentCapture
                             // Truncate long system prompts
                             log($"    '{nextArg.Substring(0, Math.Min(100, nextArg.Length))}...'");
                         }
+
                         log($"  {continuation}");
                     }
                     else
@@ -223,7 +227,7 @@ public static class CliArgumentCapture
     }
 
     /// <summary>
-    /// Compares what C# SDK sends vs what Python SDK would send for the same logical config.
+    ///     Compares what C# SDK sends vs what Python SDK would send for the same logical config.
     /// </summary>
     public static void CompareWithPythonExpected(ClaudeAgentOptions options, Action<string> log)
     {
@@ -264,19 +268,19 @@ public static class CliArgumentCapture
         log("Equivalent Python SDK Configuration:");
         if (options.Tools is ToolsList pythonToolsList)
         {
-            log($"  options = ClaudeAgentOptions(");
+            log("  options = ClaudeAgentOptions(");
             log($"      tools=[{string.Join(", ", pythonToolsList.Tools.Select(t => $"\"{t}\""))}],");
             log($"      allowed_tools=[{string.Join(", ", options.AllowedTools.Select(t => $"\"{t}\""))}],");
-            log($"      agents={{...}}");
-            log($"  )");
+            log("      agents={...}");
+            log("  )");
         }
         else
         {
-            log($"  options = ClaudeAgentOptions(");
-            log($"      # tools not set - uses defaults");
+            log("  options = ClaudeAgentOptions(");
+            log("      # tools not set - uses defaults");
             log($"      allowed_tools=[{string.Join(", ", options.AllowedTools.Select(t => $"\"{t}\""))}],");
-            log($"      agents={{...}}");
-            log($"  )");
+            log("      agents={...}");
+            log("  )");
         }
 
         log("");

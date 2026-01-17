@@ -1,15 +1,15 @@
-using Claude.AgentSdk.Examples.Examples;
+﻿using Claude.AgentSdk.Examples.Examples;
 
 namespace Claude.AgentSdk.Examples;
 
 /// <summary>
-/// Main entry point for the Claude Agent SDK examples.
-/// Run with: dotnet run -- [example-number]
-/// Or run without arguments to see the menu.
+///     Main entry point for the Claude Agent SDK examples.
+///     Run with: dotnet run -- [example-number]
+///     Or run without arguments to see the menu.
 /// </summary>
 public static class Program
 {
-    private static readonly IExample[] Examples =
+    private static readonly IExample[] _examples =
     [
         new BasicQueryExample(),
         new StreamingExample(),
@@ -22,6 +22,7 @@ public static class Program
         new SystemPromptExample(),
         new SettingsSourcesExample(),
         new McpServersExample(),
+        new FunctionalPatternsExample()
     ];
 
     public static async Task Main(string[] args)
@@ -34,11 +35,12 @@ public static class Program
         // If an argument is provided, run that specific example
         if (args.Length > 0 && int.TryParse(args[0], out var exampleNumber))
         {
-            if (exampleNumber >= 1 && exampleNumber <= Examples.Length)
+            if (exampleNumber >= 1 && exampleNumber <= _examples.Length)
             {
-                await RunExampleAsync(Examples[exampleNumber - 1]);
+                await RunExampleAsync(_examples[exampleNumber - 1]);
                 return;
             }
+
             Console.WriteLine($"Invalid example number: {exampleNumber}");
             Console.WriteLine();
         }
@@ -57,10 +59,10 @@ public static class Program
                 break;
             }
 
-            if (int.TryParse(input, out var choice) && choice >= 1 && choice <= Examples.Length)
+            if (int.TryParse(input, out var choice) && choice >= 1 && choice <= _examples.Length)
             {
                 Console.WriteLine();
-                await RunExampleAsync(Examples[choice - 1]);
+                await RunExampleAsync(_examples[choice - 1]);
                 Console.WriteLine();
                 Console.WriteLine("Press Enter to continue...");
                 Console.ReadLine();
@@ -79,10 +81,10 @@ public static class Program
         Console.WriteLine("Available Examples:");
         Console.WriteLine("-------------------");
 
-        for (var i = 0; i < Examples.Length; i++)
+        for (var i = 0; i < _examples.Length; i++)
         {
-            Console.WriteLine($"  {i + 1}. {Examples[i].Name}");
-            Console.WriteLine($"     {Examples[i].Description}");
+            Console.WriteLine($"  {i + 1}. {_examples[i].Name}");
+            Console.WriteLine($"     {_examples[i].Description}");
             Console.WriteLine();
         }
     }

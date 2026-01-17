@@ -17,7 +17,6 @@
 /// </summary>
 
 using System.Text.Json;
-using Claude.AgentSdk;
 using Claude.AgentSdk.Messages;
 
 namespace Claude.AgentSdk.SubagentTest;
@@ -48,12 +47,12 @@ public static class Program
         Console.WriteLine("     Run with --compare to compare C# vs Python");
         Console.WriteLine();
 
-        var baseDir = Directory.GetCurrentDirectory();
-        var outputDir = Path.Combine(baseDir, "output");
+        string baseDir = Directory.GetCurrentDirectory();
+        string outputDir = Path.Combine(baseDir, "output");
         Directory.CreateDirectory(outputDir);
 
-        var testFile = Path.Combine(outputDir, "research_output.txt");
-        var testMain = Path.Combine(outputDir, "output.txt");
+        string testFile = Path.Combine(outputDir, "research_output.txt");
+        string testMain = Path.Combine(outputDir, "output.txt");
 
         // Delete test file if it exists
         if (File.Exists(testFile))
@@ -74,11 +73,12 @@ public static class Program
         Console.WriteLine();
 
         // Define a researcher subagent with WebSearch + Write tools
-        var agents = new Dictionary<string, AgentDefinition>
+        Dictionary<string, AgentDefinition> agents = new()
         {
             ["researcher"] = new AgentDefinition
             {
-                Description = "Use this agent to research topics. The researcher can search the web and write findings to files.",
+                Description =
+                    "Use this agent to research topics. The researcher can search the web and write findings to files.",
                 Tools = ["WebSearch", "Write", "Read"],
                 Prompt = $@"You are a research agent. Your job is to:
 1. Use WebSearch to find information
@@ -97,11 +97,11 @@ OUTPUT FILE: {testFile}",
         };
 
         // Main agent - use AllowedTools
-        var options = new ClaudeAgentOptions
+        ClaudeAgentOptions options = new()
         {
             WorkingDirectory = baseDir,
             PermissionMode = PermissionMode.BypassPermissions,
-            SystemPrompt = $@"You are a coordinator. You can ONLY use the Task tool to spawn subagents.
+            SystemPrompt = @"You are a coordinator. You can ONLY use the Task tool to spawn subagents.
 
 CRITICAL: You MUST NOT use WebSearch or Write directly. You MUST spawn the researcher subagent.
 
@@ -140,12 +140,16 @@ DO NOT DO THE RESEARCH YOURSELF. SPAWN THE SUBAGENT.",
         Console.WriteLine();
 
         // Debug: Show the agents JSON that will be passed
-        var agentsJson = System.Text.Json.JsonSerializer.Serialize(
+        string agentsJson = JsonSerializer.Serialize(
             agents.ToDictionary(
                 kv => kv.Key,
-                kv => new { description = kv.Value.Description, tools = kv.Value.Tools, prompt = kv.Value.Prompt, model = kv.Value.Model }
+                kv => new
+                {
+                    description = kv.Value.Description, tools = kv.Value.Tools, prompt = kv.Value.Prompt,
+                    model = kv.Value.Model
+                }
             ),
-            new System.Text.Json.JsonSerializerOptions { WriteIndented = true }
+            new JsonSerializerOptions { WriteIndented = true }
         );
         Console.WriteLine("[DEBUG] Agents JSON:");
         Console.WriteLine(agentsJson);
@@ -153,12 +157,12 @@ DO NOT DO THE RESEARCH YOURSELF. SPAWN THE SUBAGENT.",
 
         try
         {
-            await using var client = new ClaudeAgentClient(options);
+            await using ClaudeAgentClient client = new(options);
 
             // Create a session for bidirectional mode
-            await using var session = await client.CreateSessionAsync();
+            await using ClaudeAgentSession session = await client.CreateSessionAsync();
 
-            var prompt = $"Research 'what is the capital of France' in one word and save the answer to {testFile}";
+            string prompt = $"Research 'what is the capital of France' in one word and save the answer to {testFile}";
 
             Console.WriteLine($"Prompt: {prompt}");
             Console.WriteLine();
@@ -166,7 +170,7 @@ DO NOT DO THE RESEARCH YOURSELF. SPAWN THE SUBAGENT.",
 
             await session.SendAsync(prompt);
 
-            await foreach (var message in session.ReceiveAsync())
+            await foreach (Message message in session.ReceiveAsync())
             {
                 // Debug: show message type
                 Console.WriteLine($"[MSG] Type: {message.GetType().Name}");
@@ -176,11 +180,11 @@ DO NOT DO THE RESEARCH YOURSELF. SPAWN THE SUBAGENT.",
                 switch (message)
                 {
                     case AssistantMessage assistant:
-                        var parentId = assistant.MessageContent.ParentToolUseId;
-                        var prefix = parentId != null ? $"[SUBAGENT:{parentId[..8]}]" : "[MAIN]";
+                        string? parentId = assistant.MessageContent.ParentToolUseId;
+                        string prefix = parentId != null ? $"[SUBAGENT:{parentId[..8]}]" : "[MAIN]";
                         Console.WriteLine($"[MSG] ParentToolUseId: {parentId ?? "(null)"}");
 
-                        foreach (var block in assistant.MessageContent.Content)
+                        foreach (ContentBlock block in assistant.MessageContent.Content)
                         {
                             switch (block)
                             {
@@ -191,38 +195,41 @@ DO NOT DO THE RESEARCH YOURSELF. SPAWN THE SUBAGENT.",
                                     Console.WriteLine($"{prefix} Tool: {toolUse.Name}");
                                     if (toolUse.Name == "Task")
                                     {
-                                        var subagentType = GetJsonProperty(toolUse.Input, "subagent_type");
-                                        var description = GetJsonProperty(toolUse.Input, "description");
+                                        string? subagentType = GetJsonProperty(toolUse.Input, "subagent_type");
+                                        string? description = GetJsonProperty(toolUse.Input, "description");
                                         Console.WriteLine($"  -> Spawning subagent: {subagentType}");
                                         Console.WriteLine($"  -> Description: {description}");
                                     }
                                     else if (toolUse.Name == "Write")
                                     {
-                                        var filePath = GetJsonProperty(toolUse.Input, "file_path");
+                                        string? filePath = GetJsonProperty(toolUse.Input, "file_path");
                                         Console.WriteLine($"  -> Writing to: {filePath}");
                                     }
                                     else if (toolUse.Name == "WebSearch")
                                     {
-                                        var query = GetJsonProperty(toolUse.Input, "query");
+                                        string? query = GetJsonProperty(toolUse.Input, "query");
                                         Console.WriteLine($"  -> Query: {query}");
                                     }
+
                                     break;
                                 default:
                                     Console.Write($"*** {prefix} {block}");
                                     break;
                             }
                         }
+
                         break;
 
                     case ResultMessage result:
                         Console.WriteLine();
-                        Console.WriteLine($"--- Completed in {result.DurationMs / 1000.0:F1}s | Cost: ${result.TotalCostUsd:F4} ---");
+                        Console.WriteLine(
+                            $"--- Completed in {result.DurationMs / 1000.0:F1}s | Cost: ${result.TotalCostUsd:F4} ---");
                         // exit early no use waiting for this to time out...
                         goto finished;
                 }
             }
 
-        finished:
+            finished:
             Console.WriteLine();
             Console.WriteLine("==============================================");
             Console.WriteLine("   Test Result");
@@ -230,7 +237,7 @@ DO NOT DO THE RESEARCH YOURSELF. SPAWN THE SUBAGENT.",
 
             if (File.Exists(testFile))
             {
-                var content = await File.ReadAllTextAsync(testFile);
+                string content = await File.ReadAllTextAsync(testFile);
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("SUCCESS: File was created!");
                 Console.ResetColor();
@@ -256,12 +263,13 @@ DO NOT DO THE RESEARCH YOURSELF. SPAWN THE SUBAGENT.",
     {
         try
         {
-            if (element.TryGetProperty(propertyName, out var value))
+            if (element.TryGetProperty(propertyName, out JsonElement value))
             {
                 return value.GetString();
             }
         }
         catch { }
+
         return null;
     }
 
@@ -272,10 +280,10 @@ DO NOT DO THE RESEARCH YOURSELF. SPAWN THE SUBAGENT.",
         Console.WriteLine("╚══════════════════════════════════════════════════════════════╝");
         Console.WriteLine();
 
-        var testFile = Path.Combine(Directory.GetCurrentDirectory(), "output", "test.txt");
+        string testFile = Path.Combine(Directory.GetCurrentDirectory(), "output", "test.txt");
 
         // Define subagent
-        var agents = new Dictionary<string, AgentDefinition>
+        Dictionary<string, AgentDefinition> agents = new()
         {
             ["researcher"] = new AgentDefinition
             {
@@ -291,7 +299,7 @@ DO NOT DO THE RESEARCH YOURSELF. SPAWN THE SUBAGENT.",
         Console.WriteLine("CONFIGURATION 1: Tools = [\"Task\"] (uses --tools flag)");
         Console.WriteLine("═══════════════════════════════════════════════════════════════");
 
-        var options1 = new ClaudeAgentOptions
+        ClaudeAgentOptions options1 = new()
         {
             Tools = new ToolsList(["Task"]),
             Agents = agents,
@@ -301,7 +309,7 @@ DO NOT DO THE RESEARCH YOURSELF. SPAWN THE SUBAGENT.",
             MaxTurns = 10
         };
 
-        var args1 = CliArgumentCapture.BuildExpectedArguments(options1);
+        List<string> args1 = CliArgumentCapture.BuildExpectedArguments(options1);
         CliArgumentCapture.PrintCliArguments(args1, Console.WriteLine);
 
         // Configuration 2: Using AllowedTools property (--allowedTools flag)
@@ -309,7 +317,7 @@ DO NOT DO THE RESEARCH YOURSELF. SPAWN THE SUBAGENT.",
         Console.WriteLine("CONFIGURATION 2: AllowedTools = [\"Task\"] (uses --allowedTools flag)");
         Console.WriteLine("═══════════════════════════════════════════════════════════════");
 
-        var options2 = new ClaudeAgentOptions
+        ClaudeAgentOptions options2 = new()
         {
             AllowedTools = ["Task"],
             Agents = agents,
@@ -319,7 +327,7 @@ DO NOT DO THE RESEARCH YOURSELF. SPAWN THE SUBAGENT.",
             MaxTurns = 10
         };
 
-        var args2 = CliArgumentCapture.BuildExpectedArguments(options2);
+        List<string> args2 = CliArgumentCapture.BuildExpectedArguments(options2);
         CliArgumentCapture.PrintCliArguments(args2, Console.WriteLine);
 
         // Configuration 3: Empty Tools + AllowedTools
@@ -327,9 +335,9 @@ DO NOT DO THE RESEARCH YOURSELF. SPAWN THE SUBAGENT.",
         Console.WriteLine("CONFIGURATION 3: Tools = [], AllowedTools = [\"Task\"]");
         Console.WriteLine("═══════════════════════════════════════════════════════════════");
 
-        var options3 = new ClaudeAgentOptions
+        ClaudeAgentOptions options3 = new()
         {
-            Tools = new ToolsList([]),  // Empty = disable defaults
+            Tools = new ToolsList([]), // Empty = disable defaults
             AllowedTools = ["Task"],
             Agents = agents,
             Model = "sonnet",
@@ -338,7 +346,7 @@ DO NOT DO THE RESEARCH YOURSELF. SPAWN THE SUBAGENT.",
             MaxTurns = 10
         };
 
-        var args3 = CliArgumentCapture.BuildExpectedArguments(options3);
+        List<string> args3 = CliArgumentCapture.BuildExpectedArguments(options3);
         CliArgumentCapture.PrintCliArguments(args3, Console.WriteLine);
 
         if (includeComparison)

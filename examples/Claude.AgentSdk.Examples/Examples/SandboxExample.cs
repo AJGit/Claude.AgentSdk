@@ -3,7 +3,7 @@ using Claude.AgentSdk.Messages;
 namespace Claude.AgentSdk.Examples.Examples;
 
 /// <summary>
-/// Demonstrates sandbox configuration options for secure command execution.
+///     Demonstrates sandbox configuration options for secure command execution.
 /// </summary>
 public class SandboxExample : IExample
 {
@@ -19,48 +19,48 @@ public class SandboxExample : IExample
         Console.WriteLine("=== Example 1: Simple Sandbox Mode ===");
         Console.WriteLine("Using SandboxMode.Strict for basic sandboxing.\n");
 
-        var simpleOptions = new ClaudeAgentOptions
+        ClaudeAgentOptions simpleOptions = new()
         {
             // Simple mode - just specify strict/permissive/off
             Sandbox = SandboxMode.Strict,
             MaxTurns = 1
         };
 
-        Console.WriteLine($"Configured with: Sandbox = SandboxMode.Strict");
+        Console.WriteLine("Configured with: Sandbox = SandboxMode.Strict");
 
         // Example 2: Using static helpers
         Console.WriteLine("\n=== Example 2: Static Helpers ===");
         Console.WriteLine("Using SandboxConfig static properties for cleaner syntax.\n");
 
-        var helperOptions = new ClaudeAgentOptions
+        ClaudeAgentOptions helperOptions = new()
         {
-            Sandbox = SandboxConfig.Permissive,  // Equivalent to SandboxMode.Permissive
+            Sandbox = SandboxConfig.Permissive, // Equivalent to SandboxMode.Permissive
             MaxTurns = 1
         };
 
-        Console.WriteLine($"Configured with: Sandbox = SandboxConfig.Permissive");
+        Console.WriteLine("Configured with: Sandbox = SandboxConfig.Permissive");
 
         // Example 3: Detailed settings for advanced control
         Console.WriteLine("\n=== Example 3: Detailed Sandbox Settings ===");
         Console.WriteLine("Full control over sandbox behavior with SandboxSettings.\n");
 
-        var detailedOptions = new ClaudeAgentOptions
+        ClaudeAgentOptions detailedOptions = new()
         {
             Sandbox = new SandboxSettings
             {
                 IsEnabled = true,
-                AutoAllowBashIfSandboxed = true,  // Auto-approve bash when sandboxed
-                ExcludedCommands = ["docker", "podman"],  // These bypass sandbox
-                AllowUnsandboxedCommands = false,  // Model cannot request unsandboxed execution
+                AutoAllowBashIfSandboxed = true, // Auto-approve bash when sandboxed
+                ExcludedCommands = ["docker", "podman"], // These bypass sandbox
+                AllowUnsandboxedCommands = false, // Model cannot request unsandboxed execution
                 Network = new NetworkSandboxSettings
                 {
-                    AllowLocalBinding = true,  // Allow dev servers to bind ports
-                    AllowUnixSockets = ["/var/run/docker.sock"],  // Docker socket access
+                    AllowLocalBinding = true, // Allow dev servers to bind ports
+                    AllowUnixSockets = ["/var/run/docker.sock"], // Docker socket access
                     HttpProxyPort = 8080
                 },
                 IgnoreViolations = new SandboxIgnoreViolations
                 {
-                    File = ["/tmp/*", "/var/tmp/*"],  // Ignore violations in temp dirs
+                    File = ["/tmp/*", "/var/tmp/*"], // Ignore violations in temp dirs
                     Network = ["localhost", "127.0.0.1"]
                 }
             },
@@ -78,7 +78,7 @@ public class SandboxExample : IExample
         Console.WriteLine("\n=== Example 4: Fluent Configuration ===");
         Console.WriteLine("Using SandboxConfig.WithSettings for fluent API.\n");
 
-        var fluentOptions = new ClaudeAgentOptions
+        ClaudeAgentOptions fluentOptions = new()
         {
             Sandbox = SandboxConfig.WithSettings(s => s with
             {
@@ -93,24 +93,25 @@ public class SandboxExample : IExample
         // Run a simple query with sandbox enabled
         Console.WriteLine("\n=== Running Query with Sandbox ===\n");
 
-        await using var client = new ClaudeAgentClient(simpleOptions);
+        await using ClaudeAgentClient client = new(simpleOptions);
 
-        var prompt = "What is 2 + 2? Respond with just the number.";
+        string prompt = "What is 2 + 2? Respond with just the number.";
         Console.WriteLine($"Prompt: {prompt}\n");
         Console.WriteLine("Response:");
 
-        await foreach (var message in client.QueryAsync(prompt))
+        await foreach (Message message in client.QueryAsync(prompt))
         {
             switch (message)
             {
                 case AssistantMessage assistant:
-                    foreach (var block in assistant.MessageContent.Content)
+                    foreach (ContentBlock block in assistant.MessageContent.Content)
                     {
                         if (block is TextBlock text)
                         {
                             Console.Write(text.Text);
                         }
                     }
+
                     break;
 
                 case ResultMessage result:

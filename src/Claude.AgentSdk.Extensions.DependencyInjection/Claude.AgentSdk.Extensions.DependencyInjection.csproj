@@ -1,0 +1,70 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+
+    <!-- Package Info -->
+    <PackageId>AJGit.Claude.AgentSdk.Extensions.DependencyInjection</PackageId>
+    <!-- Version is set via -p:Version during CI/CD; this is the fallback for local builds -->
+    <Version>0.0.0-dev</Version>
+    <Authors>AJGit</Authors>
+    <Company>AJGit</Company>
+    <Product>Claude.AgentSdk.Extensions.DependencyInjection</Product>
+    <Description>ASP.NET Core dependency injection extensions for Claude.AgentSdk. Provides AddClaudeAgent, IOptions configuration binding, health checks, background services, and OpenTelemetry integration.</Description>
+    <PackageTags>anthropic;claude;agent;sdk;ai;llm;dependency-injection;aspnetcore;microsoft-extensions</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Copyright>Copyright (c) 2025 AJGit</Copyright>
+
+    <!-- Repository Info -->
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/ajgit/Claude.AgentSdk</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/ajgit/Claude.AgentSdk</PackageProjectUrl>
+
+    <!-- Package README -->
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <!-- Release Notes -->
+    <PackageReleaseNotes>Initial release with dependency injection extensions including AddClaudeAgent, IOptions configuration, health checks, and OpenTelemetry support.</PackageReleaseNotes>
+
+    <!-- Build Settings -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- SourceLink for debugging -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <!-- Core SDK reference -->
+  <ItemGroup>
+    <ProjectReference Include="..\Claude.AgentSdk\Claude.AgentSdk.csproj" />
+  </ItemGroup>
+
+  <!-- Microsoft.Extensions dependencies -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="9.0.0" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <!-- OpenTelemetry (optional, not required) -->
+  <ItemGroup>
+    <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="9.0.0" />
+  </ItemGroup>
+
+  <!-- Include README in package -->
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

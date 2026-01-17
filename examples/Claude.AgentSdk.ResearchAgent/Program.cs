@@ -26,12 +26,14 @@ public static class Program
     // Default prompt for auto-run mode
     private const string DefaultPrompt = "What programming language had the highest uptake in 2025?";
 
+    private static int _messageCounter;
+
     public static async Task Main(string[] args)
     {
         // Interactive mode is default; use --auto for debugging with default prompt
-        var isAutoMode = args.Contains("--auto");
-        var customPrompt = args.FirstOrDefault(a => !a.StartsWith("--"));
-        var isInteractive = !isAutoMode && customPrompt == null;
+        bool isAutoMode = args.Contains("--auto");
+        string? customPrompt = args.FirstOrDefault(a => !a.StartsWith("--"));
+        bool isInteractive = !isAutoMode && customPrompt == null;
 
         Console.WriteLine("════════════════════════════════════════════════════════");
         Console.WriteLine("     Research Agent - Multi-Agent Orchestration Test");
@@ -39,14 +41,14 @@ public static class Program
         Console.WriteLine();
 
         // Setup directories - use FULL ABSOLUTE PATHS
-        var baseDir = Directory.GetCurrentDirectory();
-        var filesDir = Path.Combine(baseDir, "files");
-        var logsDir = Path.Combine(baseDir, "logs");
-        var sessionDir = Path.Combine(logsDir, $"session_{DateTime.Now:yyyyMMdd_HHmmss}");
+        string baseDir = Directory.GetCurrentDirectory();
+        string filesDir = Path.Combine(baseDir, "files");
+        string logsDir = Path.Combine(baseDir, "logs");
+        string sessionDir = Path.Combine(logsDir, $"session_{DateTime.Now:yyyyMMdd_HHmmss}");
 
         // FULL ABSOLUTE PATHS for research_notes and reports
-        var researchNotesFullPath = Path.GetFullPath(Path.Combine(filesDir, "research_notes"));
-        var reportsFullPath = Path.GetFullPath(Path.Combine(filesDir, "reports"));
+        string researchNotesFullPath = Path.GetFullPath(Path.Combine(filesDir, "research_notes"));
+        string reportsFullPath = Path.GetFullPath(Path.Combine(filesDir, "reports"));
 
         // Clear and recreate output directories
         Debug.WriteLine("Clearing output directories...");
@@ -60,10 +62,10 @@ public static class Program
         Debug.WriteLine("");
 
         // Load prompts and inject full paths
-        var promptsDir = Path.Combine(AppContext.BaseDirectory, "Prompts");
-        var leadAgentPrompt = await LoadPromptAsync(Path.Combine(promptsDir, "LeadAgent.txt"));
-        var researcherPrompt = await LoadPromptAsync(Path.Combine(promptsDir, "Researcher.txt"));
-        var reportWriterPrompt = await LoadPromptAsync(Path.Combine(promptsDir, "ReportWriter.txt"));
+        string promptsDir = Path.Combine(AppContext.BaseDirectory, "Prompts");
+        string leadAgentPrompt = await LoadPromptAsync(Path.Combine(promptsDir, "LeadAgent.txt"));
+        string researcherPrompt = await LoadPromptAsync(Path.Combine(promptsDir, "Researcher.txt"));
+        string reportWriterPrompt = await LoadPromptAsync(Path.Combine(promptsDir, "ReportWriter.txt"));
 
         // IMPORTANT: Replace relative paths with full absolute paths
         // The CLI may not respect WorkingDirectory for file operations
@@ -84,18 +86,18 @@ public static class Program
             .Replace("files/reports", reportsFullPath);
 
         // Initialize subagent tracker
-        using var tracker = new SubagentTracker(sessionDir);
+        using SubagentTracker tracker = new(sessionDir);
 
         // Define specialized subagents with full paths in descriptions
         // Each subagent gets exactly the tools listed here - independent of main agent's tools
-        var agents = new Dictionary<string, AgentDefinition>
+        Dictionary<string, AgentDefinition> agents = new()
         {
             ["researcher"] = new AgentDefinition
             {
                 Description = "Use this agent when you need to gather research information on any topic. " +
-                    "The researcher uses web search to find relevant information, articles, and sources " +
-                    $"from across the internet. Writes research findings to {researchNotesFullPath} " +
-                    "for later use by report writers.",
+                              "The researcher uses web search to find relevant information, articles, and sources " +
+                              $"from across the internet. Writes research findings to {researchNotesFullPath} " +
+                              "for later use by report writers.",
                 // Subagent tools are independent - they get exactly these tools
                 Tools = ["WebSearch", "Read", "Write"],
                 Prompt = researcherPrompt,
@@ -104,9 +106,9 @@ public static class Program
             ["report-writer"] = new AgentDefinition
             {
                 Description = "Use this agent when you need to create a formal research report document. " +
-                    $"The report-writer reads research findings from {researchNotesFullPath} and synthesizes " +
-                    $"them into clear, concise, professionally formatted markdown reports in {reportsFullPath}. " +
-                    "Does NOT conduct web searches - only reads existing research notes and creates reports.",
+                              $"The report-writer reads research findings from {researchNotesFullPath} and synthesizes " +
+                              $"them into clear, concise, professionally formatted markdown reports in {reportsFullPath}. " +
+                              "Does NOT conduct web searches - only reads existing research notes and creates reports.",
                 // Subagent tools are independent - they get exactly these tools
                 Tools = ["Glob", "Read", "Write"],
                 Prompt = reportWriterPrompt,
@@ -115,7 +117,7 @@ public static class Program
         };
 
         // Configure hooks for tracking
-        var hooks = new Dictionary<HookEvent, IReadOnlyList<HookMatcher>>
+        Dictionary<HookEvent, IReadOnlyList<HookMatcher>> hooks = new()
         {
             [HookEvent.PreToolUse] = new List<HookMatcher>
             {
@@ -132,27 +134,25 @@ public static class Program
                     // Match all tools
                     Hooks = [tracker.PostToolUseHookAsync]
                 }
-            }
-        };
-
-        // Add SubagentStart/SubagentStop hooks - use tracker's hooks for consistent context tracking
-        hooks[HookEvent.SubagentStart] = new List<HookMatcher>
-        {
-            new()
+            },
+            // Add SubagentStart/SubagentStop hooks - use tracker's hooks for consistent context tracking
+            [HookEvent.SubagentStart] = new List<HookMatcher>
             {
-                Hooks = [tracker.SubagentStartHookAsync]
-            }
-        };
-
-        hooks[HookEvent.SubagentStop] = new List<HookMatcher>
-        {
-            new()
+                new()
+                {
+                    Hooks = [tracker.SubagentStartHookAsync]
+                }
+            },
+            [HookEvent.SubagentStop] = new List<HookMatcher>
             {
-                Hooks = [tracker.SubagentStopHookAsync]
+                new()
+                {
+                    Hooks = [tracker.SubagentStopHookAsync]
+                }
             }
         };
 
-        var options = new ClaudeAgentOptions
+        ClaudeAgentOptions options = new()
         {
             WorkingDirectory = baseDir,
             PermissionMode = PermissionMode.BypassPermissions,
@@ -168,10 +168,10 @@ public static class Program
 
         try
         {
-            await using var client = new ClaudeAgentClient(options);
+            await using ClaudeAgentClient client = new(options);
 
             // Create a session for bidirectional communication
-            await using var session = await client.CreateSessionAsync();
+            await using ClaudeAgentSession session = await client.CreateSessionAsync();
 
             if (isInteractive)
             {
@@ -185,7 +185,7 @@ public static class Program
                     Console.Write("\nYou: ");
                     Console.ResetColor();
 
-                    var userInput = Console.ReadLine()?.Trim();
+                    string? userInput = Console.ReadLine()?.Trim();
 
                     if (string.IsNullOrEmpty(userInput) ||
                         userInput.Equals("exit", StringComparison.OrdinalIgnoreCase) ||
@@ -201,7 +201,7 @@ public static class Program
             else
             {
                 // Auto-run mode - use default or custom prompt
-                var prompt = customPrompt ?? DefaultPrompt;
+                string prompt = customPrompt ?? DefaultPrompt;
 
                 Debug.WriteLine("═══════════════════════════════════════════════════════════════");
                 Debug.WriteLine("AUTO-RUN MODE");
@@ -236,7 +236,7 @@ public static class Program
         Debug.WriteLine("\n--- Agent Response ---");
 
         // Stream and process responses
-        await foreach (var message in session.ReceiveResponseAsync())
+        await foreach (Message message in session.ReceiveResponseAsync())
         {
             if (ProcessMessage(message, tracker))
             {
@@ -257,7 +257,7 @@ public static class Program
 
         if (Directory.Exists(fullPath))
         {
-            foreach (var file in Directory.GetFiles(fullPath))
+            foreach (string file in Directory.GetFiles(fullPath))
             {
                 File.Delete(file);
                 Debug.WriteLine($"  Deleted: {file}");
@@ -276,7 +276,7 @@ public static class Program
             return;
         }
 
-        var files = Directory.GetFiles(fullPath);
+        string[] files = Directory.GetFiles(fullPath);
         if (files.Length == 0)
         {
             Debug.WriteLine($"{label}: (none)");
@@ -284,9 +284,9 @@ public static class Program
         else
         {
             Debug.WriteLine($"{label}:");
-            foreach (var file in files)
+            foreach (string file in files)
             {
-                var info = new FileInfo(file);
+                FileInfo info = new(file);
                 Debug.WriteLine($"    - {info.Name} ({info.Length} bytes)");
             }
         }
@@ -303,8 +303,6 @@ public static class Program
         return await File.ReadAllTextAsync(path);
     }
 
-    private static int _messageCounter;
-
     private static bool ProcessMessage(Message message, SubagentTracker tracker)
     {
         switch (message)
@@ -314,19 +312,25 @@ public static class Program
 
                 // Check for parent_tool_use_id to track subagent context
                 // Also consider hook-based tracking (subagents may be active even without message context)
-                var parentId = assistant.MessageContent.ParentToolUseId;
-                var hasMessageContext = parentId is not null;
-                var hasActiveSubagents = tracker.HasActiveSubagents;
-                var isSubagent = hasMessageContext || hasActiveSubagents;
+                string? parentId = assistant.MessageContent.ParentToolUseId;
+                bool hasMessageContext = parentId is not null;
+                bool hasActiveSubagents = tracker.HasActiveSubagents;
+                bool isSubagent = hasMessageContext || hasActiveSubagents;
 
                 // Show context label
                 string contextLabel;
                 if (hasMessageContext)
+                {
                     contextLabel = $"[SUBAGENT:{parentId?[..Math.Min(8, parentId.Length)]}]";
+                }
                 else if (hasActiveSubagents)
+                {
                     contextLabel = "[SUBAGENT:ACTIVE]";
+                }
                 else
+                {
                     contextLabel = "[MAIN]";
+                }
 
                 if (hasMessageContext)
                 {
@@ -339,13 +343,14 @@ public static class Program
                 // If hasActiveSubagents but no message context, keep current context
 
                 // Analyze message content - count tool calls
-                var toolUseBlocks = assistant.MessageContent.Content.OfType<ToolUseBlock>().ToList();
-                var taskCalls = toolUseBlocks.Where(t => t.Name == "Task").ToList();
-                var otherCalls = toolUseBlocks.Where(t => t.Name != "Task").ToList();
+                List<ToolUseBlock> toolUseBlocks = assistant.MessageContent.Content.OfType<ToolUseBlock>().ToList();
+                List<ToolUseBlock> taskCalls = toolUseBlocks.Where(t => t.Name == "Task").ToList();
+                List<ToolUseBlock> otherCalls = toolUseBlocks.Where(t => t.Name != "Task").ToList();
 
                 if (toolUseBlocks.Count > 0)
                 {
-                    Debug.WriteLine($" MESSAGE #{_messageCounter} | {contextLabel} | Tools: {toolUseBlocks.Count} (Task:{taskCalls.Count}, Other:{otherCalls.Count}) ");
+                    Debug.WriteLine(
+                        $" MESSAGE #{_messageCounter} | {contextLabel} | Tools: {toolUseBlocks.Count} (Task:{taskCalls.Count}, Other:{otherCalls.Count}) ");
 
                     // KEY DIAGNOSTIC: Are Task and other tools in the same message?
                     Debug.WriteLineIf(taskCalls.Count > 0 && otherCalls.Count > 0 && !isSubagent,
@@ -354,13 +359,13 @@ public static class Program
                         $"   Other calls: {string.Join(", ", otherCalls.Select(t => t.Name))}");
                 }
 
-                foreach (var block in assistant.MessageContent.Content)
+                foreach (ContentBlock block in assistant.MessageContent.Content)
                 {
                     switch (block)
                     {
                         case TextBlock text:
                             // Show truncated text with context
-                            var displayText = text.Text.Length > 200
+                            string displayText = text.Text.Length > 200
                                 ? text.Text[..200] + "..."
                                 : text.Text;
                             Debug.WriteLine($"{contextLabel} {displayText}");
@@ -370,10 +375,11 @@ public static class Program
                             // Show ALL tool usage with clear context
                             if (toolUse.Name == "Task")
                             {
-                                var subagentType = GetJsonProperty(toolUse.Input, "subagent_type");
-                                var description = GetJsonProperty(toolUse.Input, "description") ?? "Unknown task";
+                                string? subagentType = GetJsonProperty(toolUse.Input, "subagent_type");
+                                string description = GetJsonProperty(toolUse.Input, "description") ?? "Unknown task";
 
-                                Debug.WriteLine($"{contextLabel} 🚀 SPAWNING SUBAGENT: {subagentType} (id:{toolUse.Id[..8]})");
+                                Debug.WriteLine(
+                                    $"{contextLabel} 🚀 SPAWNING SUBAGENT: {subagentType} (id:{toolUse.Id[..8]})");
                                 Debug.WriteLine($"           Description: {description}");
 
                                 if (!string.IsNullOrEmpty(subagentType))
@@ -389,6 +395,7 @@ public static class Program
                                 Debug.WriteLineIf(!isSubagent && toolUse.Name != "Task",
                                     $"⚠️  WARNING: Main agent using {toolUse.Name} directly!");
                             }
+
                             break;
 
                         case ToolResultBlock toolResult:
@@ -396,6 +403,7 @@ public static class Program
                             break;
                     }
                 }
+
                 break;
 
             case ResultMessage result:
@@ -403,6 +411,7 @@ public static class Program
                 Debug.WriteLine($"[Completed in {result.DurationMs / 1000.0:F1}s | Cost: ${result.TotalCostUsd:F4}]");
                 return true;
         }
+
         return false;
     }
 
@@ -410,7 +419,7 @@ public static class Program
     {
         try
         {
-            if (element.TryGetProperty(propertyName, out var value))
+            if (element.TryGetProperty(propertyName, out JsonElement value))
             {
                 return value.GetString();
             }
@@ -419,6 +428,7 @@ public static class Program
         {
             // Ignore
         }
+
         return null;
     }
 }

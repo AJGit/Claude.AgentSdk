@@ -1,8 +1,24 @@
+using Claude.AgentSdk.Attributes;
+using Claude.AgentSdk.Types;
+
 namespace Claude.AgentSdk.Messages;
 
 /// <summary>
 ///     Base class for all message types from the Claude CLI.
 /// </summary>
+/// <remarks>
+///     Use the generated Match extension methods for functional pattern matching:
+///     <code>
+///     var result = message.Match(
+///         userMessage: u => $"User: {u.MessageContent.Content}",
+///         assistantMessage: a => $"Assistant: {a.MessageContent.Model}",
+///         systemMessage: s => $"System: {s.Subtype}",
+///         resultMessage: r => $"Result: {r.SessionId}",
+///         streamEvent: e => $"Event: {e.Uuid}"
+///     );
+///     </code>
+/// </remarks>
+[GenerateMatch]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
 [JsonDerivedType(typeof(UserMessage), "user")]
 [JsonDerivedType(typeof(AssistantMessage), "assistant")]
@@ -62,6 +78,12 @@ public sealed record SystemMessage : Message
 {
     [JsonPropertyName("subtype")] public required string Subtype { get; init; }
 
+    /// <summary>
+    ///     Gets the strongly-typed subtype enum value.
+    /// </summary>
+    [JsonIgnore]
+    public SystemMessageSubtype SubtypeEnum => EnumStringMappings.ParseSystemMessageSubtype(Subtype);
+
     [JsonPropertyName("session_id")] public string? SessionId { get; init; }
 
     [JsonPropertyName("cwd")] public string? Cwd { get; init; }
@@ -100,6 +122,12 @@ public sealed record McpServerStatus
 
     [JsonPropertyName("status")] public required string Status { get; init; }
 
+    /// <summary>
+    ///     Gets the strongly-typed status enum value.
+    /// </summary>
+    [JsonIgnore]
+    public McpServerStatusType StatusEnum => EnumStringMappings.ParseMcpServerStatusType(Status);
+
     [JsonPropertyName("error")] public string? Error { get; init; }
 }
 
@@ -121,6 +149,12 @@ public sealed record CompactMetadata
 public sealed record ResultMessage : Message
 {
     [JsonPropertyName("subtype")] public required string Subtype { get; init; }
+
+    /// <summary>
+    ///     Gets the strongly-typed subtype enum value.
+    /// </summary>
+    [JsonIgnore]
+    public ResultMessageSubtype SubtypeEnum => EnumStringMappings.ParseResultMessageSubtype(Subtype);
 
     [JsonPropertyName("duration_ms")] public required int DurationMs { get; init; }
 

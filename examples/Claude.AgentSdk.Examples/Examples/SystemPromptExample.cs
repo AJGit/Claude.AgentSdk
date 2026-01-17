@@ -3,7 +3,7 @@ using Claude.AgentSdk.Messages;
 namespace Claude.AgentSdk.Examples.Examples;
 
 /// <summary>
-/// Demonstrates different system prompt configurations.
+///     Demonstrates different system prompt configurations.
 /// </summary>
 public class SystemPromptExample : IExample
 {
@@ -53,7 +53,7 @@ public class SystemPromptExample : IExample
         {
             // Use preset but append custom instructions
             SystemPrompt = SystemPromptConfig.ClaudeCode(
-                append: @"
+                @"
 Additional rules:
 - Always use TypeScript instead of JavaScript
 - Prefer functional programming patterns
@@ -104,6 +104,7 @@ Additional rules:
                             Console.Write(text.Text);
                         }
                     }
+
                     break;
 
                 case ResultMessage result:

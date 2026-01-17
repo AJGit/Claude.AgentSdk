@@ -1,8 +1,22 @@
+using Claude.AgentSdk.Attributes;
+
 namespace Claude.AgentSdk.Messages;
 
 /// <summary>
 ///     Base class for all content blocks in messages.
 /// </summary>
+/// <remarks>
+///     Use the generated Match extension methods for functional pattern matching:
+///     <code>
+///     var text = contentBlock.Match(
+///         textBlock: t => t.Text,
+///         thinkingBlock: t => t.Thinking,
+///         toolUseBlock: t => $"Tool: {t.Name}",
+///         toolResultBlock: t => t.Content?.ToString() ?? ""
+///     );
+///     </code>
+/// </remarks>
+[GenerateMatch]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
 [JsonDerivedType(typeof(TextBlock), "text")]
 [JsonDerivedType(typeof(ThinkingBlock), "thinking")]

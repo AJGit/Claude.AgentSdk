@@ -1,4 +1,4 @@
-using Claude.AgentSdk.Exceptions;
+﻿using Claude.AgentSdk.Exceptions;
 using Microsoft.Extensions.Logging;
 
 namespace Claude.AgentSdk.Transport;
@@ -8,8 +8,8 @@ namespace Claude.AgentSdk.Transport;
 /// </summary>
 internal sealed class CliPathResolver
 {
-    private static readonly string[] WindowsCliNames = ["claude.exe", "claude.cmd"];
-    private static readonly string[] UnixCliNames = ["claude"];
+    private static readonly string[] _windowsCliNames = ["claude.exe", "claude.cmd"];
+    private static readonly string[] _unixCliNames = ["claude"];
     private readonly string? _explicitPath;
     private readonly ILogger? _logger;
 
@@ -116,7 +116,7 @@ internal sealed class CliPathResolver
 
     private static string[] GetCliNamesForPlatform()
     {
-        return OperatingSystem.IsWindows() ? WindowsCliNames : UnixCliNames;
+        return OperatingSystem.IsWindows() ? _windowsCliNames : _unixCliNames;
     }
 
     private static List<string> GetCommonPathsForPlatform(string[] cliNames)

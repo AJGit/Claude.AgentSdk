@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Claude.AgentSdk.Messages;
 
 namespace Claude.AgentSdk.Tests.Messages;
@@ -14,7 +14,16 @@ public class ContentBlockTests
         WriteIndented = false
     };
 
-    #region TextBlock Tests
+    /// <summary>
+    ///     Simple helper for building JSON objects in tests.
+    /// </summary>
+    private sealed class JsonObject : Dictionary<string, object?>
+    {
+        public string ToJsonString()
+        {
+            return JsonSerializer.Serialize(this);
+        }
+    }
 
     [Fact]
     public void TextBlock_Deserialize_BasicText()
@@ -23,10 +32,10 @@ public class ContentBlockTests
         const string json = """{"type":"text","text":"Hello, world!"}""";
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var textBlock = Assert.IsType<TextBlock>(block);
+        TextBlock textBlock = Assert.IsType<TextBlock>(block);
         Assert.Equal("Hello, world!", textBlock.Text);
     }
 
@@ -37,10 +46,10 @@ public class ContentBlockTests
         const string json = """{"type":"text","text":""}""";
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var textBlock = Assert.IsType<TextBlock>(block);
+        TextBlock textBlock = Assert.IsType<TextBlock>(block);
         Assert.Equal("", textBlock.Text);
     }
 
@@ -55,14 +64,14 @@ public class ContentBlockTests
     {
         // Arrange - testing: {description}
         _ = description; // Used for test documentation in InlineData
-        var escapedText = JsonSerializer.Serialize(expectedText);
-        var json = $$$"""{"type":"text","text":{{{escapedText}}}}""";
+        string escapedText = JsonSerializer.Serialize(expectedText);
+        string json = $$$"""{"type":"text","text":{{{escapedText}}}}""";
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var textBlock = Assert.IsType<TextBlock>(block);
+        TextBlock textBlock = Assert.IsType<TextBlock>(block);
         Assert.Equal(expectedText, textBlock.Text);
     }
 
@@ -73,10 +82,10 @@ public class ContentBlockTests
         const string json = """{"type":"text","text":"Hello \u4e16\u754c \ud83c\udf0d"}""";
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var textBlock = Assert.IsType<TextBlock>(block);
+        TextBlock textBlock = Assert.IsType<TextBlock>(block);
         Assert.Contains("\u4e16\u754c", textBlock.Text); // Chinese characters
     }
 
@@ -84,14 +93,14 @@ public class ContentBlockTests
     public void TextBlock_Deserialize_LongText()
     {
         // Arrange
-        var longText = new string('x', 100000);
-        var json = $$$"""{"type":"text","text":"{{{longText}}}"}""";
+        string longText = new('x', 100000);
+        string json = $$$"""{"type":"text","text":"{{{longText}}}"}""";
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var textBlock = Assert.IsType<TextBlock>(block);
+        TextBlock textBlock = Assert.IsType<TextBlock>(block);
         Assert.Equal(longText, textBlock.Text);
     }
 
@@ -99,20 +108,16 @@ public class ContentBlockTests
     public void TextBlock_Serialize_Roundtrip()
     {
         // Arrange
-        var original = new TextBlock { Text = "Test content" };
+        TextBlock original = new() { Text = "Test content" };
 
         // Act
-        var json = JsonSerializer.Serialize<ContentBlock>(original, SerializerOptions);
-        var deserialized = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        string json = JsonSerializer.Serialize<ContentBlock>(original, SerializerOptions);
+        ContentBlock? deserialized = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var textBlock = Assert.IsType<TextBlock>(deserialized);
+        TextBlock textBlock = Assert.IsType<TextBlock>(deserialized);
         Assert.Equal(original.Text, textBlock.Text);
     }
-
-    #endregion
-
-    #region ThinkingBlock Tests
 
     [Fact]
     public void ThinkingBlock_Deserialize_BasicThinking()
@@ -121,10 +126,10 @@ public class ContentBlockTests
         const string json = """{"type":"thinking","thinking":"Let me think about this...","signature":"sig123"}""";
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var thinkingBlock = Assert.IsType<ThinkingBlock>(block);
+        ThinkingBlock thinkingBlock = Assert.IsType<ThinkingBlock>(block);
         Assert.Equal("Let me think about this...", thinkingBlock.Thinking);
         Assert.Equal("sig123", thinkingBlock.Signature);
     }
@@ -136,10 +141,10 @@ public class ContentBlockTests
         const string json = """{"type":"thinking","thinking":"","signature":""}""";
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var thinkingBlock = Assert.IsType<ThinkingBlock>(block);
+        ThinkingBlock thinkingBlock = Assert.IsType<ThinkingBlock>(block);
         Assert.Equal("", thinkingBlock.Thinking);
         Assert.Equal("", thinkingBlock.Signature);
     }
@@ -148,8 +153,8 @@ public class ContentBlockTests
     public void ThinkingBlock_Deserialize_LongThinking()
     {
         // Arrange
-        var longThinking = string.Join("\n", Enumerable.Repeat("Step by step reasoning...", 1000));
-        var json = new JsonObject
+        string longThinking = string.Join("\n", Enumerable.Repeat("Step by step reasoning...", 1000));
+        string json = new JsonObject
         {
             ["type"] = "thinking",
             ["thinking"] = longThinking,
@@ -157,10 +162,10 @@ public class ContentBlockTests
         }.ToJsonString();
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var thinkingBlock = Assert.IsType<ThinkingBlock>(block);
+        ThinkingBlock thinkingBlock = Assert.IsType<ThinkingBlock>(block);
         Assert.Equal(longThinking, thinkingBlock.Thinking);
     }
 
@@ -168,18 +173,18 @@ public class ContentBlockTests
     public void ThinkingBlock_Serialize_Roundtrip()
     {
         // Arrange
-        var original = new ThinkingBlock
+        ThinkingBlock original = new()
         {
             Thinking = "My reasoning process...",
             Signature = "signature_abc123"
         };
 
         // Act
-        var json = JsonSerializer.Serialize<ContentBlock>(original, SerializerOptions);
-        var deserialized = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        string json = JsonSerializer.Serialize<ContentBlock>(original, SerializerOptions);
+        ContentBlock? deserialized = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var thinkingBlock = Assert.IsType<ThinkingBlock>(deserialized);
+        ThinkingBlock thinkingBlock = Assert.IsType<ThinkingBlock>(deserialized);
         Assert.Equal(original.Thinking, thinkingBlock.Thinking);
         Assert.Equal(original.Signature, thinkingBlock.Signature);
     }
@@ -191,7 +196,7 @@ public class ContentBlockTests
     public void ThinkingBlock_Deserialize_SpecialCharactersInThinking(string thinking)
     {
         // Arrange
-        var json = new JsonObject
+        string json = new JsonObject
         {
             ["type"] = "thinking",
             ["thinking"] = thinking,
@@ -199,35 +204,31 @@ public class ContentBlockTests
         }.ToJsonString();
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var thinkingBlock = Assert.IsType<ThinkingBlock>(block);
+        ThinkingBlock thinkingBlock = Assert.IsType<ThinkingBlock>(block);
         Assert.Equal(thinking, thinkingBlock.Thinking);
     }
-
-    #endregion
-
-    #region ToolUseBlock Tests
 
     [Fact]
     public void ToolUseBlock_Deserialize_BasicToolUse()
     {
         // Arrange
         const string json = """
-            {
-                "type": "tool_use",
-                "id": "tool_123",
-                "name": "calculator",
-                "input": {"operation": "add", "a": 1, "b": 2}
-            }
-            """;
+                            {
+                                "type": "tool_use",
+                                "id": "tool_123",
+                                "name": "calculator",
+                                "input": {"operation": "add", "a": 1, "b": 2}
+                            }
+                            """;
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var toolUseBlock = Assert.IsType<ToolUseBlock>(block);
+        ToolUseBlock toolUseBlock = Assert.IsType<ToolUseBlock>(block);
         Assert.Equal("tool_123", toolUseBlock.Id);
         Assert.Equal("calculator", toolUseBlock.Name);
         Assert.Equal(JsonValueKind.Object, toolUseBlock.Input.ValueKind);
@@ -243,10 +244,10 @@ public class ContentBlockTests
         const string json = """{"type":"tool_use","id":"tool_456","name":"no_args","input":{}}""";
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var toolUseBlock = Assert.IsType<ToolUseBlock>(block);
+        ToolUseBlock toolUseBlock = Assert.IsType<ToolUseBlock>(block);
         Assert.Equal("tool_456", toolUseBlock.Id);
         Assert.Equal("no_args", toolUseBlock.Name);
         Assert.Equal(JsonValueKind.Object, toolUseBlock.Input.ValueKind);
@@ -258,34 +259,34 @@ public class ContentBlockTests
     {
         // Arrange
         const string json = """
-            {
-                "type": "tool_use",
-                "id": "tool_complex",
-                "name": "complex_tool",
-                "input": {
-                    "nested": {
-                        "deep": {
-                            "value": 42
-                        }
-                    },
-                    "array": [1, 2, 3],
-                    "mixed": [{"a": 1}, {"b": 2}]
-                }
-            }
-            """;
+                            {
+                                "type": "tool_use",
+                                "id": "tool_complex",
+                                "name": "complex_tool",
+                                "input": {
+                                    "nested": {
+                                        "deep": {
+                                            "value": 42
+                                        }
+                                    },
+                                    "array": [1, 2, 3],
+                                    "mixed": [{"a": 1}, {"b": 2}]
+                                }
+                            }
+                            """;
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var toolUseBlock = Assert.IsType<ToolUseBlock>(block);
+        ToolUseBlock toolUseBlock = Assert.IsType<ToolUseBlock>(block);
         Assert.Equal(42, toolUseBlock.Input.GetProperty("nested").GetProperty("deep").GetProperty("value").GetInt32());
 
-        var array = toolUseBlock.Input.GetProperty("array");
+        JsonElement array = toolUseBlock.Input.GetProperty("array");
         Assert.Equal(JsonValueKind.Array, array.ValueKind);
         Assert.Equal(3, array.GetArrayLength());
 
-        var mixed = toolUseBlock.Input.GetProperty("mixed");
+        JsonElement mixed = toolUseBlock.Input.GetProperty("mixed");
         Assert.Equal(2, mixed.GetArrayLength());
     }
 
@@ -294,29 +295,29 @@ public class ContentBlockTests
     {
         // Arrange
         const string json = """
-            {
-                "type": "tool_use",
-                "id": "tool_types",
-                "name": "all_types",
-                "input": {
-                    "string": "hello",
-                    "number_int": 42,
-                    "number_float": 3.14,
-                    "boolean_true": true,
-                    "boolean_false": false,
-                    "null_value": null,
-                    "array": [],
-                    "object": {}
-                }
-            }
-            """;
+                            {
+                                "type": "tool_use",
+                                "id": "tool_types",
+                                "name": "all_types",
+                                "input": {
+                                    "string": "hello",
+                                    "number_int": 42,
+                                    "number_float": 3.14,
+                                    "boolean_true": true,
+                                    "boolean_false": false,
+                                    "null_value": null,
+                                    "array": [],
+                                    "object": {}
+                                }
+                            }
+                            """;
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var toolUseBlock = Assert.IsType<ToolUseBlock>(block);
-        var input = toolUseBlock.Input;
+        ToolUseBlock toolUseBlock = Assert.IsType<ToolUseBlock>(block);
+        JsonElement input = toolUseBlock.Input;
 
         Assert.Equal("hello", input.GetProperty("string").GetString());
         Assert.Equal(42, input.GetProperty("number_int").GetInt32());
@@ -335,13 +336,13 @@ public class ContentBlockTests
     public void ToolUseBlock_Deserialize_VariousToolIds(string toolId)
     {
         // Arrange
-        var json = $$$"""{"type":"tool_use","id":"{{{toolId}}}","name":"test","input":{}}""";
+        string json = $$$"""{"type":"tool_use","id":"{{{toolId}}}","name":"test","input":{}}""";
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var toolUseBlock = Assert.IsType<ToolUseBlock>(block);
+        ToolUseBlock toolUseBlock = Assert.IsType<ToolUseBlock>(block);
         Assert.Equal(toolId, toolUseBlock.Id);
     }
 
@@ -349,8 +350,8 @@ public class ContentBlockTests
     public void ToolUseBlock_Serialize_Roundtrip()
     {
         // Arrange
-        var inputJson = JsonDocument.Parse("""{"key":"value","num":123}""").RootElement;
-        var original = new ToolUseBlock
+        JsonElement inputJson = JsonDocument.Parse("""{"key":"value","num":123}""").RootElement;
+        ToolUseBlock original = new()
         {
             Id = "tool_round",
             Name = "roundtrip_tool",
@@ -358,11 +359,11 @@ public class ContentBlockTests
         };
 
         // Act
-        var json = JsonSerializer.Serialize<ContentBlock>(original, SerializerOptions);
-        var deserialized = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        string json = JsonSerializer.Serialize<ContentBlock>(original, SerializerOptions);
+        ContentBlock? deserialized = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var toolUseBlock = Assert.IsType<ToolUseBlock>(deserialized);
+        ToolUseBlock toolUseBlock = Assert.IsType<ToolUseBlock>(deserialized);
         Assert.Equal(original.Id, toolUseBlock.Id);
         Assert.Equal(original.Name, toolUseBlock.Name);
         Assert.Equal("value", toolUseBlock.Input.GetProperty("key").GetString());
@@ -379,19 +380,15 @@ public class ContentBlockTests
     public void ToolUseBlock_Deserialize_VariousToolNames(string toolName)
     {
         // Arrange
-        var json = $$$"""{"type":"tool_use","id":"t1","name":"{{{toolName}}}","input":{}}""";
+        string json = $$$"""{"type":"tool_use","id":"t1","name":"{{{toolName}}}","input":{}}""";
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var toolUseBlock = Assert.IsType<ToolUseBlock>(block);
+        ToolUseBlock toolUseBlock = Assert.IsType<ToolUseBlock>(block);
         Assert.Equal(toolName, toolUseBlock.Name);
     }
-
-    #endregion
-
-    #region ToolResultBlock Tests
 
     [Fact]
     public void ToolResultBlock_Deserialize_BasicResult()
@@ -400,10 +397,10 @@ public class ContentBlockTests
         const string json = """{"type":"tool_result","tool_use_id":"tool_123","content":"Operation successful"}""";
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var toolResultBlock = Assert.IsType<ToolResultBlock>(block);
+        ToolResultBlock toolResultBlock = Assert.IsType<ToolResultBlock>(block);
         Assert.Equal("tool_123", toolResultBlock.ToolUseId);
         Assert.NotNull(toolResultBlock.Content);
         Assert.Equal("Operation successful", toolResultBlock.Content.Value.GetString());
@@ -414,13 +411,14 @@ public class ContentBlockTests
     public void ToolResultBlock_Deserialize_WithIsErrorTrue()
     {
         // Arrange
-        const string json = """{"type":"tool_result","tool_use_id":"tool_err","content":"Error: File not found","is_error":true}""";
+        const string json =
+            """{"type":"tool_result","tool_use_id":"tool_err","content":"Error: File not found","is_error":true}""";
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var toolResultBlock = Assert.IsType<ToolResultBlock>(block);
+        ToolResultBlock toolResultBlock = Assert.IsType<ToolResultBlock>(block);
         Assert.Equal("tool_err", toolResultBlock.ToolUseId);
         Assert.True(toolResultBlock.IsError);
         Assert.Equal("Error: File not found", toolResultBlock.Content?.GetString());
@@ -433,10 +431,10 @@ public class ContentBlockTests
         const string json = """{"type":"tool_result","tool_use_id":"tool_ok","content":"Success","is_error":false}""";
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var toolResultBlock = Assert.IsType<ToolResultBlock>(block);
+        ToolResultBlock toolResultBlock = Assert.IsType<ToolResultBlock>(block);
         Assert.False(toolResultBlock.IsError);
     }
 
@@ -447,10 +445,10 @@ public class ContentBlockTests
         const string json = """{"type":"tool_result","tool_use_id":"tool_null","content":null}""";
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var toolResultBlock = Assert.IsType<ToolResultBlock>(block);
+        ToolResultBlock toolResultBlock = Assert.IsType<ToolResultBlock>(block);
         // When JSON explicitly contains "content": null, the JsonElement? is null
         Assert.Null(toolResultBlock.Content);
     }
@@ -462,10 +460,10 @@ public class ContentBlockTests
         const string json = """{"type":"tool_result","tool_use_id":"tool_no_content"}""";
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var toolResultBlock = Assert.IsType<ToolResultBlock>(block);
+        ToolResultBlock toolResultBlock = Assert.IsType<ToolResultBlock>(block);
         Assert.Null(toolResultBlock.Content);
     }
 
@@ -476,10 +474,10 @@ public class ContentBlockTests
         const string json = """{"type":"tool_result","tool_use_id":"tool_obj","content":{"result":"data","count":5}}""";
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var toolResultBlock = Assert.IsType<ToolResultBlock>(block);
+        ToolResultBlock toolResultBlock = Assert.IsType<ToolResultBlock>(block);
         Assert.NotNull(toolResultBlock.Content);
         Assert.Equal(JsonValueKind.Object, toolResultBlock.Content.Value.ValueKind);
         Assert.Equal("data", toolResultBlock.Content.Value.GetProperty("result").GetString());
@@ -493,10 +491,10 @@ public class ContentBlockTests
         const string json = """{"type":"tool_result","tool_use_id":"tool_arr","content":[1,2,3,"four",{"five":5}]}""";
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var toolResultBlock = Assert.IsType<ToolResultBlock>(block);
+        ToolResultBlock toolResultBlock = Assert.IsType<ToolResultBlock>(block);
         Assert.NotNull(toolResultBlock.Content);
         Assert.Equal(JsonValueKind.Array, toolResultBlock.Content.Value.ValueKind);
         Assert.Equal(5, toolResultBlock.Content.Value.GetArrayLength());
@@ -506,8 +504,8 @@ public class ContentBlockTests
     public void ToolResultBlock_Serialize_Roundtrip()
     {
         // Arrange
-        var contentJson = JsonDocument.Parse("""{"output":"test result"}""").RootElement;
-        var original = new ToolResultBlock
+        JsonElement contentJson = JsonDocument.Parse("""{"output":"test result"}""").RootElement;
+        ToolResultBlock original = new()
         {
             ToolUseId = "tool_rt",
             Content = contentJson,
@@ -515,11 +513,11 @@ public class ContentBlockTests
         };
 
         // Act
-        var json = JsonSerializer.Serialize<ContentBlock>(original, SerializerOptions);
-        var deserialized = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        string json = JsonSerializer.Serialize<ContentBlock>(original, SerializerOptions);
+        ContentBlock? deserialized = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var toolResultBlock = Assert.IsType<ToolResultBlock>(deserialized);
+        ToolResultBlock toolResultBlock = Assert.IsType<ToolResultBlock>(deserialized);
         Assert.Equal(original.ToolUseId, toolResultBlock.ToolUseId);
         Assert.Equal(original.IsError, toolResultBlock.IsError);
         Assert.Equal("test result", toolResultBlock.Content?.GetProperty("output").GetString());
@@ -529,21 +527,17 @@ public class ContentBlockTests
     public void ToolResultBlock_Deserialize_LargeContent()
     {
         // Arrange
-        var largeArray = Enumerable.Range(0, 10000).ToArray();
-        var largeContent = JsonSerializer.Serialize(largeArray);
-        var json = $$$"""{"type":"tool_result","tool_use_id":"tool_large","content":{{{largeContent}}}}""";
+        int[] largeArray = Enumerable.Range(0, 10000).ToArray();
+        string largeContent = JsonSerializer.Serialize(largeArray);
+        string json = $$$"""{"type":"tool_result","tool_use_id":"tool_large","content":{{{largeContent}}}}""";
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var toolResultBlock = Assert.IsType<ToolResultBlock>(block);
+        ToolResultBlock toolResultBlock = Assert.IsType<ToolResultBlock>(block);
         Assert.Equal(10000, toolResultBlock.Content?.GetArrayLength());
     }
-
-    #endregion
-
-    #region Polymorphic Type Discrimination Tests
 
     [Theory]
     [InlineData("""{"type":"text","text":"hello"}""", typeof(TextBlock))]
@@ -553,7 +547,7 @@ public class ContentBlockTests
     public void ContentBlock_Deserialize_CorrectTypeDiscrimination(string json, Type expectedType)
     {
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
         Assert.NotNull(block);
@@ -577,14 +571,15 @@ public class ContentBlockTests
         const string json = """{"text":"hello"}""";
 
         // Act & Assert - System.Text.Json throws NotSupportedException when type discriminator is missing
-        Assert.ThrowsAny<NotSupportedException>(() => JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions));
+        Assert.ThrowsAny<NotSupportedException>(() =>
+            JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions));
     }
 
     [Fact]
     public void ContentBlock_Serialize_IncludesTypeDiscriminator()
     {
         // Arrange
-        var blocks = new ContentBlock[]
+        ContentBlock[] blocks = new ContentBlock[]
         {
             new TextBlock { Text = "test" },
             new ThinkingBlock { Thinking = "think", Signature = "sig" },
@@ -593,32 +588,28 @@ public class ContentBlockTests
         };
 
         // Act & Assert
-        foreach (var block in blocks)
+        foreach (ContentBlock block in blocks)
         {
-            var json = JsonSerializer.Serialize(block, SerializerOptions);
+            string json = JsonSerializer.Serialize(block, SerializerOptions);
             Assert.Contains("\"type\":", json);
         }
     }
-
-    #endregion
-
-    #region Array/Collection Tests
 
     [Fact]
     public void ContentBlockArray_Deserialize_MixedTypes()
     {
         // Arrange
         const string json = """
-            [
-                {"type":"text","text":"Hello"},
-                {"type":"thinking","thinking":"Let me think","signature":"sig"},
-                {"type":"tool_use","id":"t1","name":"bash","input":{"command":"ls"}},
-                {"type":"tool_result","tool_use_id":"t1","content":"file1.txt\nfile2.txt"}
-            ]
-            """;
+                            [
+                                {"type":"text","text":"Hello"},
+                                {"type":"thinking","thinking":"Let me think","signature":"sig"},
+                                {"type":"tool_use","id":"t1","name":"bash","input":{"command":"ls"}},
+                                {"type":"tool_result","tool_use_id":"t1","content":"file1.txt\nfile2.txt"}
+                            ]
+                            """;
 
         // Act
-        var blocks = JsonSerializer.Deserialize<ContentBlock[]>(json, SerializerOptions);
+        ContentBlock[]? blocks = JsonSerializer.Deserialize<ContentBlock[]>(json, SerializerOptions);
 
         // Assert
         Assert.NotNull(blocks);
@@ -636,7 +627,7 @@ public class ContentBlockTests
         const string json = "[]";
 
         // Act
-        var blocks = JsonSerializer.Deserialize<ContentBlock[]>(json, SerializerOptions);
+        ContentBlock[]? blocks = JsonSerializer.Deserialize<ContentBlock[]>(json, SerializerOptions);
 
         // Assert
         Assert.NotNull(blocks);
@@ -650,12 +641,12 @@ public class ContentBlockTests
         const string json = """[{"type":"text","text":"single"}]""";
 
         // Act
-        var blocks = JsonSerializer.Deserialize<ContentBlock[]>(json, SerializerOptions);
+        ContentBlock[]? blocks = JsonSerializer.Deserialize<ContentBlock[]>(json, SerializerOptions);
 
         // Assert
         Assert.NotNull(blocks);
         Assert.Single(blocks);
-        var textBlock = Assert.IsType<TextBlock>(blocks[0]);
+        TextBlock textBlock = Assert.IsType<TextBlock>(blocks[0]);
         Assert.Equal("single", textBlock.Text);
     }
 
@@ -663,7 +654,7 @@ public class ContentBlockTests
     public void ContentBlockArray_Serialize_Roundtrip()
     {
         // Arrange
-        var original = new ContentBlock[]
+        ContentBlock[] original = new ContentBlock[]
         {
             new TextBlock { Text = "First" },
             new TextBlock { Text = "Second" },
@@ -671,8 +662,8 @@ public class ContentBlockTests
         };
 
         // Act
-        var json = JsonSerializer.Serialize(original, SerializerOptions);
-        var deserialized = JsonSerializer.Deserialize<ContentBlock[]>(json, SerializerOptions);
+        string json = JsonSerializer.Serialize(original, SerializerOptions);
+        ContentBlock[]? deserialized = JsonSerializer.Deserialize<ContentBlock[]>(json, SerializerOptions);
 
         // Assert
         Assert.NotNull(deserialized);
@@ -689,7 +680,7 @@ public class ContentBlockTests
         const string json = """[{"type":"text","text":"list item"}]""";
 
         // Act
-        var blocks = JsonSerializer.Deserialize<List<ContentBlock>>(json, SerializerOptions);
+        List<ContentBlock>? blocks = JsonSerializer.Deserialize<List<ContentBlock>>(json, SerializerOptions);
 
         // Assert
         Assert.NotNull(blocks);
@@ -701,37 +692,33 @@ public class ContentBlockTests
     {
         // Arrange - simulates a conversation with multiple tool calls
         const string json = """
-            [
-                {"type":"text","text":"I'll help you with that."},
-                {"type":"tool_use","id":"t1","name":"read_file","input":{"path":"/test.txt"}},
-                {"type":"tool_use","id":"t2","name":"bash","input":{"command":"pwd"}},
-                {"type":"tool_result","tool_use_id":"t1","content":"file contents here"},
-                {"type":"tool_result","tool_use_id":"t2","content":"/home/user"},
-                {"type":"text","text":"Based on the results..."}
-            ]
-            """;
+                            [
+                                {"type":"text","text":"I'll help you with that."},
+                                {"type":"tool_use","id":"t1","name":"read_file","input":{"path":"/test.txt"}},
+                                {"type":"tool_use","id":"t2","name":"bash","input":{"command":"pwd"}},
+                                {"type":"tool_result","tool_use_id":"t1","content":"file contents here"},
+                                {"type":"tool_result","tool_use_id":"t2","content":"/home/user"},
+                                {"type":"text","text":"Based on the results..."}
+                            ]
+                            """;
 
         // Act
-        var blocks = JsonSerializer.Deserialize<ContentBlock[]>(json, SerializerOptions);
+        ContentBlock[]? blocks = JsonSerializer.Deserialize<ContentBlock[]>(json, SerializerOptions);
 
         // Assert
         Assert.NotNull(blocks);
         Assert.Equal(6, blocks.Length);
 
-        var toolUses = blocks.OfType<ToolUseBlock>().ToList();
+        List<ToolUseBlock> toolUses = blocks.OfType<ToolUseBlock>().ToList();
         Assert.Equal(2, toolUses.Count);
         Assert.Equal("read_file", toolUses[0].Name);
         Assert.Equal("bash", toolUses[1].Name);
 
-        var toolResults = blocks.OfType<ToolResultBlock>().ToList();
+        List<ToolResultBlock> toolResults = blocks.OfType<ToolResultBlock>().ToList();
         Assert.Equal(2, toolResults.Count);
         Assert.Equal("t1", toolResults[0].ToolUseId);
         Assert.Equal("t2", toolResults[1].ToolUseId);
     }
-
-    #endregion
-
-    #region Edge Cases and Error Handling
 
     [Fact]
     public void ContentBlock_Deserialize_ExtraProperties_Ignored()
@@ -740,10 +727,10 @@ public class ContentBlockTests
         const string json = """{"type":"text","text":"hello","extra_field":"ignored","another":123}""";
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var textBlock = Assert.IsType<TextBlock>(block);
+        TextBlock textBlock = Assert.IsType<TextBlock>(block);
         Assert.Equal("hello", textBlock.Text);
     }
 
@@ -752,17 +739,17 @@ public class ContentBlockTests
     {
         // Arrange
         const string json = """
-            {
-                "type"   :    "text"   ,
-                "text"   :    "spaced out"
-            }
-            """;
+                            {
+                                "type"   :    "text"   ,
+                                "text"   :    "spaced out"
+                            }
+                            """;
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var textBlock = Assert.IsType<TextBlock>(block);
+        TextBlock textBlock = Assert.IsType<TextBlock>(block);
         Assert.Equal("spaced out", textBlock.Text);
     }
 
@@ -838,25 +825,22 @@ public class ContentBlockTests
         // Act & Assert
         if (invalidJson == "null")
         {
-            var result = JsonSerializer.Deserialize<ContentBlock>(invalidJson, SerializerOptions);
+            ContentBlock? result = JsonSerializer.Deserialize<ContentBlock>(invalidJson, SerializerOptions);
             Assert.Null(result);
         }
         else
         {
-            Assert.ThrowsAny<JsonException>(() => JsonSerializer.Deserialize<ContentBlock>(invalidJson, SerializerOptions));
+            Assert.ThrowsAny<JsonException>(() =>
+                JsonSerializer.Deserialize<ContentBlock>(invalidJson, SerializerOptions));
         }
     }
-
-    #endregion
-
-    #region Record Equality Tests
 
     [Fact]
     public void TextBlock_Equality_SameValues_AreEqual()
     {
         // Arrange
-        var block1 = new TextBlock { Text = "test" };
-        var block2 = new TextBlock { Text = "test" };
+        TextBlock block1 = new() { Text = "test" };
+        TextBlock block2 = new() { Text = "test" };
 
         // Assert
         Assert.Equal(block1, block2);
@@ -867,8 +851,8 @@ public class ContentBlockTests
     public void TextBlock_Equality_DifferentValues_AreNotEqual()
     {
         // Arrange
-        var block1 = new TextBlock { Text = "test1" };
-        var block2 = new TextBlock { Text = "test2" };
+        TextBlock block1 = new() { Text = "test1" };
+        TextBlock block2 = new() { Text = "test2" };
 
         // Assert
         Assert.NotEqual(block1, block2);
@@ -879,9 +863,9 @@ public class ContentBlockTests
     public void ThinkingBlock_Equality_Works()
     {
         // Arrange
-        var block1 = new ThinkingBlock { Thinking = "think", Signature = "sig" };
-        var block2 = new ThinkingBlock { Thinking = "think", Signature = "sig" };
-        var block3 = new ThinkingBlock { Thinking = "think", Signature = "different" };
+        ThinkingBlock block1 = new() { Thinking = "think", Signature = "sig" };
+        ThinkingBlock block2 = new() { Thinking = "think", Signature = "sig" };
+        ThinkingBlock block3 = new() { Thinking = "think", Signature = "different" };
 
         // Assert
         Assert.Equal(block1, block2);
@@ -892,58 +876,54 @@ public class ContentBlockTests
     public void ToolResultBlock_Equality_WithNullContent()
     {
         // Arrange
-        var block1 = new ToolResultBlock { ToolUseId = "t1", Content = null };
-        var block2 = new ToolResultBlock { ToolUseId = "t1", Content = null };
+        ToolResultBlock block1 = new() { ToolUseId = "t1", Content = null };
+        ToolResultBlock block2 = new() { ToolUseId = "t1", Content = null };
 
         // Assert
         Assert.Equal(block1, block2);
     }
-
-    #endregion
-
-    #region Real-World Scenario Tests
 
     [Fact]
     public void ContentBlock_Deserialize_RealWorldAssistantResponse()
     {
         // Arrange - simulates a real Claude response with thinking and tool use
         const string json = """
-            [
-                {
-                    "type": "thinking",
-                    "thinking": "The user wants me to read a file. I should use the read_file tool with the provided path.",
-                    "signature": "EqoBCkYIAhILY2xhdWRlLW5vdGUiL1RoaXMgaXMgYSBzaWduYXR1cmUgZm9yIHRoZSBleHRlbmRlZCB0aGlua2luZyBibG9jaw=="
-                },
-                {
-                    "type": "text",
-                    "text": "I'll read that file for you."
-                },
-                {
-                    "type": "tool_use",
-                    "id": "toolu_01ABC123XYZ",
-                    "name": "read_file",
-                    "input": {
-                        "file_path": "/home/user/document.txt",
-                        "encoding": "utf-8"
-                    }
-                }
-            ]
-            """;
+                            [
+                                {
+                                    "type": "thinking",
+                                    "thinking": "The user wants me to read a file. I should use the read_file tool with the provided path.",
+                                    "signature": "EqoBCkYIAhILY2xhdWRlLW5vdGUiL1RoaXMgaXMgYSBzaWduYXR1cmUgZm9yIHRoZSBleHRlbmRlZCB0aGlua2luZyBibG9jaw=="
+                                },
+                                {
+                                    "type": "text",
+                                    "text": "I'll read that file for you."
+                                },
+                                {
+                                    "type": "tool_use",
+                                    "id": "toolu_01ABC123XYZ",
+                                    "name": "read_file",
+                                    "input": {
+                                        "file_path": "/home/user/document.txt",
+                                        "encoding": "utf-8"
+                                    }
+                                }
+                            ]
+                            """;
 
         // Act
-        var blocks = JsonSerializer.Deserialize<ContentBlock[]>(json, SerializerOptions);
+        ContentBlock[]? blocks = JsonSerializer.Deserialize<ContentBlock[]>(json, SerializerOptions);
 
         // Assert
         Assert.NotNull(blocks);
         Assert.Equal(3, blocks.Length);
 
-        var thinking = Assert.IsType<ThinkingBlock>(blocks[0]);
+        ThinkingBlock thinking = Assert.IsType<ThinkingBlock>(blocks[0]);
         Assert.Contains("read_file tool", thinking.Thinking);
 
-        var text = Assert.IsType<TextBlock>(blocks[1]);
+        TextBlock text = Assert.IsType<TextBlock>(blocks[1]);
         Assert.Equal("I'll read that file for you.", text.Text);
 
-        var toolUse = Assert.IsType<ToolUseBlock>(blocks[2]);
+        ToolUseBlock toolUse = Assert.IsType<ToolUseBlock>(blocks[2]);
         Assert.Equal("toolu_01ABC123XYZ", toolUse.Id);
         Assert.Equal("read_file", toolUse.Name);
         Assert.Equal("/home/user/document.txt", toolUse.Input.GetProperty("file_path").GetString());
@@ -954,19 +934,19 @@ public class ContentBlockTests
     {
         // Arrange - simulates a tool result with error
         const string json = """
-            {
-                "type": "tool_result",
-                "tool_use_id": "toolu_01XYZ789",
-                "content": "Error: Permission denied. Cannot read file '/etc/shadow'. You need elevated privileges to access this file.",
-                "is_error": true
-            }
-            """;
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_01XYZ789",
+                                "content": "Error: Permission denied. Cannot read file '/etc/shadow'. You need elevated privileges to access this file.",
+                                "is_error": true
+                            }
+                            """;
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var result = Assert.IsType<ToolResultBlock>(block);
+        ToolResultBlock result = Assert.IsType<ToolResultBlock>(block);
         Assert.Equal("toolu_01XYZ789", result.ToolUseId);
         Assert.True(result.IsError);
         Assert.Contains("Permission denied", result.Content?.GetString());
@@ -977,40 +957,23 @@ public class ContentBlockTests
     {
         // Arrange - simulates bash tool result with multi-line output
         const string json = """
-            {
-                "type": "tool_result",
-                "tool_use_id": "toolu_bash_001",
-                "content": "total 24\ndrwxr-xr-x  5 user user 4096 Jan 10 10:00 .\ndrwxr-xr-x  3 user user 4096 Jan  9 09:00 ..\n-rw-r--r--  1 user user  512 Jan 10 10:00 file.txt\n-rw-r--r--  1 user user 1024 Jan 10 09:30 config.json",
-                "is_error": false
-            }
-            """;
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_bash_001",
+                                "content": "total 24\ndrwxr-xr-x  5 user user 4096 Jan 10 10:00 .\ndrwxr-xr-x  3 user user 4096 Jan  9 09:00 ..\n-rw-r--r--  1 user user  512 Jan 10 10:00 file.txt\n-rw-r--r--  1 user user 1024 Jan 10 09:30 config.json",
+                                "is_error": false
+                            }
+                            """;
 
         // Act
-        var block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
+        ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, SerializerOptions);
 
         // Assert
-        var result = Assert.IsType<ToolResultBlock>(block);
+        ToolResultBlock result = Assert.IsType<ToolResultBlock>(block);
         Assert.False(result.IsError);
-        var content = result.Content?.GetString();
+        string? content = result.Content?.GetString();
         Assert.NotNull(content);
         Assert.Contains("file.txt", content);
         Assert.Contains("config.json", content);
     }
-
-    #endregion
-
-    #region Helper Class for JSON Construction
-
-    /// <summary>
-    ///     Simple helper for building JSON objects in tests.
-    /// </summary>
-    private class JsonObject : Dictionary<string, object?>
-    {
-        public string ToJsonString()
-        {
-            return JsonSerializer.Serialize(this);
-        }
-    }
-
-    #endregion
 }

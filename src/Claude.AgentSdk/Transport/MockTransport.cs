@@ -1,5 +1,4 @@
 ﻿using System.Runtime.CompilerServices;
-using System.Text.Json;
 using System.Threading.Channels;
 
 namespace Claude.AgentSdk.Transport;
@@ -22,20 +21,24 @@ namespace Claude.AgentSdk.Transport;
 /// var transport = new MockTransport();
 /// transport.EnqueueMessage("""{"type":"system","subtype":"init"}""");
 /// transport.EnqueueMessage("""{"type":"result","subtype":"success","is_error":false,"session_id":"test"}""");
-///
+/// 
 /// // Use with ClaudeAgentClient.CreateForTesting(transport: transport)
 /// </code>
 /// </example>
 internal class MockTransport : ITransport
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
     };
 
     private readonly Channel<JsonDocument> _messageChannel;
     private readonly List<JsonElement> _writtenMessages = [];
+#if NET9_0_OR_GREATER
     private readonly Lock _lock = new();
+#else
+    private readonly object _lock = new();
+#endif
     private bool _disposed;
     private bool _connected;
     private TaskCompletionSource? _inputEndedTcs;
@@ -115,7 +118,7 @@ internal class MockTransport : ITransport
         ThrowIfNotConnected();
         lock (_lock)
         {
-            var json = JsonSerializer.Serialize(message, JsonOptions);
+            var json = JsonSerializer.Serialize(message, _jsonOptions);
             _writtenMessages.Add(JsonDocument.Parse(json).RootElement.Clone());
         }
 

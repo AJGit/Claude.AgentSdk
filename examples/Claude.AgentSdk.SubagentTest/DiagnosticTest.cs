@@ -1,4 +1,4 @@
-/// <summary>
+﻿/// <summary>
 /// Diagnostic Subagent Test - Captures everything to prove where the issue is
 ///
 /// This test:
@@ -17,15 +17,15 @@ namespace Claude.AgentSdk.SubagentTest;
 
 public static class DiagnosticTest
 {
-    private static readonly List<string> _eventLog = new();
-    private static readonly object _logLock = new();
+    private static readonly List<string> _eventLog = [];
+    private static readonly Lock _logLock = new();
 
     private static void Log(string message)
     {
         lock (_logLock)
         {
-            var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
-            var entry = $"[{timestamp}] {message}";
+            string timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
+            string entry = $"[{timestamp}] {message}";
             _eventLog.Add(entry);
             Console.WriteLine(entry);
         }
@@ -38,80 +38,98 @@ public static class DiagnosticTest
         Console.WriteLine("╚══════════════════════════════════════════════════════════════╝");
         Console.WriteLine();
 
-        var baseDir = Directory.GetCurrentDirectory();
-        var outputDir = Path.Combine(baseDir, "diagnostic_output");
+        string baseDir = Directory.GetCurrentDirectory();
+        string outputDir = Path.Combine(baseDir, "diagnostic_output");
         Directory.CreateDirectory(outputDir);
 
-        var testFile = Path.Combine(outputDir, "test_output.txt");
-        var logFile = Path.Combine(outputDir, "diagnostic_log.txt");
+        string testFile = Path.Combine(outputDir, "test_output.txt");
+        string logFile = Path.Combine(outputDir, "diagnostic_log.txt");
 
         // Clean up
-        if (File.Exists(testFile)) File.Delete(testFile);
+        if (File.Exists(testFile))
+        {
+            File.Delete(testFile);
+        }
 
         Log($"Working directory: {baseDir}");
         Log($"Output file: {testFile}");
         Log($"Log file: {logFile}");
 
         // Define hooks to track everything
-        var hooks = new Dictionary<HookEvent, IReadOnlyList<HookMatcher>>
+        Dictionary<HookEvent, IReadOnlyList<HookMatcher>> hooks = new()
         {
             [HookEvent.SubagentStart] = new List<HookMatcher>
             {
                 new()
                 {
-                    Hooks = [async (input, toolUseId, context, ct) =>
-                    {
-                        Log($"🚀 SUBAGENT_START: toolUseId={toolUseId}");
-                        Log($"   Input: {JsonSerializer.Serialize(input)}");
-                        return new SyncHookOutput { Continue = true };
-                    }]
+                    Hooks =
+                    [
+                        async (input, toolUseId, context, ct) =>
+                        {
+                            Log($"🚀 SUBAGENT_START: toolUseId={toolUseId}");
+                            Log($"   Input: {JsonSerializer.Serialize(input)}");
+                            return new SyncHookOutput { Continue = true };
+                        }
+                    ]
                 }
             },
             [HookEvent.SubagentStop] = new List<HookMatcher>
             {
                 new()
                 {
-                    Hooks = [async (input, toolUseId, context, ct) =>
-                    {
-                        Log($"🛑 SUBAGENT_STOP: toolUseId={toolUseId}");
-                        Log($"   Input: {JsonSerializer.Serialize(input)}");
-                        return new SyncHookOutput { Continue = true };
-                    }]
+                    Hooks =
+                    [
+                        async (input, toolUseId, context, ct) =>
+                        {
+                            Log($"🛑 SUBAGENT_STOP: toolUseId={toolUseId}");
+                            Log($"   Input: {JsonSerializer.Serialize(input)}");
+                            return new SyncHookOutput { Continue = true };
+                        }
+                    ]
                 }
             },
             [HookEvent.PreToolUse] = new List<HookMatcher>
             {
                 new()
                 {
-                    Hooks = [async (input, toolUseId, context, ct) =>
-                    {
-                        if (input is PreToolUseHookInput preInput)
+                    Hooks =
+                    [
+                        async (input, toolUseId, context, ct) =>
                         {
-                            Log($"🔧 PRE_TOOL_USE: {preInput.ToolName} (id={toolUseId})");
-                            Log($"   Input: {JsonSerializer.Serialize(preInput.ToolInput).Substring(0, Math.Min(200, JsonSerializer.Serialize(preInput.ToolInput).Length))}...");
+                            if (input is PreToolUseHookInput preInput)
+                            {
+                                Log($"🔧 PRE_TOOL_USE: {preInput.ToolName} (id={toolUseId})");
+                                Log(
+                                    $"   Input: {JsonSerializer.Serialize(preInput.ToolInput).Substring(0, Math.Min(200, JsonSerializer.Serialize(preInput.ToolInput).Length))}...");
+                            }
+
+                            return new SyncHookOutput { Continue = true };
                         }
-                        return new SyncHookOutput { Continue = true };
-                    }]
+                    ]
                 }
             },
             [HookEvent.PostToolUse] = new List<HookMatcher>
             {
                 new()
                 {
-                    Hooks = [async (input, toolUseId, context, ct) =>
-                    {
-                        if (input is PostToolUseHookInput postInput)
+                    Hooks =
+                    [
+                        async (input, toolUseId, context, ct) =>
                         {
-                            Log($"✅ POST_TOOL_USE: {postInput.ToolName} (id={toolUseId})");
+                            if (input is PostToolUseHookInput postInput)
+                            {
+                                Log($"✅ POST_TOOL_USE: {postInput.ToolName} (id={toolUseId})");
+                            }
+
+                            return new SyncHookOutput { Continue = true };
                         }
-                        return new SyncHookOutput { Continue = true };
-                    }]
+                    ]
                 }
             }
         };
 
         // Define subagent
-        var agents = new Dictionary<string, AgentDefinition>
+        Dictionary<string, AgentDefinition> agents = new()
         {
             ["researcher"] = new AgentDefinition
             {
@@ -131,15 +149,15 @@ Be concise - just save the key answer.",
         Log("TEST CONFIG: Using 'Tools' property (maps to --tools CLI flag)");
         Log("═══════════════════════════════════════════════════════════");
 
-        var optionsWithTools = new ClaudeAgentOptions
+        ClaudeAgentOptions optionsWithTools = new()
         {
             WorkingDirectory = baseDir,
             PermissionMode = PermissionMode.BypassPermissions,
-            SystemPrompt = $@"You are a coordinator that ONLY uses the Task tool to spawn subagents.
+            SystemPrompt = @"You are a coordinator that ONLY uses the Task tool to spawn subagents.
 You have a 'researcher' subagent available.
 DO NOT use any tool other than Task.",
             // Using Tools property - this maps to --tools CLI flag
-            Tools = new ToolsList(["Task"]),  // <-- JUST Task
+            Tools = new ToolsList(["Task"]), // <-- JUST Task
             Agents = agents,
             Hooks = hooks,
             Model = "sonnet",
@@ -156,17 +174,20 @@ DO NOT use any tool other than Task.",
         Log("═══════════════════════════════════════════════════════════");
 
         // Clean up for next test
-        if (File.Exists(testFile)) File.Delete(testFile);
+        if (File.Exists(testFile))
+        {
+            File.Delete(testFile);
+        }
 
-        var optionsWithAllowedTools = new ClaudeAgentOptions
+        ClaudeAgentOptions optionsWithAllowedTools = new()
         {
             WorkingDirectory = baseDir,
             PermissionMode = PermissionMode.BypassPermissions,
-            SystemPrompt = $@"You are a coordinator that ONLY uses the Task tool to spawn subagents.
+            SystemPrompt = @"You are a coordinator that ONLY uses the Task tool to spawn subagents.
 You have a 'researcher' subagent available.
 DO NOT use any tool other than Task.",
             // Using AllowedTools property - this maps to --allowedTools CLI flag
-            AllowedTools = ["Task"],  // <-- JUST Task via AllowedTools
+            AllowedTools = ["Task"], // <-- JUST Task via AllowedTools
             Agents = agents,
             Hooks = hooks,
             Model = "sonnet",
@@ -183,18 +204,21 @@ DO NOT use any tool other than Task.",
         Log("═══════════════════════════════════════════════════════════");
 
         // Clean up for next test
-        if (File.Exists(testFile)) File.Delete(testFile);
+        if (File.Exists(testFile))
+        {
+            File.Delete(testFile);
+        }
 
-        var optionsWithBoth = new ClaudeAgentOptions
+        ClaudeAgentOptions optionsWithBoth = new()
         {
             WorkingDirectory = baseDir,
             PermissionMode = PermissionMode.BypassPermissions,
-            SystemPrompt = $@"You are a coordinator that ONLY uses the Task tool to spawn subagents.
+            SystemPrompt = @"You are a coordinator that ONLY uses the Task tool to spawn subagents.
 You have a 'researcher' subagent available.
 DO NOT use any tool other than Task.",
             // Disable default tools, then add just Task
-            Tools = new ToolsList([]),      // Empty = disable defaults
-            AllowedTools = ["Task"],        // Add only Task
+            Tools = new ToolsList([]), // Empty = disable defaults
+            AllowedTools = ["Task"], // Add only Task
             Agents = agents,
             Hooks = hooks,
             Model = "sonnet",
@@ -224,9 +248,10 @@ DO NOT use any tool other than Task.",
         {
             Log("  Tools (--tools): (not set)");
         }
+
         Log($"  AllowedTools (--allowedTools): [{string.Join(", ", options.AllowedTools)}]");
 
-        var agentsJson = JsonSerializer.Serialize(
+        string agentsJson = JsonSerializer.Serialize(
             options.Agents!.ToDictionary(
                 kv => kv.Key,
                 kv => new { description = kv.Value.Description, tools = kv.Value.Tools, model = kv.Value.Model }
@@ -238,57 +263,67 @@ DO NOT use any tool other than Task.",
 
         try
         {
-            await using var client = new ClaudeAgentClient(options);
-            await using var session = await client.CreateSessionAsync();
+            await using ClaudeAgentClient client = new(options);
+            await using ClaudeAgentSession session = await client.CreateSessionAsync();
 
-            var prompt = $"Research 'what is the capital of France' and save the one-word answer to {testFile}";
+            string prompt = $"Research 'what is the capital of France' and save the one-word answer to {testFile}";
             Log($"Sending prompt: {prompt}");
             Log("");
 
             await session.SendAsync(prompt);
 
-            var toolCallCount = 0;
-            var subagentSpawned = false;
-            var taskToolUsed = false;
+            int toolCallCount = 0;
+            bool subagentSpawned = false;
+            bool taskToolUsed = false;
 
-            await foreach (var message in session.ReceiveAsync())
+            await foreach (Message message in session.ReceiveAsync())
             {
                 switch (message)
                 {
                     case AssistantMessage assistant:
-                        var parentId = assistant.MessageContent.ParentToolUseId;
-                        var context = parentId != null ? $"[SUBAGENT:{parentId[..Math.Min(8, parentId.Length)]}]" : "[MAIN]";
+                        string? parentId = assistant.MessageContent.ParentToolUseId;
+                        string context = parentId != null
+                            ? $"[SUBAGENT:{parentId[..Math.Min(8, parentId.Length)]}]"
+                            : "[MAIN]";
 
-                        foreach (var block in assistant.MessageContent.Content)
+                        foreach (ContentBlock block in assistant.MessageContent.Content)
                         {
                             switch (block)
                             {
                                 case TextBlock text:
-                                    Log($"{context} Text: {text.Text.Substring(0, Math.Min(100, text.Text.Length))}...");
+                                    Log(
+                                        $"{context} Text: {text.Text.Substring(0, Math.Min(100, text.Text.Length))}...");
                                     break;
                                 case ToolUseBlock toolUse:
                                     toolCallCount++;
-                                    Log($"{context} TOOL_USE: {toolUse.Name} (id={toolUse.Id[..Math.Min(8, toolUse.Id.Length)]})");
+                                    Log(
+                                        $"{context} TOOL_USE: {toolUse.Name} (id={toolUse.Id[..Math.Min(8, toolUse.Id.Length)]})");
 
                                     if (toolUse.Name == "Task")
                                     {
                                         taskToolUsed = true;
-                                        var subagentType = GetJsonProperty(toolUse.Input, "subagent_type");
+                                        string? subagentType = GetJsonProperty(toolUse.Input, "subagent_type");
                                         Log($"  → Spawning subagent: {subagentType}");
-                                        if (subagentType == "researcher") subagentSpawned = true;
+                                        if (subagentType == "researcher")
+                                        {
+                                            subagentSpawned = true;
+                                        }
                                     }
+
                                     break;
                             }
                         }
+
                         break;
 
                     case ResultMessage result:
-                        Log($"RESULT: Completed in {result.DurationMs / 1000.0:F1}s, Cost: ${result.TotalCostUsd:F4}, Error: {result.IsError}");
+                        Log(
+                            $"RESULT: Completed in {result.DurationMs / 1000.0:F1}s, Cost: ${result.TotalCostUsd:F4}, Error: {result.IsError}");
                         goto done;
                 }
             }
 
-        done:
+            done:
             Log("");
             Log($"═══ {testName} SUMMARY ═══");
             Log($"  Tool calls made: {toolCallCount}");
@@ -298,24 +333,24 @@ DO NOT use any tool other than Task.",
 
             if (File.Exists(testFile))
             {
-                var content = await File.ReadAllTextAsync(testFile);
+                string content = await File.ReadAllTextAsync(testFile);
                 Log($"  File content: {content}");
-                Log($"  ✅ TEST PASSED - Subagent successfully wrote file");
+                Log("  ✅ TEST PASSED - Subagent successfully wrote file");
             }
             else
             {
-                Log($"  ❌ TEST FAILED - File was NOT created");
+                Log("  ❌ TEST FAILED - File was NOT created");
                 if (!taskToolUsed)
                 {
-                    Log($"     DIAGNOSIS: Main agent did NOT use Task tool at all");
+                    Log("     DIAGNOSIS: Main agent did NOT use Task tool at all");
                 }
                 else if (!subagentSpawned)
                 {
-                    Log($"     DIAGNOSIS: Task tool was used but researcher subagent was not spawned");
+                    Log("     DIAGNOSIS: Task tool was used but researcher subagent was not spawned");
                 }
                 else
                 {
-                    Log($"     DIAGNOSIS: Subagent was spawned but failed to write file (permission/tool issue?)");
+                    Log("     DIAGNOSIS: Subagent was spawned but failed to write file (permission/tool issue?)");
                 }
             }
         }
@@ -330,12 +365,13 @@ DO NOT use any tool other than Task.",
     {
         try
         {
-            if (element.TryGetProperty(propertyName, out var value))
+            if (element.TryGetProperty(propertyName, out JsonElement value))
             {
                 return value.GetString();
             }
         }
         catch { }
+
         return null;
     }
 }

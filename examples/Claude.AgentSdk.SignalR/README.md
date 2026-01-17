@@ -85,6 +85,116 @@ await connection.invoke("Interrupt");
 await connection.invoke("EndSession");
 ```
 
+## C#-Centric Features
+
+### Fluent Options Builder
+
+```csharp
+using Claude.AgentSdk.Builders;
+using Claude.AgentSdk.Types;
+
+var agentOptions = new ClaudeAgentOptionsBuilder()
+    .WithModel(ModelIdentifier.Sonnet)
+    .WithFallbackModel(ModelIdentifier.Haiku)
+    .WithSystemPrompt(options?.SystemPrompt ?? "")
+    .WithMaxTurns(options?.MaxTurns ?? 10)
+    .WithPermissionMode(PermissionMode.AcceptEdits)
+    .AllowTools(ToolName.Read, ToolName.Write, ToolName.Bash, ToolName.Grep)
+    .Build();
+
+var client = new ClaudeAgentClient(agentOptions);
+```
+
+### ModelIdentifier for Type-Safe Model Selection
+
+```csharp
+using Claude.AgentSdk.Types;
+
+var agentOptions = new ClaudeAgentOptions
+{
+    ModelId = ModelIdentifier.Sonnet,  // Type-safe model selection
+    FallbackModelId = ModelIdentifier.Haiku,
+    // ...
+};
+```
+
+### Message Extensions for DTO Mapping
+
+```csharp
+using Claude.AgentSdk.Extensions;
+
+private MessageDto MapToDto(Message message)
+{
+    if (message is AssistantMessage assistant)
+    {
+        return new MessageDto
+        {
+            Type = "assistant",
+            Text = assistant.GetText(),  // Extension method
+            HasToolUse = assistant.GetToolUses().Any()
+        };
+    }
+    // ... other cases
+}
+```
+
+### Functional Match Patterns for DTO Mapping
+
+```csharp
+using Claude.AgentSdk.Messages;
+
+private MessageDto MapToDto(Message message)
+{
+    return message.Match(
+        assistantMessage: a => new MessageDto
+        {
+            Type = "assistant",
+            Content = a.MessageContent.Content.Select(MapContentBlock).ToList()
+        },
+        resultMessage: r => new MessageDto
+        {
+            Type = "result",
+            TotalCostUsd = r.TotalCostUsd,
+            DurationMs = r.DurationMs
+        },
+        systemMessage: s => new MessageDto
+        {
+            Type = "system",
+            Subtype = s.Subtype,
+            SessionId = s.SessionId
+        },
+        userMessage: u => new MessageDto { Type = "user" },
+        streamEvent: _ => new MessageDto { Type = "stream_event" }
+    );
+}
+
+private ContentBlockDto MapContentBlock(ContentBlock block)
+{
+    return block.Match(
+        textBlock: t => new ContentBlockDto { Type = "text", Text = t.Text },
+        toolUseBlock: t => new ContentBlockDto { Type = "tool_use", ToolName = t.Name, ToolId = t.Id },
+        thinkingBlock: t => new ContentBlockDto { Type = "thinking" },
+        toolResultBlock: t => new ContentBlockDto { Type = "tool_result", Content = t.Content?.ToString() }
+    );
+}
+```
+
+### Generated Enum String Mappings
+
+```csharp
+using Claude.AgentSdk.Types;
+
+// Use generated methods for DTO type strings
+var typeStr = MessageType.Assistant.ToJsonString();  // "assistant"
+var blockTypeStr = ContentBlockType.ToolUse.ToJsonString();  // "tool_use"
+
+// Parse incoming type strings
+if (EnumStringMappings.TryParseMessageType(dto.Type, out var msgType))
+{
+    // Handle parsed message type
+}
+```
+
 ## Key Components
 
 ### ClaudeAgentHub

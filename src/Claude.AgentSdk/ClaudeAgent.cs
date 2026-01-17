@@ -23,7 +23,7 @@ namespace Claude.AgentSdk;
 /// {
 ///     // Process messages
 /// }
-///
+/// 
 /// // Get just the text response
 /// var response = await ClaudeAgent.GetTextAsync("Explain quantum computing");
 /// Console.WriteLine(response);

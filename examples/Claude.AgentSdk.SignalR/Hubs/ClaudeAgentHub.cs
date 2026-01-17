@@ -1,5 +1,4 @@
-using System.Runtime.CompilerServices;
-using System.Text.Json;
+﻿using System.Runtime.CompilerServices;
 using Claude.AgentSdk.Messages;
 using Claude.AgentSdk.SignalR.Services;
 using Microsoft.AspNetCore.SignalR;
@@ -7,24 +6,19 @@ using Microsoft.AspNetCore.SignalR;
 namespace Claude.AgentSdk.SignalR.Hubs;
 
 /// <summary>
-/// SignalR Hub that wraps the Claude Agent SDK.
-/// Demonstrates how to expose Claude Agent functionality over SignalR
-/// without modifying the SDK source code.
+///     SignalR Hub that wraps the Claude Agent SDK.
+///     Demonstrates how to expose Claude Agent functionality over SignalR
+///     without modifying the SDK source code.
 /// </summary>
-public class ClaudeAgentHub : Hub
+public class ClaudeAgentHub(ISessionManager sessionManager, ILogger<ClaudeAgentHub> logger)
+    : Hub
 {
-    private readonly ISessionManager _sessionManager;
-    private readonly ILogger<ClaudeAgentHub> _logger;
-
-    public ClaudeAgentHub(ISessionManager sessionManager, ILogger<ClaudeAgentHub> logger)
-    {
-        _sessionManager = sessionManager;
-        _logger = logger;
-    }
+    private readonly ILogger<ClaudeAgentHub> _logger = logger;
+    private readonly ISessionManager _sessionManager = sessionManager;
 
     /// <summary>
-    /// One-shot query with streaming response.
-    /// Messages are streamed back to the client as they arrive.
+    ///     One-shot query with streaming response.
+    ///     Messages are streamed back to the client as they arrive.
     /// </summary>
     public async IAsyncEnumerable<MessageDto> Query(
         string prompt,
@@ -33,18 +27,18 @@ public class ClaudeAgentHub : Hub
     {
         _logger.LogInformation("Query from {ConnectionId}: {Prompt}", Context.ConnectionId, prompt);
 
-        var agentOptions = new ClaudeAgentOptions
+        ClaudeAgentOptions agentOptions = new()
         {
             SystemPrompt = options?.SystemPrompt ?? string.Empty,
             MaxTurns = options?.MaxTurns ?? 10,
             PermissionMode = PermissionMode.AcceptEdits
         };
 
-        await using var client = new ClaudeAgentClient(agentOptions);
+        await using ClaudeAgentClient client = new(agentOptions);
 
-        await foreach (var message in client.QueryAsync(prompt, null, cancellationToken))
+        await foreach (Message message in client.QueryAsync(prompt, null, cancellationToken))
         {
-            var dto = MapToDto(message);
+            MessageDto? dto = MapToDto(message);
             if (dto != null)
             {
                 yield return dto;
@@ -53,14 +47,14 @@ public class ClaudeAgentHub : Hub
     }
 
     /// <summary>
-    /// Start a bidirectional session.
-    /// The session remains open for multiple messages.
+    ///     Start a bidirectional session.
+    ///     The session remains open for multiple messages.
     /// </summary>
     public async Task<SessionInfoDto> StartSession(SessionOptionsDto? options = null)
     {
         _logger.LogInformation("Starting session for {ConnectionId}", Context.ConnectionId);
 
-        var sessionId = await _sessionManager.CreateSessionAsync(
+        string sessionId = await _sessionManager.CreateSessionAsync(
             Context.ConnectionId,
             options,
             SendMessageToClient);
@@ -75,13 +69,13 @@ public class ClaudeAgentHub : Hub
     }
 
     /// <summary>
-    /// Send a message in an active session.
+    ///     Send a message in an active session.
     /// </summary>
     public async Task SendMessage(string content, string? sessionId = null)
     {
         _logger.LogInformation("SendMessage from {ConnectionId}: {Content}", Context.ConnectionId, content);
 
-        var session = _sessionManager.GetSession(Context.ConnectionId);
+        AgentSession? session = _sessionManager.GetSession(Context.ConnectionId);
         if (session == null)
         {
             throw new HubException("No active session. Call StartSession first.");
@@ -91,13 +85,13 @@ public class ClaudeAgentHub : Hub
     }
 
     /// <summary>
-    /// Interrupt the current operation.
+    ///     Interrupt the current operation.
     /// </summary>
     public async Task Interrupt()
     {
         _logger.LogInformation("Interrupt from {ConnectionId}", Context.ConnectionId);
 
-        var session = _sessionManager.GetSession(Context.ConnectionId);
+        AgentSession? session = _sessionManager.GetSession(Context.ConnectionId);
         if (session == null)
         {
             throw new HubException("No active session.");
@@ -107,13 +101,13 @@ public class ClaudeAgentHub : Hub
     }
 
     /// <summary>
-    /// End the current session.
+    ///     End the current session.
     /// </summary>
     public async Task EndSession()
     {
         _logger.LogInformation("EndSession from {ConnectionId}", Context.ConnectionId);
 
-        var session = _sessionManager.GetSession(Context.ConnectionId);
+        AgentSession? session = _sessionManager.GetSession(Context.ConnectionId);
         if (session != null)
         {
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, session.SessionId);
@@ -122,11 +116,11 @@ public class ClaudeAgentHub : Hub
     }
 
     /// <summary>
-    /// Set the model for the current session.
+    ///     Set the model for the current session.
     /// </summary>
     public async Task SetModel(string model)
     {
-        var session = _sessionManager.GetSession(Context.ConnectionId);
+        AgentSession? session = _sessionManager.GetSession(Context.ConnectionId);
         if (session == null)
         {
             throw new HubException("No active session.");
@@ -136,17 +130,17 @@ public class ClaudeAgentHub : Hub
     }
 
     /// <summary>
-    /// Set the permission mode for the current session.
+    ///     Set the permission mode for the current session.
     /// </summary>
     public async Task SetPermissionMode(string mode)
     {
-        var session = _sessionManager.GetSession(Context.ConnectionId);
+        AgentSession? session = _sessionManager.GetSession(Context.ConnectionId);
         if (session == null)
         {
             throw new HubException("No active session.");
         }
 
-        var permissionMode = mode.ToLower() switch
+        PermissionMode permissionMode = mode.ToLower() switch
         {
             "default" => PermissionMode.Default,
             "acceptedits" => PermissionMode.AcceptEdits,
@@ -167,7 +161,7 @@ public class ClaudeAgentHub : Hub
 
     private async Task SendMessageToClient(string connectionId, Message message)
     {
-        var dto = MapToDto(message);
+        MessageDto? dto = MapToDto(message);
         if (dto != null)
         {
             await Clients.Client(connectionId).SendAsync("ReceiveMessage", dto);
@@ -244,10 +238,8 @@ public class ClaudeAgentHub : Hub
     }
 }
 
-#region DTOs
-
 /// <summary>
-/// Options for one-shot queries.
+///     Options for one-shot queries.
 /// </summary>
 public class QueryOptionsDto
 {
@@ -257,7 +249,7 @@ public class QueryOptionsDto
 }
 
 /// <summary>
-/// Options for creating a session.
+///     Options for creating a session.
 /// </summary>
 public class SessionOptionsDto
 {
@@ -268,7 +260,7 @@ public class SessionOptionsDto
 }
 
 /// <summary>
-/// Session information returned after starting a session.
+///     Session information returned after starting a session.
 /// </summary>
 public class SessionInfoDto
 {
@@ -277,7 +269,7 @@ public class SessionInfoDto
 }
 
 /// <summary>
-/// Message DTO for SignalR transmission.
+///     Message DTO for SignalR transmission.
 /// </summary>
 public class MessageDto
 {
@@ -295,7 +287,7 @@ public class MessageDto
 }
 
 /// <summary>
-/// Content block DTO for SignalR transmission.
+///     Content block DTO for SignalR transmission.
 /// </summary>
 public class ContentBlockDto
 {
@@ -307,5 +299,3 @@ public class ContentBlockDto
     public string? Content { get; set; }
     public bool? IsError { get; set; }
 }
-
-#endregion

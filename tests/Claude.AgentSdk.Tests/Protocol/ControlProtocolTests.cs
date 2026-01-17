@@ -1,6 +1,5 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Claude.AgentSdk.Protocol;
-using Xunit;
 
 namespace Claude.AgentSdk.Tests.Protocol;
 
@@ -15,19 +14,17 @@ public class ControlProtocolTests
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
     };
 
-    #region ControlRequest Tests
-
     [Fact]
     public void ControlRequest_Serialize_ProducesExpectedJson()
     {
-        var request = new ControlRequest
+        ControlRequest request = new()
         {
             RequestId = "req-123",
             Request = JsonDocument.Parse("""{"subtype":"initialize"}""").RootElement
         };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        var parsed = JsonDocument.Parse(json).RootElement;
+        string json = JsonSerializer.Serialize(request, JsonOptions);
+        JsonElement parsed = JsonDocument.Parse(json).RootElement;
 
         Assert.Equal("control_request", parsed.GetProperty("type").GetString());
         Assert.Equal("req-123", parsed.GetProperty("request_id").GetString());
@@ -37,7 +34,7 @@ public class ControlProtocolTests
     [Fact]
     public void ControlRequest_Type_IsAlwaysControlRequest()
     {
-        var request = new ControlRequest
+        ControlRequest request = new()
         {
             RequestId = "test-id",
             Request = JsonDocument.Parse("{}").RootElement
@@ -50,17 +47,17 @@ public class ControlProtocolTests
     public void ControlRequest_Deserialize_MapsProperties()
     {
         const string json = """
-            {
-                "type": "control_request",
-                "request_id": "req-456",
-                "request": {
-                    "subtype": "can_use_tool",
-                    "tool_name": "read_file"
-                }
-            }
-            """;
+                            {
+                                "type": "control_request",
+                                "request_id": "req-456",
+                                "request": {
+                                    "subtype": "can_use_tool",
+                                    "tool_name": "read_file"
+                                }
+                            }
+                            """;
 
-        var request = JsonSerializer.Deserialize<ControlRequest>(json, JsonOptions);
+        ControlRequest? request = JsonSerializer.Deserialize<ControlRequest>(json, JsonOptions);
 
         Assert.NotNull(request);
         Assert.Equal("req-456", request.RequestId);
@@ -72,29 +69,29 @@ public class ControlProtocolTests
     public void ControlRequest_Deserialize_WithComplexRequest_PreservesStructure()
     {
         const string json = """
-            {
-                "type": "control_request",
-                "request_id": "req-complex",
-                "request": {
-                    "subtype": "mcp_message",
-                    "server_name": "test-server",
-                    "message": {
-                        "jsonrpc": "2.0",
-                        "method": "tools/call",
-                        "params": {
-                            "name": "search",
-                            "arguments": { "query": "test" }
-                        }
-                    }
-                }
-            }
-            """;
+                            {
+                                "type": "control_request",
+                                "request_id": "req-complex",
+                                "request": {
+                                    "subtype": "mcp_message",
+                                    "server_name": "test-server",
+                                    "message": {
+                                        "jsonrpc": "2.0",
+                                        "method": "tools/call",
+                                        "params": {
+                                            "name": "search",
+                                            "arguments": { "query": "test" }
+                                        }
+                                    }
+                                }
+                            }
+                            """;
 
-        var request = JsonSerializer.Deserialize<ControlRequest>(json, JsonOptions);
+        ControlRequest? request = JsonSerializer.Deserialize<ControlRequest>(json, JsonOptions);
 
         Assert.NotNull(request);
         Assert.Equal("mcp_message", request.Request.GetProperty("subtype").GetString());
-        var message = request.Request.GetProperty("message");
+        JsonElement message = request.Request.GetProperty("message");
         Assert.Equal("2.0", message.GetProperty("jsonrpc").GetString());
         Assert.Equal("tools/call", message.GetProperty("method").GetString());
     }
@@ -105,27 +102,23 @@ public class ControlProtocolTests
     [InlineData("uuid-550e8400-e29b-41d4-a716-446655440000")]
     public void ControlRequest_RequestId_AcceptsVariousFormats(string requestId)
     {
-        var request = new ControlRequest
+        ControlRequest request = new()
         {
             RequestId = requestId,
             Request = JsonDocument.Parse("{}").RootElement
         };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<ControlRequest>(json, JsonOptions);
+        string json = JsonSerializer.Serialize(request, JsonOptions);
+        ControlRequest? deserialized = JsonSerializer.Deserialize<ControlRequest>(json, JsonOptions);
 
         Assert.NotNull(deserialized);
         Assert.Equal(requestId, deserialized.RequestId);
     }
 
-    #endregion
-
-    #region ControlResponse Tests
-
     [Fact]
     public void ControlResponse_Serialize_ProducesExpectedJson()
     {
-        var response = new ControlResponse
+        ControlResponse response = new()
         {
             Response = new ControlSuccessResponse
             {
@@ -134,11 +127,11 @@ public class ControlProtocolTests
             }
         };
 
-        var json = JsonSerializer.Serialize(response, JsonOptions);
-        var parsed = JsonDocument.Parse(json).RootElement;
+        string json = JsonSerializer.Serialize(response, JsonOptions);
+        JsonElement parsed = JsonDocument.Parse(json).RootElement;
 
         Assert.Equal("control_response", parsed.GetProperty("type").GetString());
-        var responsePayload = parsed.GetProperty("response");
+        JsonElement responsePayload = parsed.GetProperty("response");
         Assert.Equal("req-123", responsePayload.GetProperty("request_id").GetString());
         // Note: Without [JsonDerivedType] on base class, only base class properties are serialized
         // The subtype property from the derived class may not be included unless serialized as concrete type
@@ -148,14 +141,14 @@ public class ControlProtocolTests
     public void ControlResponse_SerializeConcretePayload_IncludesAllProperties()
     {
         // When serializing the concrete type directly, all properties are included
-        var successResponse = new ControlSuccessResponse
+        ControlSuccessResponse successResponse = new()
         {
             RequestId = "req-123",
             ResponseData = JsonDocument.Parse("""{"status":"ok"}""").RootElement
         };
 
-        var json = JsonSerializer.Serialize(successResponse, JsonOptions);
-        var parsed = JsonDocument.Parse(json).RootElement;
+        string json = JsonSerializer.Serialize(successResponse, JsonOptions);
+        JsonElement parsed = JsonDocument.Parse(json).RootElement;
 
         Assert.Equal("req-123", parsed.GetProperty("request_id").GetString());
         Assert.Equal("success", parsed.GetProperty("subtype").GetString());
@@ -165,7 +158,7 @@ public class ControlProtocolTests
     [Fact]
     public void ControlResponse_Type_IsAlwaysControlResponse()
     {
-        var response = new ControlResponse
+        ControlResponse response = new()
         {
             Response = new ControlSuccessResponse { RequestId = "test" }
         };
@@ -173,21 +166,17 @@ public class ControlProtocolTests
         Assert.Equal("control_response", response.Type);
     }
 
-    #endregion
-
-    #region ControlSuccessResponse Tests
-
     [Fact]
     public void ControlSuccessResponse_Serialize_ProducesExpectedJson()
     {
-        var response = new ControlSuccessResponse
+        ControlSuccessResponse response = new()
         {
             RequestId = "req-success",
             ResponseData = JsonDocument.Parse("""{"result":"completed"}""").RootElement
         };
 
-        var json = JsonSerializer.Serialize(response, JsonOptions);
-        var parsed = JsonDocument.Parse(json).RootElement;
+        string json = JsonSerializer.Serialize(response, JsonOptions);
+        JsonElement parsed = JsonDocument.Parse(json).RootElement;
 
         Assert.Equal("req-success", parsed.GetProperty("request_id").GetString());
         Assert.Equal("success", parsed.GetProperty("subtype").GetString());
@@ -197,20 +186,20 @@ public class ControlProtocolTests
     [Fact]
     public void ControlSuccessResponse_Subtype_IsAlwaysSuccess()
     {
-        var response = new ControlSuccessResponse { RequestId = "test" };
+        ControlSuccessResponse response = new() { RequestId = "test" };
         Assert.Equal("success", response.Subtype);
     }
 
     [Fact]
     public void ControlSuccessResponse_WithNullResponseData_SerializesCorrectly()
     {
-        var response = new ControlSuccessResponse
+        ControlSuccessResponse response = new()
         {
             RequestId = "req-null-data"
         };
 
-        var json = JsonSerializer.Serialize(response, JsonOptions);
-        var parsed = JsonDocument.Parse(json).RootElement;
+        string json = JsonSerializer.Serialize(response, JsonOptions);
+        JsonElement parsed = JsonDocument.Parse(json).RootElement;
 
         Assert.Equal("req-null-data", parsed.GetProperty("request_id").GetString());
         Assert.Equal("success", parsed.GetProperty("subtype").GetString());
@@ -220,50 +209,46 @@ public class ControlProtocolTests
     [Fact]
     public void ControlSuccessResponse_WithComplexResponseData_PreservesStructure()
     {
-        var complexData = JsonDocument.Parse("""
-            {
-                "tools": ["read", "write", "bash"],
-                "models": [
-                    {"name": "claude-3-opus", "available": true},
-                    {"name": "claude-3-sonnet", "available": false}
-                ],
-                "config": {
-                    "maxTokens": 4096,
-                    "temperature": 0.7
-                }
-            }
-            """).RootElement;
+        JsonElement complexData = JsonDocument.Parse("""
+                                                     {
+                                                         "tools": ["read", "write", "bash"],
+                                                         "models": [
+                                                             {"name": "claude-3-opus", "available": true},
+                                                             {"name": "claude-3-sonnet", "available": false}
+                                                         ],
+                                                         "config": {
+                                                             "maxTokens": 4096,
+                                                             "temperature": 0.7
+                                                         }
+                                                     }
+                                                     """).RootElement;
 
-        var response = new ControlSuccessResponse
+        ControlSuccessResponse response = new()
         {
             RequestId = "req-complex",
             ResponseData = complexData
         };
 
-        var json = JsonSerializer.Serialize(response, JsonOptions);
-        var parsed = JsonDocument.Parse(json).RootElement;
-        var responseData = parsed.GetProperty("response");
+        string json = JsonSerializer.Serialize(response, JsonOptions);
+        JsonElement parsed = JsonDocument.Parse(json).RootElement;
+        JsonElement responseData = parsed.GetProperty("response");
 
         Assert.Equal(3, responseData.GetProperty("tools").GetArrayLength());
         Assert.Equal(2, responseData.GetProperty("models").GetArrayLength());
         Assert.Equal(4096, responseData.GetProperty("config").GetProperty("maxTokens").GetInt32());
     }
 
-    #endregion
-
-    #region ControlErrorResponse Tests
-
     [Fact]
     public void ControlErrorResponse_Serialize_ProducesExpectedJson()
     {
-        var response = new ControlErrorResponse
+        ControlErrorResponse response = new()
         {
             RequestId = "req-error",
             Error = "Permission denied: cannot execute bash command"
         };
 
-        var json = JsonSerializer.Serialize(response, JsonOptions);
-        var parsed = JsonDocument.Parse(json).RootElement;
+        string json = JsonSerializer.Serialize(response, JsonOptions);
+        JsonElement parsed = JsonDocument.Parse(json).RootElement;
 
         Assert.Equal("req-error", parsed.GetProperty("request_id").GetString());
         Assert.Equal("error", parsed.GetProperty("subtype").GetString());
@@ -273,7 +258,7 @@ public class ControlProtocolTests
     [Fact]
     public void ControlErrorResponse_Subtype_IsAlwaysError()
     {
-        var response = new ControlErrorResponse
+        ControlErrorResponse response = new()
         {
             RequestId = "test",
             Error = "test error"
@@ -288,14 +273,14 @@ public class ControlProtocolTests
     [InlineData("")]
     public void ControlErrorResponse_Error_AcceptsVariousFormats(string errorMessage)
     {
-        var response = new ControlErrorResponse
+        ControlErrorResponse response = new()
         {
             RequestId = "req-test",
             Error = errorMessage
         };
 
-        var json = JsonSerializer.Serialize(response, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<ControlErrorResponse>(json, JsonOptions);
+        string json = JsonSerializer.Serialize(response, JsonOptions);
+        ControlErrorResponse? deserialized = JsonSerializer.Deserialize<ControlErrorResponse>(json, JsonOptions);
 
         Assert.NotNull(deserialized);
         Assert.Equal(errorMessage, deserialized.Error);
@@ -305,23 +290,19 @@ public class ControlProtocolTests
     public void ControlErrorResponse_Deserialize_MapsProperties()
     {
         const string json = """
-            {
-                "request_id": "req-deserialize",
-                "subtype": "error",
-                "error": "Tool not found: unknown_tool"
-            }
-            """;
+                            {
+                                "request_id": "req-deserialize",
+                                "subtype": "error",
+                                "error": "Tool not found: unknown_tool"
+                            }
+                            """;
 
-        var response = JsonSerializer.Deserialize<ControlErrorResponse>(json, JsonOptions);
+        ControlErrorResponse? response = JsonSerializer.Deserialize<ControlErrorResponse>(json, JsonOptions);
 
         Assert.NotNull(response);
         Assert.Equal("req-deserialize", response.RequestId);
         Assert.Equal("Tool not found: unknown_tool", response.Error);
     }
-
-    #endregion
-
-    #region ControlSubtype Constants Tests
 
     [Fact]
     public void ControlSubtype_Interrupt_HasCorrectValue()
@@ -422,40 +403,36 @@ public class ControlProtocolTests
         Assert.Equal(subtype.ToLowerInvariant(), subtype);
     }
 
-    #endregion
-
-    #region InitializeRequest Tests
-
     [Fact]
     public void InitializeRequest_Serialize_ProducesExpectedJson()
     {
-        var request = new InitializeRequest
+        InitializeRequest request = new()
         {
             Hooks = JsonDocument.Parse("""{"pre_tool_use": []}""").RootElement
         };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        var parsed = JsonDocument.Parse(json).RootElement;
+        string json = JsonSerializer.Serialize(request, JsonOptions);
+        JsonElement parsed = JsonDocument.Parse(json).RootElement;
 
         Assert.Equal("initialize", parsed.GetProperty("subtype").GetString());
-        Assert.True(parsed.TryGetProperty("hooks", out var hooks));
+        Assert.True(parsed.TryGetProperty("hooks", out JsonElement hooks));
         Assert.True(hooks.TryGetProperty("pre_tool_use", out _));
     }
 
     [Fact]
     public void InitializeRequest_Subtype_IsAlwaysInitialize()
     {
-        var request = new InitializeRequest();
+        InitializeRequest request = new();
         Assert.Equal(ControlSubtype.Initialize, request.Subtype);
     }
 
     [Fact]
     public void InitializeRequest_WithNullHooks_SerializesCorrectly()
     {
-        var request = new InitializeRequest();
+        InitializeRequest request = new();
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        var parsed = JsonDocument.Parse(json).RootElement;
+        string json = JsonSerializer.Serialize(request, JsonOptions);
+        JsonElement parsed = JsonDocument.Parse(json).RootElement;
 
         Assert.Equal("initialize", parsed.GetProperty("subtype").GetString());
     }
@@ -463,23 +440,23 @@ public class ControlProtocolTests
     [Fact]
     public void InitializeRequest_WithComplexHooks_PreservesStructure()
     {
-        var hooksJson = JsonDocument.Parse("""
-            {
-                "pre_tool_use": [
-                    {"id": "hook1", "pattern": "*.txt"},
-                    {"id": "hook2", "pattern": "*.md"}
-                ],
-                "post_tool_use": [
-                    {"id": "hook3", "action": "notify"}
-                ]
-            }
-            """).RootElement;
+        JsonElement hooksJson = JsonDocument.Parse("""
+                                                   {
+                                                       "pre_tool_use": [
+                                                           {"id": "hook1", "pattern": "*.txt"},
+                                                           {"id": "hook2", "pattern": "*.md"}
+                                                       ],
+                                                       "post_tool_use": [
+                                                           {"id": "hook3", "action": "notify"}
+                                                       ]
+                                                   }
+                                                   """).RootElement;
 
-        var request = new InitializeRequest { Hooks = hooksJson };
+        InitializeRequest request = new() { Hooks = hooksJson };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        var parsed = JsonDocument.Parse(json).RootElement;
-        var hooks = parsed.GetProperty("hooks");
+        string json = JsonSerializer.Serialize(request, JsonOptions);
+        JsonElement parsed = JsonDocument.Parse(json).RootElement;
+        JsonElement hooks = parsed.GetProperty("hooks");
 
         Assert.Equal(2, hooks.GetProperty("pre_tool_use").GetArrayLength());
         Assert.Single(hooks.GetProperty("post_tool_use").EnumerateArray());
@@ -489,36 +466,32 @@ public class ControlProtocolTests
     public void InitializeRequest_Deserialize_MapsProperties()
     {
         const string json = """
-            {
-                "subtype": "initialize",
-                "hooks": {
-                    "on_start": { "enabled": true }
-                }
-            }
-            """;
+                            {
+                                "subtype": "initialize",
+                                "hooks": {
+                                    "on_start": { "enabled": true }
+                                }
+                            }
+                            """;
 
-        var request = JsonSerializer.Deserialize<InitializeRequest>(json, JsonOptions);
+        InitializeRequest? request = JsonSerializer.Deserialize<InitializeRequest>(json, JsonOptions);
 
         Assert.NotNull(request);
         Assert.NotNull(request.Hooks);
         Assert.True(request.Hooks.Value.GetProperty("on_start").GetProperty("enabled").GetBoolean());
     }
 
-    #endregion
-
-    #region CanUseToolRequest Tests
-
     [Fact]
     public void CanUseToolRequest_Serialize_ProducesExpectedJson()
     {
-        var request = new CanUseToolRequest
+        CanUseToolRequest request = new()
         {
             ToolName = "read_file",
             Input = JsonDocument.Parse("""{"path": "/test/file.txt"}""").RootElement
         };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        var parsed = JsonDocument.Parse(json).RootElement;
+        string json = JsonSerializer.Serialize(request, JsonOptions);
+        JsonElement parsed = JsonDocument.Parse(json).RootElement;
 
         Assert.Equal("can_use_tool", parsed.GetProperty("subtype").GetString());
         Assert.Equal("read_file", parsed.GetProperty("tool_name").GetString());
@@ -528,7 +501,7 @@ public class ControlProtocolTests
     [Fact]
     public void CanUseToolRequest_Subtype_IsAlwaysCanUseTool()
     {
-        var request = new CanUseToolRequest
+        CanUseToolRequest request = new()
         {
             ToolName = "test",
             Input = JsonDocument.Parse("{}").RootElement
@@ -539,25 +512,25 @@ public class ControlProtocolTests
     [Fact]
     public void CanUseToolRequest_WithPermissionSuggestions_SerializesCorrectly()
     {
-        var suggestions = JsonDocument.Parse("""
-            {
-                "allow": true,
-                "scope": "session",
-                "path_pattern": "/home/user/**"
-            }
-            """).RootElement;
+        JsonElement suggestions = JsonDocument.Parse("""
+                                                     {
+                                                         "allow": true,
+                                                         "scope": "session",
+                                                         "path_pattern": "/home/user/**"
+                                                     }
+                                                     """).RootElement;
 
-        var request = new CanUseToolRequest
+        CanUseToolRequest request = new()
         {
             ToolName = "write_file",
             Input = JsonDocument.Parse("""{"path": "/home/user/test.txt"}""").RootElement,
             PermissionSuggestions = suggestions
         };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        var parsed = JsonDocument.Parse(json).RootElement;
+        string json = JsonSerializer.Serialize(request, JsonOptions);
+        JsonElement parsed = JsonDocument.Parse(json).RootElement;
 
-        Assert.True(parsed.TryGetProperty("permission_suggestions", out var permSuggestions));
+        Assert.True(parsed.TryGetProperty("permission_suggestions", out JsonElement permSuggestions));
         Assert.True(permSuggestions.GetProperty("allow").GetBoolean());
         Assert.Equal("session", permSuggestions.GetProperty("scope").GetString());
     }
@@ -565,15 +538,15 @@ public class ControlProtocolTests
     [Fact]
     public void CanUseToolRequest_WithBlockedPath_SerializesCorrectly()
     {
-        var request = new CanUseToolRequest
+        CanUseToolRequest request = new()
         {
             ToolName = "read_file",
             Input = JsonDocument.Parse("""{"path": "/etc/passwd"}""").RootElement,
             BlockedPath = "/etc/passwd"
         };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        var parsed = JsonDocument.Parse(json).RootElement;
+        string json = JsonSerializer.Serialize(request, JsonOptions);
+        JsonElement parsed = JsonDocument.Parse(json).RootElement;
 
         Assert.Equal("/etc/passwd", parsed.GetProperty("blocked_path").GetString());
     }
@@ -582,20 +555,20 @@ public class ControlProtocolTests
     public void CanUseToolRequest_Deserialize_MapsAllProperties()
     {
         const string json = """
-            {
-                "subtype": "can_use_tool",
-                "tool_name": "bash",
-                "input": {
-                    "command": "ls -la"
-                },
-                "permission_suggestions": {
-                    "suggest_always_allow": false
-                },
-                "blocked_path": "/root"
-            }
-            """;
+                            {
+                                "subtype": "can_use_tool",
+                                "tool_name": "bash",
+                                "input": {
+                                    "command": "ls -la"
+                                },
+                                "permission_suggestions": {
+                                    "suggest_always_allow": false
+                                },
+                                "blocked_path": "/root"
+                            }
+                            """;
 
-        var request = JsonSerializer.Deserialize<CanUseToolRequest>(json, JsonOptions);
+        CanUseToolRequest? request = JsonSerializer.Deserialize<CanUseToolRequest>(json, JsonOptions);
 
         Assert.NotNull(request);
         Assert.Equal("bash", request.ToolName);
@@ -614,34 +587,30 @@ public class ControlProtocolTests
     [InlineData("mcp_tool:custom_server")]
     public void CanUseToolRequest_ToolName_AcceptsVariousFormats(string toolName)
     {
-        var request = new CanUseToolRequest
+        CanUseToolRequest request = new()
         {
             ToolName = toolName,
             Input = JsonDocument.Parse("{}").RootElement
         };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<CanUseToolRequest>(json, JsonOptions);
+        string json = JsonSerializer.Serialize(request, JsonOptions);
+        CanUseToolRequest? deserialized = JsonSerializer.Deserialize<CanUseToolRequest>(json, JsonOptions);
 
         Assert.NotNull(deserialized);
         Assert.Equal(toolName, deserialized.ToolName);
     }
 
-    #endregion
-
-    #region HookCallbackRequest Tests
-
     [Fact]
     public void HookCallbackRequest_Serialize_ProducesExpectedJson()
     {
-        var request = new HookCallbackRequest
+        HookCallbackRequest request = new()
         {
             CallbackId = "callback-123",
             Input = JsonDocument.Parse("""{"event": "tool_completed"}""").RootElement
         };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        var parsed = JsonDocument.Parse(json).RootElement;
+        string json = JsonSerializer.Serialize(request, JsonOptions);
+        JsonElement parsed = JsonDocument.Parse(json).RootElement;
 
         Assert.Equal("hook_callback", parsed.GetProperty("subtype").GetString());
         Assert.Equal("callback-123", parsed.GetProperty("callback_id").GetString());
@@ -651,7 +620,7 @@ public class ControlProtocolTests
     [Fact]
     public void HookCallbackRequest_Subtype_IsAlwaysHookCallback()
     {
-        var request = new HookCallbackRequest
+        HookCallbackRequest request = new()
         {
             CallbackId = "test",
             Input = JsonDocument.Parse("{}").RootElement
@@ -662,15 +631,15 @@ public class ControlProtocolTests
     [Fact]
     public void HookCallbackRequest_WithToolUseId_SerializesCorrectly()
     {
-        var request = new HookCallbackRequest
+        HookCallbackRequest request = new()
         {
             CallbackId = "callback-456",
             Input = JsonDocument.Parse("""{"result": "success"}""").RootElement,
             ToolUseId = "toolu_789"
         };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        var parsed = JsonDocument.Parse(json).RootElement;
+        string json = JsonSerializer.Serialize(request, JsonOptions);
+        JsonElement parsed = JsonDocument.Parse(json).RootElement;
 
         Assert.Equal("toolu_789", parsed.GetProperty("tool_use_id").GetString());
     }
@@ -678,17 +647,17 @@ public class ControlProtocolTests
     [Fact]
     public void HookCallbackRequest_WithNullToolUseId_OmitsField()
     {
-        var request = new HookCallbackRequest
+        HookCallbackRequest request = new()
         {
             CallbackId = "callback-no-tool",
             Input = JsonDocument.Parse("{}").RootElement
         };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        var parsed = JsonDocument.Parse(json).RootElement;
+        string json = JsonSerializer.Serialize(request, JsonOptions);
+        JsonElement parsed = JsonDocument.Parse(json).RootElement;
 
         // ToolUseId should be null or not present
-        if (parsed.TryGetProperty("tool_use_id", out var toolUseId))
+        if (parsed.TryGetProperty("tool_use_id", out JsonElement toolUseId))
         {
             Assert.Equal(JsonValueKind.Null, toolUseId.ValueKind);
         }
@@ -698,18 +667,18 @@ public class ControlProtocolTests
     public void HookCallbackRequest_Deserialize_MapsAllProperties()
     {
         const string json = """
-            {
-                "subtype": "hook_callback",
-                "callback_id": "cb-deserialize",
-                "input": {
-                    "hook_type": "pre_tool_use",
-                    "tool": "read_file"
-                },
-                "tool_use_id": "toolu_abc123"
-            }
-            """;
+                            {
+                                "subtype": "hook_callback",
+                                "callback_id": "cb-deserialize",
+                                "input": {
+                                    "hook_type": "pre_tool_use",
+                                    "tool": "read_file"
+                                },
+                                "tool_use_id": "toolu_abc123"
+                            }
+                            """;
 
-        var request = JsonSerializer.Deserialize<HookCallbackRequest>(json, JsonOptions);
+        HookCallbackRequest? request = JsonSerializer.Deserialize<HookCallbackRequest>(json, JsonOptions);
 
         Assert.NotNull(request);
         Assert.Equal("cb-deserialize", request.CallbackId);
@@ -720,58 +689,54 @@ public class ControlProtocolTests
     [Fact]
     public void HookCallbackRequest_WithComplexInput_PreservesStructure()
     {
-        var complexInput = JsonDocument.Parse("""
-            {
-                "hook_metadata": {
-                    "timestamp": "2024-01-15T10:30:00Z",
-                    "triggered_by": "user_action"
-                },
-                "context": {
-                    "files_modified": ["file1.txt", "file2.txt"],
-                    "git_status": {
-                        "branch": "main",
-                        "ahead": 2,
-                        "behind": 0
-                    }
-                }
-            }
-            """).RootElement;
+        JsonElement complexInput = JsonDocument.Parse("""
+                                                      {
+                                                          "hook_metadata": {
+                                                              "timestamp": "2024-01-15T10:30:00Z",
+                                                              "triggered_by": "user_action"
+                                                          },
+                                                          "context": {
+                                                              "files_modified": ["file1.txt", "file2.txt"],
+                                                              "git_status": {
+                                                                  "branch": "main",
+                                                                  "ahead": 2,
+                                                                  "behind": 0
+                                                              }
+                                                          }
+                                                      }
+                                                      """).RootElement;
 
-        var request = new HookCallbackRequest
+        HookCallbackRequest request = new()
         {
             CallbackId = "complex-callback",
             Input = complexInput
         };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        var parsed = JsonDocument.Parse(json).RootElement;
-        var input = parsed.GetProperty("input");
+        string json = JsonSerializer.Serialize(request, JsonOptions);
+        JsonElement parsed = JsonDocument.Parse(json).RootElement;
+        JsonElement input = parsed.GetProperty("input");
 
         Assert.Equal("2024-01-15T10:30:00Z", input.GetProperty("hook_metadata").GetProperty("timestamp").GetString());
         Assert.Equal(2, input.GetProperty("context").GetProperty("files_modified").GetArrayLength());
     }
 
-    #endregion
-
-    #region McpMessageRequest Tests
-
     [Fact]
     public void McpMessageRequest_Serialize_ProducesExpectedJson()
     {
-        var request = new McpMessageRequest
+        McpMessageRequest request = new()
         {
             ServerName = "test-mcp-server",
             Message = JsonDocument.Parse("""
-                {
-                    "jsonrpc": "2.0",
-                    "id": 1,
-                    "method": "tools/list"
-                }
-                """).RootElement
+                                         {
+                                             "jsonrpc": "2.0",
+                                             "id": 1,
+                                             "method": "tools/list"
+                                         }
+                                         """).RootElement
         };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        var parsed = JsonDocument.Parse(json).RootElement;
+        string json = JsonSerializer.Serialize(request, JsonOptions);
+        JsonElement parsed = JsonDocument.Parse(json).RootElement;
 
         Assert.Equal("mcp_message", parsed.GetProperty("subtype").GetString());
         Assert.Equal("test-mcp-server", parsed.GetProperty("server_name").GetString());
@@ -781,7 +746,7 @@ public class ControlProtocolTests
     [Fact]
     public void McpMessageRequest_Subtype_IsAlwaysMcpMessage()
     {
-        var request = new McpMessageRequest
+        McpMessageRequest request = new()
         {
             ServerName = "test",
             Message = JsonDocument.Parse("{}").RootElement
@@ -793,21 +758,21 @@ public class ControlProtocolTests
     public void McpMessageRequest_Deserialize_MapsAllProperties()
     {
         const string json = """
-            {
-                "subtype": "mcp_message",
-                "server_name": "database-server",
-                "message": {
-                    "jsonrpc": "2.0",
-                    "id": 42,
-                    "method": "resources/read",
-                    "params": {
-                        "uri": "db://users/123"
-                    }
-                }
-            }
-            """;
+                            {
+                                "subtype": "mcp_message",
+                                "server_name": "database-server",
+                                "message": {
+                                    "jsonrpc": "2.0",
+                                    "id": 42,
+                                    "method": "resources/read",
+                                    "params": {
+                                        "uri": "db://users/123"
+                                    }
+                                }
+                            }
+                            """;
 
-        var request = JsonSerializer.Deserialize<McpMessageRequest>(json, JsonOptions);
+        McpMessageRequest? request = JsonSerializer.Deserialize<McpMessageRequest>(json, JsonOptions);
 
         Assert.NotNull(request);
         Assert.Equal("database-server", request.ServerName);
@@ -822,14 +787,14 @@ public class ControlProtocolTests
     [InlineData("mcp://custom/server")]
     public void McpMessageRequest_ServerName_AcceptsVariousFormats(string serverName)
     {
-        var request = new McpMessageRequest
+        McpMessageRequest request = new()
         {
             ServerName = serverName,
             Message = JsonDocument.Parse("{}").RootElement
         };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<McpMessageRequest>(json, JsonOptions);
+        string json = JsonSerializer.Serialize(request, JsonOptions);
+        McpMessageRequest? deserialized = JsonSerializer.Deserialize<McpMessageRequest>(json, JsonOptions);
 
         Assert.NotNull(deserialized);
         Assert.Equal(serverName, deserialized.ServerName);
@@ -838,58 +803,54 @@ public class ControlProtocolTests
     [Fact]
     public void McpMessageRequest_WithToolsCallMessage_PreservesComplexStructure()
     {
-        var mcpMessage = JsonDocument.Parse("""
-            {
-                "jsonrpc": "2.0",
-                "id": 100,
-                "method": "tools/call",
-                "params": {
-                    "name": "search_files",
-                    "arguments": {
-                        "pattern": "*.cs",
-                        "path": "/src",
-                        "options": {
-                            "recursive": true,
-                            "ignore_case": false,
-                            "max_depth": 10
-                        }
-                    }
-                }
-            }
-            """).RootElement;
+        JsonElement mcpMessage = JsonDocument.Parse("""
+                                                    {
+                                                        "jsonrpc": "2.0",
+                                                        "id": 100,
+                                                        "method": "tools/call",
+                                                        "params": {
+                                                            "name": "search_files",
+                                                            "arguments": {
+                                                                "pattern": "*.cs",
+                                                                "path": "/src",
+                                                                "options": {
+                                                                    "recursive": true,
+                                                                    "ignore_case": false,
+                                                                    "max_depth": 10
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                    """).RootElement;
 
-        var request = new McpMessageRequest
+        McpMessageRequest request = new()
         {
             ServerName = "file-server",
             Message = mcpMessage
         };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        var parsed = JsonDocument.Parse(json).RootElement;
-        var message = parsed.GetProperty("message");
+        string json = JsonSerializer.Serialize(request, JsonOptions);
+        JsonElement parsed = JsonDocument.Parse(json).RootElement;
+        JsonElement message = parsed.GetProperty("message");
 
         Assert.Equal("tools/call", message.GetProperty("method").GetString());
-        var args = message.GetProperty("params").GetProperty("arguments");
+        JsonElement args = message.GetProperty("params").GetProperty("arguments");
         Assert.Equal("*.cs", args.GetProperty("pattern").GetString());
         Assert.True(args.GetProperty("options").GetProperty("recursive").GetBoolean());
     }
-
-    #endregion
-
-    #region Request/Response Correlation Tests
 
     [Fact]
     public void RequestResponseCorrelation_SuccessResponse_MatchesRequestId()
     {
         const string requestId = "corr-test-123";
 
-        var request = new ControlRequest
+        ControlRequest request = new()
         {
             RequestId = requestId,
             Request = JsonDocument.Parse("""{"subtype":"initialize"}""").RootElement
         };
 
-        var response = new ControlResponse
+        ControlResponse response = new()
         {
             Response = new ControlSuccessResponse
             {
@@ -906,13 +867,13 @@ public class ControlProtocolTests
     {
         const string requestId = "error-corr-456";
 
-        var request = new ControlRequest
+        ControlRequest request = new()
         {
             RequestId = requestId,
             Request = JsonDocument.Parse("""{"subtype":"can_use_tool"}""").RootElement
         };
 
-        var response = new ControlResponse
+        ControlResponse response = new()
         {
             Response = new ControlErrorResponse
             {
@@ -931,40 +892,36 @@ public class ControlProtocolTests
     [InlineData("req_with_underscores")]
     public void RequestResponseCorrelation_VariousIdFormats_WorkCorrectly(string requestId)
     {
-        var request = new ControlRequest
+        ControlRequest request = new()
         {
             RequestId = requestId,
             Request = JsonDocument.Parse("{}").RootElement
         };
 
-        var successResponse = new ControlSuccessResponse { RequestId = requestId };
-        var errorResponse = new ControlErrorResponse { RequestId = requestId, Error = "test" };
+        ControlSuccessResponse successResponse = new() { RequestId = requestId };
+        ControlErrorResponse errorResponse = new() { RequestId = requestId, Error = "test" };
 
         Assert.Equal(request.RequestId, successResponse.RequestId);
         Assert.Equal(request.RequestId, errorResponse.RequestId);
     }
 
-    #endregion
-
-    #region Serialization Round-Trip Tests
-
     [Fact]
     public void RoundTrip_ControlRequest_PreservesData()
     {
-        var original = new ControlRequest
+        ControlRequest original = new()
         {
             RequestId = "round-trip-req",
             Request = JsonDocument.Parse("""
-                {
-                    "subtype": "can_use_tool",
-                    "tool_name": "bash",
-                    "input": {"command": "echo hello"}
-                }
-                """).RootElement
+                                         {
+                                             "subtype": "can_use_tool",
+                                             "tool_name": "bash",
+                                             "input": {"command": "echo hello"}
+                                         }
+                                         """).RootElement
         };
 
-        var json = JsonSerializer.Serialize(original, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<ControlRequest>(json, JsonOptions);
+        string json = JsonSerializer.Serialize(original, JsonOptions);
+        ControlRequest? deserialized = JsonSerializer.Deserialize<ControlRequest>(json, JsonOptions);
 
         Assert.NotNull(deserialized);
         Assert.Equal(original.RequestId, deserialized.RequestId);
@@ -976,34 +933,34 @@ public class ControlProtocolTests
     [Fact]
     public void RoundTrip_ControlSuccessResponse_PreservesData()
     {
-        var original = new ControlSuccessResponse
+        ControlSuccessResponse original = new()
         {
             RequestId = "round-trip-success",
             ResponseData = JsonDocument.Parse("""{"status":"ok","count":42}""").RootElement
         };
 
-        var json = JsonSerializer.Serialize(original, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<ControlSuccessResponse>(json, JsonOptions);
+        string json = JsonSerializer.Serialize(original, JsonOptions);
+        ControlSuccessResponse? deserialized = JsonSerializer.Deserialize<ControlSuccessResponse>(json, JsonOptions);
 
         Assert.NotNull(deserialized);
         Assert.Equal(original.RequestId, deserialized.RequestId);
         Assert.NotNull(deserialized.ResponseData);
         // ResponseData is object? but deserializes to JsonElement
-        var responseElement = (JsonElement)deserialized.ResponseData;
+        JsonElement responseElement = (JsonElement)deserialized.ResponseData;
         Assert.Equal(42, responseElement.GetProperty("count").GetInt32());
     }
 
     [Fact]
     public void RoundTrip_ControlErrorResponse_PreservesData()
     {
-        var original = new ControlErrorResponse
+        ControlErrorResponse original = new()
         {
             RequestId = "round-trip-error",
             Error = "Test error message with special chars: <>\"'"
         };
 
-        var json = JsonSerializer.Serialize(original, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<ControlErrorResponse>(json, JsonOptions);
+        string json = JsonSerializer.Serialize(original, JsonOptions);
+        ControlErrorResponse? deserialized = JsonSerializer.Deserialize<ControlErrorResponse>(json, JsonOptions);
 
         Assert.NotNull(deserialized);
         Assert.Equal(original.RequestId, deserialized.RequestId);
@@ -1013,13 +970,13 @@ public class ControlProtocolTests
     [Fact]
     public void RoundTrip_InitializeRequest_PreservesData()
     {
-        var original = new InitializeRequest
+        InitializeRequest original = new()
         {
             Hooks = JsonDocument.Parse("""{"hook1":{"enabled":true}}""").RootElement
         };
 
-        var json = JsonSerializer.Serialize(original, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<InitializeRequest>(json, JsonOptions);
+        string json = JsonSerializer.Serialize(original, JsonOptions);
+        InitializeRequest? deserialized = JsonSerializer.Deserialize<InitializeRequest>(json, JsonOptions);
 
         Assert.NotNull(deserialized);
         Assert.NotNull(deserialized.Hooks);
@@ -1029,7 +986,7 @@ public class ControlProtocolTests
     [Fact]
     public void RoundTrip_CanUseToolRequest_PreservesData()
     {
-        var original = new CanUseToolRequest
+        CanUseToolRequest original = new()
         {
             ToolName = "write_file",
             Input = JsonDocument.Parse("""{"path":"/test.txt","content":"hello"}""").RootElement,
@@ -1037,8 +994,8 @@ public class ControlProtocolTests
             BlockedPath = "/blocked"
         };
 
-        var json = JsonSerializer.Serialize(original, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<CanUseToolRequest>(json, JsonOptions);
+        string json = JsonSerializer.Serialize(original, JsonOptions);
+        CanUseToolRequest? deserialized = JsonSerializer.Deserialize<CanUseToolRequest>(json, JsonOptions);
 
         Assert.NotNull(deserialized);
         Assert.Equal(original.ToolName, deserialized.ToolName);
@@ -1049,15 +1006,15 @@ public class ControlProtocolTests
     [Fact]
     public void RoundTrip_HookCallbackRequest_PreservesData()
     {
-        var original = new HookCallbackRequest
+        HookCallbackRequest original = new()
         {
             CallbackId = "cb-round-trip",
             Input = JsonDocument.Parse("""{"data":"test"}""").RootElement,
             ToolUseId = "toolu_round_trip"
         };
 
-        var json = JsonSerializer.Serialize(original, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<HookCallbackRequest>(json, JsonOptions);
+        string json = JsonSerializer.Serialize(original, JsonOptions);
+        HookCallbackRequest? deserialized = JsonSerializer.Deserialize<HookCallbackRequest>(json, JsonOptions);
 
         Assert.NotNull(deserialized);
         Assert.Equal(original.CallbackId, deserialized.CallbackId);
@@ -1067,38 +1024,34 @@ public class ControlProtocolTests
     [Fact]
     public void RoundTrip_McpMessageRequest_PreservesData()
     {
-        var original = new McpMessageRequest
+        McpMessageRequest original = new()
         {
             ServerName = "test-server",
             Message = JsonDocument.Parse("""{"jsonrpc":"2.0","method":"test"}""").RootElement
         };
 
-        var json = JsonSerializer.Serialize(original, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<McpMessageRequest>(json, JsonOptions);
+        string json = JsonSerializer.Serialize(original, JsonOptions);
+        McpMessageRequest? deserialized = JsonSerializer.Deserialize<McpMessageRequest>(json, JsonOptions);
 
         Assert.NotNull(deserialized);
         Assert.Equal(original.ServerName, deserialized.ServerName);
         Assert.Equal("2.0", deserialized.Message.GetProperty("jsonrpc").GetString());
     }
 
-    #endregion
-
-    #region Edge Cases and Error Handling
-
     [Fact]
     public void Deserialize_ControlRequest_WithUnknownFields_IgnoresExtra()
     {
         const string json = """
-            {
-                "type": "control_request",
-                "request_id": "test-unknown",
-                "request": {},
-                "unknown_field": "should be ignored",
-                "another_unknown": 123
-            }
-            """;
+                            {
+                                "type": "control_request",
+                                "request_id": "test-unknown",
+                                "request": {},
+                                "unknown_field": "should be ignored",
+                                "another_unknown": 123
+                            }
+                            """;
 
-        var request = JsonSerializer.Deserialize<ControlRequest>(json, JsonOptions);
+        ControlRequest? request = JsonSerializer.Deserialize<ControlRequest>(json, JsonOptions);
 
         Assert.NotNull(request);
         Assert.Equal("test-unknown", request.RequestId);
@@ -1107,14 +1060,14 @@ public class ControlProtocolTests
     [Fact]
     public void Deserialize_WithEmptyJsonObject_HandlesGracefully()
     {
-        var request = new ControlRequest
+        ControlRequest request = new()
         {
             RequestId = "empty-request",
             Request = JsonDocument.Parse("{}").RootElement
         };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<ControlRequest>(json, JsonOptions);
+        string json = JsonSerializer.Serialize(request, JsonOptions);
+        ControlRequest? deserialized = JsonSerializer.Deserialize<ControlRequest>(json, JsonOptions);
 
         Assert.NotNull(deserialized);
         Assert.Equal(JsonValueKind.Object, deserialized.Request.ValueKind);
@@ -1123,14 +1076,14 @@ public class ControlProtocolTests
     [Fact]
     public void Serialize_WithUnicodeContent_HandlesCorrectly()
     {
-        var request = new CanUseToolRequest
+        CanUseToolRequest request = new()
         {
             ToolName = "write_file",
             Input = JsonDocument.Parse("""{"content":"Hello \u4e16\u754c \ud83c\udf0d"}""").RootElement
         };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<CanUseToolRequest>(json, JsonOptions);
+        string json = JsonSerializer.Serialize(request, JsonOptions);
+        CanUseToolRequest? deserialized = JsonSerializer.Deserialize<CanUseToolRequest>(json, JsonOptions);
 
         Assert.NotNull(deserialized);
         // Unicode should be preserved
@@ -1141,19 +1094,19 @@ public class ControlProtocolTests
     public void Serialize_WithLargeNestedStructure_HandlesCorrectly()
     {
         // Create a large nested structure
-        var items = Enumerable.Range(0, 100)
+        string[] items = Enumerable.Range(0, 100)
             .Select(i => $"{{\"id\":{i},\"name\":\"item{i}\"}}")
             .ToArray();
-        var arrayJson = $"[{string.Join(",", items)}]";
+        string arrayJson = $"[{string.Join(",", items)}]";
 
-        var request = new CanUseToolRequest
+        CanUseToolRequest request = new()
         {
             ToolName = "process_items",
             Input = JsonDocument.Parse($"{{\"items\":{arrayJson}}}").RootElement
         };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<CanUseToolRequest>(json, JsonOptions);
+        string json = JsonSerializer.Serialize(request, JsonOptions);
+        CanUseToolRequest? deserialized = JsonSerializer.Deserialize<CanUseToolRequest>(json, JsonOptions);
 
         Assert.NotNull(deserialized);
         Assert.Equal(100, deserialized.Input.GetProperty("items").GetArrayLength());
@@ -1163,8 +1116,8 @@ public class ControlProtocolTests
     public void ControlResponsePayload_RequestId_IsRequired()
     {
         // Both success and error responses require RequestId
-        var success = new ControlSuccessResponse { RequestId = "required-id" };
-        var error = new ControlErrorResponse { RequestId = "required-id", Error = "test" };
+        ControlSuccessResponse success = new() { RequestId = "required-id" };
+        ControlErrorResponse error = new() { RequestId = "required-id", Error = "test" };
 
         Assert.NotNull(success.RequestId);
         Assert.NotNull(error.RequestId);
@@ -1176,29 +1129,25 @@ public class ControlProtocolTests
     [InlineData("a-very-long-request-id-that-might-be-generated-by-some-system-with-lots-of-characters")]
     public void RequestId_AcceptsVariousLengths(string requestId)
     {
-        var request = new ControlRequest
+        ControlRequest request = new()
         {
             RequestId = requestId,
             Request = JsonDocument.Parse("{}").RootElement
         };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<ControlRequest>(json, JsonOptions);
+        string json = JsonSerializer.Serialize(request, JsonOptions);
+        ControlRequest? deserialized = JsonSerializer.Deserialize<ControlRequest>(json, JsonOptions);
 
         Assert.NotNull(deserialized);
         Assert.Equal(requestId, deserialized.RequestId);
     }
 
-    #endregion
-
-    #region Record Equality Tests
-
     [Fact]
     public void ControlSuccessResponse_Equality_WorksForRequestId()
     {
-        var response1 = new ControlSuccessResponse { RequestId = "same-id" };
-        var response2 = new ControlSuccessResponse { RequestId = "same-id" };
-        var response3 = new ControlSuccessResponse { RequestId = "different-id" };
+        ControlSuccessResponse response1 = new() { RequestId = "same-id" };
+        ControlSuccessResponse response2 = new() { RequestId = "same-id" };
+        ControlSuccessResponse response3 = new() { RequestId = "different-id" };
 
         // Note: Records with JsonElement may not have full value equality
         // but RequestId comparison should work
@@ -1209,28 +1158,24 @@ public class ControlProtocolTests
     [Fact]
     public void ControlErrorResponse_Equality_WorksCorrectly()
     {
-        var error1 = new ControlErrorResponse { RequestId = "id1", Error = "error message" };
-        var error2 = new ControlErrorResponse { RequestId = "id1", Error = "error message" };
-        var error3 = new ControlErrorResponse { RequestId = "id1", Error = "different error" };
+        ControlErrorResponse error1 = new() { RequestId = "id1", Error = "error message" };
+        ControlErrorResponse error2 = new() { RequestId = "id1", Error = "error message" };
+        ControlErrorResponse error3 = new() { RequestId = "id1", Error = "different error" };
 
         Assert.Equal(error1, error2);
         Assert.NotEqual(error1, error3);
     }
 
-    #endregion
-
-    #region JSON Property Name Tests
-
     [Fact]
     public void ControlRequest_JsonPropertyNames_AreSnakeCase()
     {
-        var request = new ControlRequest
+        ControlRequest request = new()
         {
             RequestId = "test",
             Request = JsonDocument.Parse("{}").RootElement
         };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
+        string json = JsonSerializer.Serialize(request, JsonOptions);
 
         Assert.Contains("\"request_id\"", json);
         Assert.Contains("\"type\"", json);
@@ -1240,7 +1185,7 @@ public class ControlProtocolTests
     [Fact]
     public void CanUseToolRequest_JsonPropertyNames_AreSnakeCase()
     {
-        var request = new CanUseToolRequest
+        CanUseToolRequest request = new()
         {
             ToolName = "test",
             Input = JsonDocument.Parse("{}").RootElement,
@@ -1248,7 +1193,7 @@ public class ControlProtocolTests
             BlockedPath = "/test"
         };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
+        string json = JsonSerializer.Serialize(request, JsonOptions);
 
         Assert.Contains("\"tool_name\"", json);
         Assert.Contains("\"permission_suggestions\"", json);
@@ -1258,14 +1203,14 @@ public class ControlProtocolTests
     [Fact]
     public void HookCallbackRequest_JsonPropertyNames_AreSnakeCase()
     {
-        var request = new HookCallbackRequest
+        HookCallbackRequest request = new()
         {
             CallbackId = "test",
             Input = JsonDocument.Parse("{}").RootElement,
             ToolUseId = "toolu_123"
         };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
+        string json = JsonSerializer.Serialize(request, JsonOptions);
 
         Assert.Contains("\"callback_id\"", json);
         Assert.Contains("\"tool_use_id\"", json);
@@ -1274,16 +1219,14 @@ public class ControlProtocolTests
     [Fact]
     public void McpMessageRequest_JsonPropertyNames_AreSnakeCase()
     {
-        var request = new McpMessageRequest
+        McpMessageRequest request = new()
         {
             ServerName = "test",
             Message = JsonDocument.Parse("{}").RootElement
         };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
+        string json = JsonSerializer.Serialize(request, JsonOptions);
 
         Assert.Contains("\"server_name\"", json);
     }
-
-    #endregion
 }

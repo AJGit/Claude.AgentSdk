@@ -1,10 +1,8 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading.Channels;
 using Claude.AgentSdk.Protocol;
 using Claude.AgentSdk.Transport;
-using Moq;
-using Xunit;
 
 namespace Claude.AgentSdk.Tests.Protocol;
 
@@ -20,18 +18,14 @@ public class QueryHandlerHookTests
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
     };
 
-    #region Helper Classes
-
     /// <summary>
     ///     Mock transport implementation for testing QueryHandler hook functionality.
     /// </summary>
     private sealed class HookTestMockTransport : ITransport
     {
         private readonly Channel<JsonDocument> _incomingMessages = Channel.CreateUnbounded<JsonDocument>();
-        private readonly List<object> _writtenMessages = new();
-        private readonly object _writeLock = new();
-
-        public bool IsReady { get; private set; }
+        private readonly Lock _writeLock = new();
+        private readonly List<object> _writtenMessages = [];
 
         public IReadOnlyList<object> WrittenMessages
         {
@@ -43,6 +37,8 @@ public class QueryHandlerHookTests
                 }
             }
         }
+
+        public bool IsReady { get; private set; }
 
         public Task ConnectAsync(CancellationToken cancellationToken = default)
         {
@@ -56,6 +52,7 @@ public class QueryHandlerHookTests
             {
                 _writtenMessages.Add(message);
             }
+
             return Task.CompletedTask;
         }
 
@@ -67,6 +64,7 @@ public class QueryHandlerHookTests
                 var json = JsonSerializer.Serialize(message, JsonOptions);
                 _writtenMessages.Add(JsonDocument.Parse(json));
             }
+
             return Task.CompletedTask;
         }
 
@@ -113,23 +111,23 @@ public class QueryHandlerHookTests
         {
             var toolUseIdJson = toolUseId is not null ? $"\"tool_use_id\": \"{toolUseId}\"," : "";
             var json = $$"""
-                {
-                    "type": "control_request",
-                    "request_id": "{{requestId}}",
-                    "request": {
-                        "subtype": "hook_callback",
-                        "callback_id": "{{callbackId}}",
-                        {{toolUseIdJson}}
-                        "input": {
-                            "hook_event_name": "{{hookEventName}}",
-                            "session_id": "test-session",
-                            "transcript_path": "/test/transcript.json",
-                            "cwd": "/test/cwd"
-                            {{additionalInput}}
-                        }
-                    }
-                }
-                """;
+                         {
+                             "type": "control_request",
+                             "request_id": "{{requestId}}",
+                             "request": {
+                                 "subtype": "hook_callback",
+                                 "callback_id": "{{callbackId}}",
+                                 {{toolUseIdJson}}
+                                 "input": {
+                                     "hook_event_name": "{{hookEventName}}",
+                                     "session_id": "test-session",
+                                     "transcript_path": "/test/transcript.json",
+                                     "cwd": "/test/cwd"
+                                     {{additionalInput}}
+                                 }
+                             }
+                         }
+                         """;
             EnqueueIncomingMessage(json);
         }
 
@@ -141,7 +139,10 @@ public class QueryHandlerHookTests
             lock (_writeLock)
             {
                 if (_writtenMessages.Count == 0)
+                {
                     return null;
+                }
+
                 return _writtenMessages.Last() switch
                 {
                     JsonDocument doc => doc.RootElement,
@@ -158,7 +159,10 @@ public class QueryHandlerHookTests
             lock (_writeLock)
             {
                 if (index < 0 || index >= _writtenMessages.Count)
+                {
                     return null;
+                }
+
                 return _writtenMessages[index] switch
                 {
                     JsonDocument doc => doc.RootElement,
@@ -173,19 +177,15 @@ public class QueryHandlerHookTests
     /// </summary>
     private sealed class HookTestContext : IAsyncDisposable
     {
-        private readonly HookTestMockTransport _transport;
-        private readonly object _queryHandler;
         private readonly List<(HookInput Input, string? ToolUseId, HookContext Context)> _invocations = new();
+        private readonly object _queryHandler;
         private HookOutput _returnOutput = new SyncHookOutput { Continue = true };
-        private Exception? _throwException;
         private bool _shouldCancel;
-
-        public IReadOnlyList<(HookInput Input, string? ToolUseId, HookContext Context)> Invocations => _invocations;
-        public HookTestMockTransport Transport => _transport;
+        private Exception? _throwException;
 
         public HookTestContext(Dictionary<HookEvent, IReadOnlyList<HookMatcher>>? hooks = null)
         {
-            _transport = new HookTestMockTransport();
+            Transport = new HookTestMockTransport();
 
             var options = new ClaudeAgentOptions
             {
@@ -193,8 +193,18 @@ public class QueryHandlerHookTests
             };
 
             // Use reflection to create QueryHandler since it's internal
-            var queryHandlerType = typeof(ClaudeAgentOptions).Assembly.GetType("Claude.AgentSdk.Protocol.QueryHandler")!;
-            _queryHandler = Activator.CreateInstance(queryHandlerType, _transport, options, null)!;
+            var queryHandlerType =
+                typeof(ClaudeAgentOptions).Assembly.GetType("Claude.AgentSdk.Protocol.QueryHandler")!;
+            _queryHandler = Activator.CreateInstance(queryHandlerType, Transport, options, null)!;
+        }
+
+        public IReadOnlyList<(HookInput Input, string? ToolUseId, HookContext Context)> Invocations => _invocations;
+        public HookTestMockTransport Transport { get; }
+
+        public ValueTask DisposeAsync()
+        {
+            var disposeMethod = _queryHandler.GetType().GetMethod("DisposeAsync")!;
+            return (ValueTask)disposeMethod.Invoke(_queryHandler, Array.Empty<object>())!;
         }
 
         public HookCallback CreateTrackingCallback()
@@ -244,17 +254,7 @@ public class QueryHandlerHookTests
             var initMethod = _queryHandler.GetType().GetMethod("InitializeAsync")!;
             await (Task)initMethod.Invoke(_queryHandler, new object[] { cancellationToken })!;
         }
-
-        public ValueTask DisposeAsync()
-        {
-            var disposeMethod = _queryHandler.GetType().GetMethod("DisposeAsync")!;
-            return (ValueTask)disposeMethod.Invoke(_queryHandler, Array.Empty<object>())!;
-        }
     }
-
-    #endregion
-
-    #region Hook Registration (BuildHooksConfig) Tests
 
     [Fact]
     public async Task BuildHooksConfig_WithHooks_RegistersCallbackIds()
@@ -285,14 +285,14 @@ public class QueryHandlerHookTests
             if (initRequestId is not null)
             {
                 transport.EnqueueIncomingMessage($$"""
-                    {
-                        "type": "control_response",
-                        "response": {
-                            "request_id": "{{initRequestId}}",
-                            "subtype": "success"
-                        }
-                    }
-                    """);
+                                                   {
+                                                       "type": "control_response",
+                                                       "response": {
+                                                           "request_id": "{{initRequestId}}",
+                                                           "subtype": "success"
+                                                       }
+                                                   }
+                                                   """);
             }
         });
 
@@ -455,7 +455,7 @@ public class QueryHandlerHookTests
     public async Task BuildHooksConfig_WithNoHooks_SendsNullHooksConfig()
     {
         // Arrange
-        await using var context = new HookTestContext(null);
+        await using var context = new HookTestContext();
         var transport = context.Transport;
 
         SetupInitializeResponse(transport);
@@ -474,24 +474,20 @@ public class QueryHandlerHookTests
         }
     }
 
-    #endregion
-
-    #region Hook Callback Handling Tests
-
     [Fact]
     public async Task HandleHookCallbackAsync_UnknownCallbackId_ReturnsContinueTrue()
     {
         // Arrange
-        await using var context = new HookTestContext(null);
+        await using var context = new HookTestContext();
         var transport = context.Transport;
 
         await context.StartAsync();
 
         // Enqueue a hook callback request with unknown callback ID
         transport.EnqueueHookCallbackRequest(
-            requestId: "req-unknown",
-            callbackId: "hook_unknown",
-            hookEventName: "PreToolUse",
+            "req-unknown",
+            "hook_unknown",
+            "PreToolUse",
             additionalInput: ", \"tool_name\": \"Bash\", \"tool_input\": {}");
 
         // Wait for processing
@@ -549,11 +545,11 @@ public class QueryHandlerHookTests
 
         // Enqueue hook callback with toolUseId
         transport.EnqueueHookCallbackRequest(
-            requestId: "req-with-tool-use",
-            callbackId: callbackId,
-            hookEventName: "PreToolUse",
-            toolUseId: "toolu_abc123",
-            additionalInput: ", \"tool_name\": \"Bash\", \"tool_input\": {}");
+            "req-with-tool-use",
+            callbackId,
+            "PreToolUse",
+            "toolu_abc123",
+            ", \"tool_name\": \"Bash\", \"tool_input\": {}");
 
         await Task.Delay(200);
         await transport.EndInputAsync();
@@ -593,9 +589,9 @@ public class QueryHandlerHookTests
 
         // Enqueue hook callback without toolUseId
         transport.EnqueueHookCallbackRequest(
-            requestId: "req-no-tool-use",
-            callbackId: callbackId!,
-            hookEventName: "Stop",
+            "req-no-tool-use",
+            callbackId!,
+            "Stop",
             additionalInput: ", \"stop_hook_active\": true");
 
         await Task.Delay(200);
@@ -635,9 +631,9 @@ public class QueryHandlerHookTests
         var callbackId = GetCallbackIdForEvent(transport, "UserPromptSubmit");
 
         transport.EnqueueHookCallbackRequest(
-            requestId: "req-context",
-            callbackId: callbackId!,
-            hookEventName: "UserPromptSubmit",
+            "req-context",
+            callbackId!,
+            "UserPromptSubmit",
             additionalInput: ", \"prompt\": \"Hello\"");
 
         await Task.Delay(200);
@@ -648,24 +644,27 @@ public class QueryHandlerHookTests
         Assert.NotNull(receivedContext);
     }
 
-    #endregion
-
-    #region Hook Input Parsing Tests
-
     [Theory]
-    [InlineData("PreToolUse", typeof(PreToolUseHookInput), ", \"tool_name\": \"Bash\", \"tool_input\": {\"command\": \"ls\"}")]
-    [InlineData("PostToolUse", typeof(PostToolUseHookInput), ", \"tool_name\": \"Bash\", \"tool_input\": {}, \"tool_response\": {\"output\": \"result\"}")]
-    [InlineData("PostToolUseFailure", typeof(PostToolUseFailureHookInput), ", \"tool_name\": \"Bash\", \"tool_input\": {}, \"error\": \"Command failed\"")]
+    [InlineData("PreToolUse", typeof(PreToolUseHookInput),
+        ", \"tool_name\": \"Bash\", \"tool_input\": {\"command\": \"ls\"}")]
+    [InlineData("PostToolUse", typeof(PostToolUseHookInput),
+        ", \"tool_name\": \"Bash\", \"tool_input\": {}, \"tool_response\": {\"output\": \"result\"}")]
+    [InlineData("PostToolUseFailure", typeof(PostToolUseFailureHookInput),
+        ", \"tool_name\": \"Bash\", \"tool_input\": {}, \"error\": \"Command failed\"")]
     [InlineData("UserPromptSubmit", typeof(UserPromptSubmitHookInput), ", \"prompt\": \"Hello Claude\"")]
     [InlineData("Stop", typeof(StopHookInput), ", \"stop_hook_active\": true")]
-    [InlineData("SubagentStart", typeof(SubagentStartHookInput), ", \"agent_id\": \"agent-1\", \"agent_type\": \"task\"")]
+    [InlineData("SubagentStart", typeof(SubagentStartHookInput),
+        ", \"agent_id\": \"agent-1\", \"agent_type\": \"task\"")]
     [InlineData("SubagentStop", typeof(SubagentStopHookInput), ", \"stop_hook_active\": false")]
     [InlineData("PreCompact", typeof(PreCompactHookInput), ", \"trigger\": \"token_limit\"")]
-    [InlineData("PermissionRequest", typeof(PermissionRequestHookInput), ", \"tool_name\": \"Write\", \"tool_input\": {}")]
+    [InlineData("PermissionRequest", typeof(PermissionRequestHookInput),
+        ", \"tool_name\": \"Write\", \"tool_input\": {}")]
     [InlineData("SessionStart", typeof(SessionStartHookInput), ", \"source\": \"startup\"")]
     [InlineData("SessionEnd", typeof(SessionEndHookInput), ", \"reason\": \"logout\"")]
-    [InlineData("Notification", typeof(NotificationHookInput), ", \"message\": \"Test\", \"notification_type\": \"idle_prompt\"")]
-    public async Task ParseHookInput_AllEventTypes_ParsesCorrectType(string hookEventName, Type expectedInputType, string additionalInput)
+    [InlineData("Notification", typeof(NotificationHookInput),
+        ", \"message\": \"Test\", \"notification_type\": \"idle_prompt\"")]
+    public async Task ParseHookInput_AllEventTypes_ParsesCorrectType(string hookEventName, Type expectedInputType,
+        string additionalInput)
     {
         // Arrange
         HookInput? receivedInput = null;
@@ -691,9 +690,9 @@ public class QueryHandlerHookTests
         var callbackId = GetCallbackIdForEvent(transport, hookEventName);
 
         transport.EnqueueHookCallbackRequest(
-            requestId: $"req-{hookEventName}",
-            callbackId: callbackId!,
-            hookEventName: hookEventName,
+            $"req-{hookEventName}",
+            callbackId!,
+            hookEventName,
             additionalInput: additionalInput);
 
         await Task.Delay(200);
@@ -732,10 +731,11 @@ public class QueryHandlerHookTests
         var callbackId = GetCallbackIdForEvent(transport, "PreToolUse");
 
         transport.EnqueueHookCallbackRequest(
-            requestId: "req-pre-tool",
-            callbackId: callbackId!,
-            hookEventName: "PreToolUse",
-            additionalInput: ", \"tool_name\": \"Write\", \"tool_input\": {\"file_path\": \"/test.txt\", \"content\": \"hello\"}, \"permission_mode\": \"strict\"");
+            "req-pre-tool",
+            callbackId!,
+            "PreToolUse",
+            additionalInput:
+            ", \"tool_name\": \"Write\", \"tool_input\": {\"file_path\": \"/test.txt\", \"content\": \"hello\"}, \"permission_mode\": \"strict\"");
 
         await Task.Delay(200);
         await transport.EndInputAsync();
@@ -756,28 +756,28 @@ public class QueryHandlerHookTests
     public async Task ParseHookInput_UnknownHookEvent_ReturnsNull()
     {
         // Arrange
-        await using var ctx = new HookTestContext(null);
+        await using var ctx = new HookTestContext();
         var transport = ctx.Transport;
 
         await ctx.StartAsync();
 
         // Send a hook callback with unknown event name
         transport.EnqueueIncomingMessage("""
-            {
-                "type": "control_request",
-                "request_id": "req-unknown-event",
-                "request": {
-                    "subtype": "hook_callback",
-                    "callback_id": "hook_0",
-                    "input": {
-                        "hook_event_name": "UnknownEvent",
-                        "session_id": "test",
-                        "transcript_path": "/test",
-                        "cwd": "/cwd"
-                    }
-                }
-            }
-            """);
+                                         {
+                                             "type": "control_request",
+                                             "request_id": "req-unknown-event",
+                                             "request": {
+                                                 "subtype": "hook_callback",
+                                                 "callback_id": "hook_0",
+                                                 "input": {
+                                                     "hook_event_name": "UnknownEvent",
+                                                     "session_id": "test",
+                                                     "transcript_path": "/test",
+                                                     "cwd": "/cwd"
+                                                 }
+                                             }
+                                         }
+                                         """);
 
         await Task.Delay(200);
         await transport.EndInputAsync();
@@ -790,10 +790,6 @@ public class QueryHandlerHookTests
         var responseData = response.Value.GetProperty("response").GetProperty("response");
         Assert.True(responseData.GetProperty("continue").GetBoolean());
     }
-
-    #endregion
-
-    #region Hook Output Conversion Tests
 
     [Fact]
     public async Task ConvertHookOutput_SyncHookOutput_WithContinueTrue()
@@ -817,9 +813,9 @@ public class QueryHandlerHookTests
         var callbackId = GetCallbackIdForEvent(transport, "Stop");
 
         transport.EnqueueHookCallbackRequest(
-            requestId: "req-continue-true",
-            callbackId: callbackId!,
-            hookEventName: "Stop",
+            "req-continue-true",
+            callbackId!,
+            "Stop",
             additionalInput: ", \"stop_hook_active\": true");
 
         await Task.Delay(200);
@@ -856,9 +852,9 @@ public class QueryHandlerHookTests
         var callbackId = GetCallbackIdForEvent(transport, "PreToolUse");
 
         transport.EnqueueHookCallbackRequest(
-            requestId: "req-continue-false",
-            callbackId: callbackId!,
-            hookEventName: "PreToolUse",
+            "req-continue-false",
+            callbackId!,
+            "PreToolUse",
             additionalInput: ", \"tool_name\": \"Bash\", \"tool_input\": {}");
 
         await Task.Delay(200);
@@ -906,9 +902,9 @@ public class QueryHandlerHookTests
         var callbackId = GetCallbackIdForEvent(transport, "PreToolUse");
 
         transport.EnqueueHookCallbackRequest(
-            requestId: "req-all-props",
-            callbackId: callbackId!,
-            hookEventName: "PreToolUse",
+            "req-all-props",
+            callbackId!,
+            "PreToolUse",
             additionalInput: ", \"tool_name\": \"Bash\", \"tool_input\": {}");
 
         await Task.Delay(200);
@@ -952,9 +948,9 @@ public class QueryHandlerHookTests
         var callbackId = GetCallbackIdForEvent(transport, "PostToolUse");
 
         transport.EnqueueHookCallbackRequest(
-            requestId: "req-null-fields",
-            callbackId: callbackId!,
-            hookEventName: "PostToolUse",
+            "req-null-fields",
+            callbackId!,
+            "PostToolUse",
             additionalInput: ", \"tool_name\": \"Read\", \"tool_input\": {}");
 
         await Task.Delay(200);
@@ -999,9 +995,9 @@ public class QueryHandlerHookTests
         var callbackId = GetCallbackIdForEvent(transport, "PreToolUse");
 
         transport.EnqueueHookCallbackRequest(
-            requestId: "req-async",
-            callbackId: callbackId!,
-            hookEventName: "PreToolUse",
+            "req-async",
+            callbackId!,
+            "PreToolUse",
             additionalInput: ", \"tool_name\": \"Bash\", \"tool_input\": {}");
 
         await Task.Delay(200);
@@ -1039,9 +1035,9 @@ public class QueryHandlerHookTests
         var callbackId = GetCallbackIdForEvent(transport, "Notification");
 
         transport.EnqueueHookCallbackRequest(
-            requestId: "req-default-continue",
-            callbackId: callbackId!,
-            hookEventName: "Notification",
+            "req-default-continue",
+            callbackId!,
+            "Notification",
             additionalInput: ", \"message\": \"test\", \"notification_type\": \"auth_success\"");
 
         await Task.Delay(200);
@@ -1055,10 +1051,6 @@ public class QueryHandlerHookTests
         var responseData = response.Value.GetProperty("response").GetProperty("response");
         Assert.True(responseData.GetProperty("continue").GetBoolean());
     }
-
-    #endregion
-
-    #region Hook Error Handling Tests
 
     [Fact]
     public async Task HandleHookCallbackAsync_CallbackThrowsException_ReturnsErrorResponse()
@@ -1082,9 +1074,9 @@ public class QueryHandlerHookTests
         var callbackId = GetCallbackIdForEvent(transport, "PreToolUse");
 
         transport.EnqueueHookCallbackRequest(
-            requestId: "req-exception",
-            callbackId: callbackId!,
-            hookEventName: "PreToolUse",
+            "req-exception",
+            callbackId!,
+            "PreToolUse",
             additionalInput: ", \"tool_name\": \"Bash\", \"tool_input\": {}");
 
         await Task.Delay(200);
@@ -1105,27 +1097,27 @@ public class QueryHandlerHookTests
     public async Task HandleHookCallbackAsync_MissingHookEventName_ReturnsContinueTrue()
     {
         // Arrange
-        await using var ctx = new HookTestContext(null);
+        await using var ctx = new HookTestContext();
         var transport = ctx.Transport;
 
         await ctx.StartAsync();
 
         // Send a hook callback without hook_event_name
         transport.EnqueueIncomingMessage("""
-            {
-                "type": "control_request",
-                "request_id": "req-no-event-name",
-                "request": {
-                    "subtype": "hook_callback",
-                    "callback_id": "hook_0",
-                    "input": {
-                        "session_id": "test",
-                        "transcript_path": "/test",
-                        "cwd": "/cwd"
-                    }
-                }
-            }
-            """);
+                                         {
+                                             "type": "control_request",
+                                             "request_id": "req-no-event-name",
+                                             "request": {
+                                                 "subtype": "hook_callback",
+                                                 "callback_id": "hook_0",
+                                                 "input": {
+                                                     "session_id": "test",
+                                                     "transcript_path": "/test",
+                                                     "cwd": "/cwd"
+                                                 }
+                                             }
+                                         }
+                                         """);
 
         await Task.Delay(200);
         await transport.EndInputAsync();
@@ -1138,10 +1130,6 @@ public class QueryHandlerHookTests
         var responseData = response.Value.GetProperty("response").GetProperty("response");
         Assert.True(responseData.GetProperty("continue").GetBoolean());
     }
-
-    #endregion
-
-    #region Integration Tests
 
     [Fact]
     public async Task FullHookLifecycle_RegisterInvokeRespond()
@@ -1190,11 +1178,11 @@ public class QueryHandlerHookTests
 
         // Step 3: Trigger hook callback
         transport.EnqueueHookCallbackRequest(
-            requestId: "req-full-lifecycle",
-            callbackId: callbackId!,
-            hookEventName: "PreToolUse",
-            toolUseId: "toolu_lifecycle_123",
-            additionalInput: ", \"tool_name\": \"Bash\", \"tool_input\": {\"command\": \"echo hello\"}");
+            "req-full-lifecycle",
+            callbackId!,
+            "PreToolUse",
+            "toolu_lifecycle_123",
+            ", \"tool_name\": \"Bash\", \"tool_input\": {\"command\": \"echo hello\"}");
 
         await Task.Delay(200);
         await transport.EndInputAsync();
@@ -1252,16 +1240,16 @@ public class QueryHandlerHookTests
 
         // Trigger pre-tool-use
         transport.EnqueueHookCallbackRequest(
-            requestId: "req-pre",
-            callbackId: preCallbackId!,
-            hookEventName: "PreToolUse",
+            "req-pre",
+            preCallbackId!,
+            "PreToolUse",
             additionalInput: ", \"tool_name\": \"Read\", \"tool_input\": {}");
 
         // Trigger post-tool-use
         transport.EnqueueHookCallbackRequest(
-            requestId: "req-post",
-            callbackId: postCallbackId!,
-            hookEventName: "PostToolUse",
+            "req-post",
+            postCallbackId!,
+            "PostToolUse",
             additionalInput: ", \"tool_name\": \"Read\", \"tool_input\": {}, \"tool_response\": {}");
 
         await Task.Delay(300);
@@ -1278,13 +1266,11 @@ public class QueryHandlerHookTests
         Assert.NotNull(preResponse);
         Assert.NotNull(postResponse);
 
-        Assert.Equal("pre", preResponse.Value.GetProperty("response").GetProperty("response").GetProperty("reason").GetString());
-        Assert.Equal("post", postResponse.Value.GetProperty("response").GetProperty("response").GetProperty("reason").GetString());
+        Assert.Equal("pre",
+            preResponse.Value.GetProperty("response").GetProperty("response").GetProperty("reason").GetString());
+        Assert.Equal("post",
+            postResponse.Value.GetProperty("response").GetProperty("response").GetProperty("reason").GetString());
     }
-
-    #endregion
-
-    #region Helper Methods
 
     private static void SetupInitializeResponse(HookTestMockTransport transport)
     {
@@ -1297,16 +1283,17 @@ public class QueryHandlerHookTests
                 if (initRequestId is not null)
                 {
                     transport.EnqueueIncomingMessage($$"""
-                        {
-                            "type": "control_response",
-                            "response": {
-                                "request_id": "{{initRequestId}}",
-                                "subtype": "success"
-                            }
-                        }
-                        """);
+                                                       {
+                                                           "type": "control_response",
+                                                           "response": {
+                                                               "request_id": "{{initRequestId}}",
+                                                               "subtype": "success"
+                                                           }
+                                                       }
+                                                       """);
                     return;
                 }
+
                 await Task.Delay(10);
             }
         });
@@ -1335,21 +1322,29 @@ public class QueryHandlerHookTests
                 }
             }
         }
+
         return null;
     }
 
     private static string? GetCallbackIdForEvent(HookTestMockTransport transport, string eventName)
     {
         var initRequest = FindInitializeRequest(transport);
-        if (initRequest is null) return null;
+        if (initRequest is null)
+        {
+            return null;
+        }
 
         var hooks = initRequest.Value.GetProperty("request").GetProperty("hooks");
         if (!hooks.TryGetProperty(eventName, out var eventHooks))
+        {
             return null;
+        }
 
         var matcher = eventHooks.EnumerateArray().FirstOrDefault();
         if (matcher.ValueKind == JsonValueKind.Undefined)
+        {
             return null;
+        }
 
         var callbackIds = matcher.GetProperty("hookCallbackIds").EnumerateArray();
         return callbackIds.FirstOrDefault().GetString();
@@ -1372,8 +1367,7 @@ public class QueryHandlerHookTests
                 }
             }
         }
+
         return null;
     }
-
-    #endregion
 }

@@ -1,17 +1,17 @@
 using Claude.AgentSdk.SignalR.Hubs;
 using Claude.AgentSdk.SignalR.Services;
 
-var builder = WebApplication.CreateBuilder(args);
+WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 // Add SignalR services
 builder.Services.AddSignalR(options =>
 {
-  // Enable detailed errors for debugging
-  options.EnableDetailedErrors = true;
+    // Enable detailed errors for debugging
+    options.EnableDetailedErrors = true;
 
-  // Increase timeouts for long-running operations
-  options.ClientTimeoutInterval = TimeSpan.FromMinutes(5);
-  options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+    // Increase timeouts for long-running operations
+    options.ClientTimeoutInterval = TimeSpan.FromMinutes(5);
+    options.KeepAliveInterval = TimeSpan.FromSeconds(15);
 });
 
 // Add session manager
@@ -20,15 +20,15 @@ builder.Services.AddSingleton<ISessionManager, SessionManager>();
 // Add CORS for local development
 builder.Services.AddCors(options =>
 {
-  options.AddDefaultPolicy(policy =>
-  {
-    policy.AllowAnyOrigin()
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin()
             .AllowAnyMethod()
             .AllowAnyHeader();
-  });
+    });
 });
 
-var app = builder.Build();
+WebApplication app = builder.Build();
 
 // Enable static files for the demo client
 app.UseDefaultFiles();

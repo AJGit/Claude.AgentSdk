@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
@@ -48,9 +48,15 @@
     <!--<CompilerGeneratedFilesOutputPath>$(IntermediateOutputPath)GeneratedFiles\</CompilerGeneratedFilesOutputPath>-->
   </PropertyGroup>
 
+  <!-- Dependencies -->
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <!-- net8.0 needs System.Text.Json 9.0.0 for JsonStringEnumConverter features -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+    <PackageReference Include="System.Text.Json" Version="9.0.0" />
   </ItemGroup>
 
   <!-- Include README in package -->
@@ -61,6 +67,30 @@
   <!-- Expose internals to test project -->
   <ItemGroup>
     <InternalsVisibleTo Include="Claude.AgentSdk.Tests" />
+  </ItemGroup>
+
+  <!-- Reference the source generator and analyzers -->
+  <ItemGroup>
+    <ProjectReference Include="..\Claude.AgentSdk.Generators\Claude.AgentSdk.Generators.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Claude.AgentSdk.Analyzers\Claude.AgentSdk.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <!-- Include the source generator and analyzers in the NuGet package -->
+  <ItemGroup>
+    <!-- Pack the generator DLL into the analyzers folder -->
+    <None Include="$(MSBuildProjectDirectory)\..\Claude.AgentSdk.Generators\bin\$(Configuration)\netstandard2.0\Claude.AgentSdk.Generators.dll"
+          Pack="true"
+          PackagePath="analyzers/dotnet/cs"
+          Visible="false" />
+    <!-- Pack the analyzers DLL into the analyzers folder -->
+    <None Include="$(MSBuildProjectDirectory)\..\Claude.AgentSdk.Analyzers\bin\$(Configuration)\netstandard2.0\Claude.AgentSdk.Analyzers.dll"
+          Pack="true"
+          PackagePath="analyzers/dotnet/cs"
+          Visible="false" />
   </ItemGroup>
 
 </Project>

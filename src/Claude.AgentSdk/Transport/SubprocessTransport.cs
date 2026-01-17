@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Claude.AgentSdk.Exceptions;
 using Claude.AgentSdk.Logging;
@@ -15,7 +15,7 @@ internal sealed class SubprocessTransport(
     ILogger<SubprocessTransport>? logger = null)
     : ITransport
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         WriteIndented = false
@@ -123,7 +123,7 @@ internal sealed class SubprocessTransport(
         await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var json = JsonSerializer.Serialize(message, JsonOptions);
+            var json = JsonSerializer.Serialize(message, _jsonOptions);
             await _stdin.WriteLineAsync(json.AsMemory(), cancellationToken).ConfigureAwait(false);
             await _stdin.FlushAsync(cancellationToken).ConfigureAwait(false);
             if (_logger is not null)

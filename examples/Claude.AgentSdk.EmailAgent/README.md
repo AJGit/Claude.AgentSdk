@@ -4,10 +4,134 @@ An intelligent email assistant with custom MCP tools for searching, reading, and
 
 ## What This Example Demonstrates
 
-- **Custom MCP tools** for email operations
+- **Compile-time tool registration** using `[GenerateToolRegistration]` attribute
+- **Compile-time schema generation** using `[GenerateSchema]` attribute
+- **Enhanced `[ClaudeTool]`** with Categories property
+- **`[ToolParameter]`** attributes for rich parameter documentation
 - **Gmail-like search syntax** with operators (from:, is:unread, label:, etc.)
 - **Mock email store** with realistic sample data
-- **Email management actions** (star, archive, label, mark read/unread)
+
+## C#-Centric Features Used
+
+### Fluent Options Builder with Generated Tool Names
+
+```csharp
+using Claude.AgentSdk.Builders;
+using Claude.AgentSdk.Types;
+
+var emailTools = new EmailTools(emailStore);
+var toolServer = new McpToolServer("email-tools");
+toolServer.RegisterToolsCompiled(emailTools);
+
+var options = new ClaudeAgentOptionsBuilder()
+    .WithModel(ModelIdentifier.Sonnet)
+    .WithFallbackModel(ModelIdentifier.Haiku)
+    .WithSystemPrompt("You are an email assistant...")
+    .WithPermissionMode(PermissionMode.AcceptEdits)
+    .AddMcpServer("email-tools", new McpSdkServerConfig
+    {
+        Name = "email-tools",
+        Instance = toolServer
+    })
+    // Use generated method for AllowedTools - no manual string lists!
+    .AllowTools(emailTools.GetAllowedToolsCompiled("email-tools"))
+    .Build();
+```
+
+### Strongly-Typed MCP Tool Names
+
+```csharp
+using Claude.AgentSdk.Types;
+
+// Create server name
+var server = McpServerName.Sdk("email-tools");
+
+// Get tool names from server
+var options = new ClaudeAgentOptions
+{
+    AllowedTools = [
+        server.Tool("get_inbox"),
+        server.Tool("search_inbox"),
+        server.Tool("read_emails"),
+        server.Tool("mark_as_read")
+    ]
+};
+```
+
+### ModelIdentifier and MCP Server Builder
+
+```csharp
+using Claude.AgentSdk.Types;
+using Claude.AgentSdk.Builders;
+
+// Type-safe model selection
+var options = new ClaudeAgentOptions
+{
+    ModelId = ModelIdentifier.Sonnet,
+    FallbackModelId = ModelIdentifier.Haiku,
+    // ...
+};
+
+// Fluent MCP server configuration
+var servers = new McpServerBuilder()
+    .AddSdk("email-tools", toolServer)
+    .Build();
+
+options.McpServers = servers;
+```
+
+### Parameter Validation
+
+```csharp
+[GenerateToolRegistration]
+public class EmailTools
+{
+    [ClaudeTool("search_inbox", "Search emails")]
+    public string SearchInbox(
+        [ToolParameter(Description = "Query", MinLength = 1)] string query,
+        [ToolParameter(Description = "Limit", MinValue = 1, MaxValue = 100)] int? limit = 20)
+    {
+        // MinLength and MinValue/MaxValue are validated before method runs
+        // Invalid inputs return ToolResult.Error() automatically
+    }
+}
+```
+
+### Compile-Time Tool Registration
+
+```csharp
+[GenerateToolRegistration]  // Enables RegisterToolsCompiled() extension
+public class EmailTools
+{
+    [ClaudeTool("search_inbox",
+        "Search emails using Gmail-like query syntax...",
+        Categories = ["email"])]  // Categorize tools
+    public string SearchInbox(
+        [ToolParameter(Description = "Gmail-style search query")] string query,
+        [ToolParameter(Description = "Maximum results to return")] int? limit = 20)
+    {
+        // Implementation
+    }
+}
+
+// No reflection - uses generated code
+var emailTools = new EmailTools(emailStore);
+toolServer.RegisterToolsCompiled(emailTools);
+```
+
+### Compile-Time Schema Generation
+
+```csharp
+[GenerateSchema]  // Generates JSON schema at compile-time
+public record SearchInboxInput
+{
+    [ToolParameter(Description = "Gmail-style search query")]
+    public required string Query { get; init; }
+
+    [ToolParameter(Description = "Maximum results to return")]
+    public int? Limit { get; init; }
+}
+```
 
 ## Features
 
@@ -76,54 +200,44 @@ Combine operators: `from:hr@company.com is:unread newer_than:30d`
 
 ## Key Code Patterns
 
-### Implementing Search with Operators
+### Defining Tools with Attributes
 
 ```csharp
-public IReadOnlyList<Email> Search(string query)
+using Claude.AgentSdk.Attributes;
+using Claude.AgentSdk.Tools;
+
+[GenerateToolRegistration]
+public class EmailTools
 {
-    var results = _emails.AsEnumerable();
+    [ClaudeTool("search_inbox",
+        """
+        Search emails using Gmail-like query syntax.
 
-    // Handle from: operator
-    if (query.Contains("from:"))
+        Supported operators:
+        - from:sender@example.com - Filter by sender
+        - is:unread - Only unread emails
+        - is:starred - Only starred emails
+        - has:attachment - Only emails with attachments
+        - label:category - Filter by label
+        - newer_than:7d - Emails from last N days
+        """,
+        Categories = ["email"])]
+    public string SearchInbox(
+        [ToolParameter(Description = "Gmail-style search query")] string query,
+        [ToolParameter(Description = "Maximum number of results to return")] int? limit = 20)
     {
-        var match = Regex.Match(query, @"from:(\S+)");
-        if (match.Success)
-        {
-            var fromValue = match.Groups[1].Value;
-            results = results.Where(e =>
-                e.From.Contains(fromValue, StringComparison.OrdinalIgnoreCase));
-        }
+        // Implementation
     }
 
-    // Handle is:unread operator
-    if (query.Contains("is:unread"))
+    [ClaudeTool("archive_email",
+        "Archive one or more emails (remove from inbox).",
+        Categories = ["email"])]
+    public string ArchiveEmail(
+        [ToolParameter(Description = "Array of email IDs to archive")] string[] ids)
     {
-        results = results.Where(e => !e.IsRead);
+        // Implementation
     }
-
-    // ... more operators
-
-    return results.OrderByDescending(e => e.Date).ToList();
 }
-```
-
-### Registering Email Tools
-
-```csharp
-// Tools use multi-line descriptions for comprehensive documentation
-server.RegisterTool<SearchInboxInput>(
-    "search_inbox",
-    """
-    Search emails using Gmail-like query syntax.
-    Supported operators: from:, to:, is:unread, is:starred,
-    has:attachment, label:, newer_than:, and full-text search.
-    """,
-    SearchInboxAsync);
-
-server.RegisterTool<ArchiveEmailInput>(
-    "archive_email",
-    "Archive one or more emails (remove from inbox).",
-    ArchiveEmailAsync);
 ```
 
 ### Configuration with Session-Based API
@@ -181,9 +295,22 @@ The example includes 10 realistic sample emails across categories:
 ```
 Claude.AgentSdk.EmailAgent/
 ├── Program.cs              # Main entry point and chat loop
-├── EmailTools.cs           # Custom MCP tool implementations
+├── EmailTools.cs           # Custom MCP tool implementations with attributes
 ├── MockEmailStore.cs       # Mock email data and search logic
 └── Claude.AgentSdk.EmailAgent.csproj
+```
+
+## Source Generator Reference
+
+To use compile-time tool registration, the project references the source generator:
+
+```xml
+<ItemGroup>
+  <ProjectReference Include="..\..\src\Claude.AgentSdk\Claude.AgentSdk.csproj" />
+  <ProjectReference Include="..\..\src\Claude.AgentSdk.Generators\Claude.AgentSdk.Generators.csproj"
+                    OutputItemType="Analyzer"
+                    ReferenceOutputAssembly="false" />
+</ItemGroup>
 ```
 
 ## Example Session
@@ -225,4 +352,4 @@ Would you like me to mark any of these as read, star them, or take other actions
 This example is ported from the official TypeScript demo:
 `claude-agent-sdk-demos/email-agent/`
 
-Note: The original uses a full web UI with IMAP integration. This C# port provides a console-based interface with mock data while demonstrating the same MCP tool patterns and search functionality.
+Note: The original uses a full web UI with IMAP integration. This C# port provides a console-based interface with mock data while demonstrating the same MCP tool patterns and search functionality, enhanced with C#-specific source generator features.

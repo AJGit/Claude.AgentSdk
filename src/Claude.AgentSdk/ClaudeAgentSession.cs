@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using Claude.AgentSdk.Logging;
 using Claude.AgentSdk.Messages;
 using Claude.AgentSdk.Protocol;
@@ -22,7 +22,7 @@ namespace Claude.AgentSdk;
 /// </remarks>
 public sealed class ClaudeAgentSession : IAsyncDisposable
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -270,7 +270,7 @@ public sealed class ClaudeAgentSession : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         var json = await GetSupportedCommandsAsync(cancellationToken).ConfigureAwait(false);
-        return json.Deserialize<List<SlashCommand>>(JsonOptions) ?? [];
+        return json.Deserialize<List<SlashCommand>>(_jsonOptions) ?? [];
     }
 
     /// <summary>
@@ -297,7 +297,7 @@ public sealed class ClaudeAgentSession : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         var json = await GetSupportedModelsAsync(cancellationToken).ConfigureAwait(false);
-        return json.Deserialize<List<ModelInfo>>(JsonOptions) ?? [];
+        return json.Deserialize<List<ModelInfo>>(_jsonOptions) ?? [];
     }
 
     /// <summary>
@@ -324,7 +324,7 @@ public sealed class ClaudeAgentSession : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         var json = await GetMcpServerStatusAsync(cancellationToken).ConfigureAwait(false);
-        return json.Deserialize<List<McpServerStatusInfo>>(JsonOptions) ?? [];
+        return json.Deserialize<List<McpServerStatusInfo>>(_jsonOptions) ?? [];
     }
 
     /// <summary>
@@ -350,7 +350,7 @@ public sealed class ClaudeAgentSession : IAsyncDisposable
     public async Task<AccountInfo> GetAccountInfoTypedAsync(CancellationToken cancellationToken = default)
     {
         var json = await GetAccountInfoAsync(cancellationToken).ConfigureAwait(false);
-        return json.Deserialize<AccountInfo>(JsonOptions) ?? new AccountInfo();
+        return json.Deserialize<AccountInfo>(_jsonOptions) ?? new AccountInfo();
     }
 
     /// <summary>

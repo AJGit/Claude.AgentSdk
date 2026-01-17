@@ -1,10 +1,12 @@
 using Claude.AgentSdk.Messages;
 using Claude.AgentSdk.Protocol;
+using Claude.AgentSdk.Types;
 
 namespace Claude.AgentSdk.Examples.Examples;
 
 /// <summary>
-/// Demonstrates using hooks to intercept and modify tool execution.
+///     Demonstrates using hooks to intercept and modify tool execution.
+///     Shows usage of strongly-typed enum accessors for hook inputs.
 /// </summary>
 public class HooksExample : IExample
 {
@@ -16,7 +18,7 @@ public class HooksExample : IExample
         Console.WriteLine("This example demonstrates using hooks to intercept tool execution.");
         Console.WriteLine("We'll log all tool calls and their results.\n");
 
-        var options = new ClaudeAgentOptions
+        ClaudeAgentOptions options = new()
         {
             SystemPrompt = "You are a helpful assistant. You can read files.",
             AllowedTools = ["Read"],
@@ -39,7 +41,7 @@ public class HooksExample : IExample
                                 if (input is PreToolUseHookInput preInput)
                                 {
                                     Console.ForegroundColor = ConsoleColor.Yellow;
-                                    Console.WriteLine($"[Hook: PreToolUse]");
+                                    Console.WriteLine("[Hook: PreToolUse]");
                                     Console.WriteLine($"  Tool: {preInput.ToolName}");
                                     Console.WriteLine($"  Tool Use ID: {toolUseId}");
                                     Console.ResetColor();
@@ -64,7 +66,7 @@ public class HooksExample : IExample
                                 if (input is PostToolUseHookInput postInput)
                                 {
                                     Console.ForegroundColor = ConsoleColor.Green;
-                                    Console.WriteLine($"[Hook: PostToolUse]");
+                                    Console.WriteLine("[Hook: PostToolUse]");
                                     Console.WriteLine($"  Tool: {postInput.ToolName}");
                                     Console.WriteLine($"  Has Response: {postInput.ToolResponse != null}");
                                     Console.ResetColor();
@@ -88,8 +90,109 @@ public class HooksExample : IExample
                                 if (input is StopHookInput stopInput)
                                 {
                                     Console.ForegroundColor = ConsoleColor.Cyan;
-                                    Console.WriteLine($"[Hook: Stop]");
+                                    Console.WriteLine("[Hook: Stop]");
                                     Console.WriteLine($"  Stop Hook Active: {stopInput.StopHookActive}");
+                                    Console.ResetColor();
+                                }
+
+                                return new SyncHookOutput { Continue = true };
+                            }
+                        ]
+                    }
+                },
+
+                // SessionStart hook: demonstrates using SourceEnum accessor
+                [HookEvent.SessionStart] = new List<HookMatcher>
+                {
+                    new()
+                    {
+                        Hooks =
+                        [
+                            async (input, toolUseId, context, ct) =>
+                            {
+                                if (input is SessionStartHookInput sessionStart)
+                                {
+                                    Console.ForegroundColor = ConsoleColor.Magenta;
+                                    Console.WriteLine("[Hook: SessionStart]");
+
+                                    // Use SourceEnum for type-safe source checking
+                                    string sourceDescription = sessionStart.SourceEnum switch
+                                    {
+                                        SessionStartSource.Startup => "Fresh startup",
+                                        SessionStartSource.Resume => "Resumed from previous session",
+                                        SessionStartSource.Clear => "Session was cleared",
+                                        SessionStartSource.Compact => "Session was compacted",
+                                        _ => "Unknown"
+                                    };
+                                    Console.WriteLine($"  Source: {sessionStart.SourceEnum} ({sourceDescription})");
+                                    Console.ResetColor();
+                                }
+
+                                return new SyncHookOutput { Continue = true };
+                            }
+                        ]
+                    }
+                },
+
+                // SessionEnd hook: demonstrates using ReasonEnum accessor
+                [HookEvent.SessionEnd] = new List<HookMatcher>
+                {
+                    new()
+                    {
+                        Hooks =
+                        [
+                            async (input, toolUseId, context, ct) =>
+                            {
+                                if (input is SessionEndHookInput sessionEnd)
+                                {
+                                    Console.ForegroundColor = ConsoleColor.DarkMagenta;
+                                    Console.WriteLine("[Hook: SessionEnd]");
+
+                                    // Use ReasonEnum for type-safe reason checking
+                                    string reasonDescription = sessionEnd.ReasonEnum switch
+                                    {
+                                        SessionEndReason.Clear => "User cleared the session",
+                                        SessionEndReason.Logout => "User logged out",
+                                        SessionEndReason.PromptInputExit => "User exited at prompt",
+                                        SessionEndReason.BypassPermissionsDisabled => "Bypass permissions was disabled",
+                                        SessionEndReason.Other => "Other reason",
+                                        _ => "Unknown"
+                                    };
+                                    Console.WriteLine($"  Reason: {sessionEnd.ReasonEnum} ({reasonDescription})");
+                                    Console.ResetColor();
+                                }
+
+                                return new SyncHookOutput { Continue = true };
+                            }
+                        ]
+                    }
+                },
+
+                // Notification hook: demonstrates using NotificationTypeEnum accessor
+                [HookEvent.Notification] = new List<HookMatcher>
+                {
+                    new()
+                    {
+                        Hooks =
+                        [
+                            async (input, toolUseId, context, ct) =>
+                            {
+                                if (input is NotificationHookInput notification)
+                                {
+                                    Console.ForegroundColor = ConsoleColor.DarkYellow;
+                                    Console.WriteLine("[Hook: Notification]");
+
+                                    // Use NotificationTypeEnum for type-safe notification type checking
+                                    string icon = notification.NotificationTypeEnum switch
+                                    {
+                                        NotificationType.PermissionPrompt => "Permission Required",
+                                        NotificationType.IdlePrompt => "Idle",
+                                        NotificationType.AuthSuccess => "Authenticated",
+                                        NotificationType.ElicitationDialog => "Input Needed",
+                                        _ => "Unknown"
+                                    };
+                                    Console.WriteLine($"  Type: {notification.NotificationTypeEnum} ({icon})");
+                                    Console.WriteLine($"  Message: {notification.Message}");
                                     Console.ResetColor();
                                 }
 
@@ -101,30 +204,39 @@ public class HooksExample : IExample
             }
         };
 
-        await using var client = new ClaudeAgentClient(options);
+        await using ClaudeAgentClient client = new(options);
 
         // Ask Claude to read a file (which will trigger the hooks)
-        var prompt = "Read the file at ./README.md and tell me what it's about in one sentence.";
+        string prompt = "Read the file at ./README.md and tell me what it's about in one sentence.";
         Console.WriteLine($"Prompt: {prompt}\n");
         Console.WriteLine("Output:");
         Console.WriteLine("-------");
 
-        await foreach (var message in client.QueryAsync(prompt))
+        await foreach (Message message in client.QueryAsync(prompt))
         {
             switch (message)
             {
                 case AssistantMessage assistant:
-                    foreach (var block in assistant.MessageContent.Content)
+                    foreach (ContentBlock block in assistant.MessageContent.Content)
                     {
                         if (block is TextBlock text)
                         {
                             Console.WriteLine(text.Text);
                         }
                     }
+
                     break;
 
                 case ResultMessage result:
-                    Console.WriteLine($"\n[Completed - Cost: ${result.TotalCostUsd:F4}]");
+                    // Use SubtypeEnum for type-safe result checking
+                    string status = result.SubtypeEnum switch
+                    {
+                        ResultMessageSubtype.Success => "Completed successfully",
+                        ResultMessageSubtype.Error => "Completed with error",
+                        ResultMessageSubtype.Partial => "Partial result",
+                        _ => "Unknown status"
+                    };
+                    Console.WriteLine($"\n[{status} - Cost: ${result.TotalCostUsd:F4}]");
                     break;
             }
         }

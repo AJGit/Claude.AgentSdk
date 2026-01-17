@@ -63,8 +63,11 @@ jobs:
     - name: Test
       run: dotnet test --no-build --configuration Release --verbosity normal
 
-    - name: Pack
+    - name: Pack SDK
       run: dotnet pack src/Claude.AgentSdk/Claude.AgentSdk.csproj --no-build --configuration Release --output ./artifacts -p:Version=${{ steps.version.outputs.version }}
+
+    - name: Pack DI Extensions
+      run: dotnet pack src/Claude.AgentSdk.Extensions.DependencyInjection/Claude.AgentSdk.Extensions.DependencyInjection.csproj --no-build --configuration Release --output ./artifacts -p:Version=${{ steps.version.outputs.version }}
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2

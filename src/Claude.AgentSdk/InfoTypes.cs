@@ -1,3 +1,5 @@
+using Claude.AgentSdk.Types;
+
 namespace Claude.AgentSdk;
 
 /// <summary>
@@ -64,6 +66,12 @@ public sealed record McpServerStatusInfo
     /// </summary>
     [JsonPropertyName("status")]
     public required string Status { get; init; }
+
+    /// <summary>
+    ///     Gets the strongly-typed status enum value.
+    /// </summary>
+    [JsonIgnore]
+    public McpServerStatusType StatusEnum => EnumStringMappings.ParseMcpServerStatusType(Status);
 
     /// <summary>
     ///     Server information if connected.

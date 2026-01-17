@@ -1,17 +1,31 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using Claude.AgentSdk.Schema;
-using Xunit;
 
 namespace Claude.AgentSdk.Tests.Schema;
 
 /// <summary>
-/// Comprehensive tests for the SchemaGenerator class.
+///     Comprehensive tests for the SchemaGenerator class.
 /// </summary>
 public class SchemaGeneratorTests
 {
-    #region Test Helper Classes
+    [Theory]
+    [InlineData("string_list", "string")]
+    [InlineData("int_list", "integer")]
+    [InlineData("read_only_double_list", "number")]
+    [InlineData("bool_enumerable", "boolean")]
+    [InlineData("float_collection", "number")]
+    [InlineData("read_only_long_collection", "integer")]
+    public void Generate_ListTypes_ReturnsArrayWithCorrectItemType(string propertyName, string expectedItemType)
+    {
+        var result = SchemaGenerator.Generate<ClassWithLists>("test_schema");
+        var schema = GetInnerSchema(result);
+        var properties = schema.GetProperty("properties");
+        var listProp = properties.GetProperty(propertyName);
+
+        Assert.Equal("array", listProp.GetProperty("type").GetString());
+        Assert.Equal(expectedItemType, listProp.GetProperty("items").GetProperty("type").GetString());
+    }
 
     public class SimpleStringProperty
     {
@@ -171,7 +185,9 @@ public class SchemaGeneratorTests
         public InnerClass[] ItemsArray { get; set; } = [];
     }
 
-    public class EmptyClass { }
+    public class EmptyClass
+    {
+    }
 
     public struct SimpleStruct
     {
@@ -183,10 +199,6 @@ public class SchemaGeneratorTests
     {
         public SimpleStruct StructProp { get; set; }
     }
-
-    #endregion
-
-    #region Primitive Types Tests
 
     [Fact]
     public void Generate_StringProperty_ReturnsStringType()
@@ -235,10 +247,6 @@ public class SchemaGeneratorTests
 
         Assert.Equal("boolean", properties.GetProperty("bool_prop").GetProperty("type").GetString());
     }
-
-    #endregion
-
-    #region Nullable Types Tests
 
     [Fact]
     public void Generate_NullableInt_ReturnsIntegerWithNullType()
@@ -296,10 +304,6 @@ public class SchemaGeneratorTests
         }
     }
 
-    #endregion
-
-    #region Enum Types Tests
-
     [Fact]
     public void Generate_EnumProperty_ReturnsStringWithEnumValues()
     {
@@ -347,14 +351,10 @@ public class SchemaGeneratorTests
         var enumValues = GetArrayStrings(statusProp.GetProperty("enum"));
 
         // Verify snake_case conversion
-        Assert.Contains("first_value", enumValues);  // FirstValue -> first_value
+        Assert.Contains("first_value", enumValues); // FirstValue -> first_value
         Assert.Contains("second_value", enumValues); // SecondValue -> second_value
         Assert.Contains("third_option", enumValues); // ThirdOption -> third_option
     }
-
-    #endregion
-
-    #region Array Types Tests
 
     [Fact]
     public void Generate_StringArray_ReturnsArrayWithStringItems()
@@ -379,32 +379,6 @@ public class SchemaGeneratorTests
         Assert.Equal("array", arrayProp.GetProperty("type").GetString());
         Assert.Equal("integer", arrayProp.GetProperty("items").GetProperty("type").GetString());
     }
-
-    #endregion
-
-    #region List Types Tests
-
-    [Theory]
-    [InlineData("string_list", "string")]
-    [InlineData("int_list", "integer")]
-    [InlineData("read_only_double_list", "number")]
-    [InlineData("bool_enumerable", "boolean")]
-    [InlineData("float_collection", "number")]
-    [InlineData("read_only_long_collection", "integer")]
-    public void Generate_ListTypes_ReturnsArrayWithCorrectItemType(string propertyName, string expectedItemType)
-    {
-        var result = SchemaGenerator.Generate<ClassWithLists>("test_schema");
-        var schema = GetInnerSchema(result);
-        var properties = schema.GetProperty("properties");
-        var listProp = properties.GetProperty(propertyName);
-
-        Assert.Equal("array", listProp.GetProperty("type").GetString());
-        Assert.Equal(expectedItemType, listProp.GetProperty("items").GetProperty("type").GetString());
-    }
-
-    #endregion
-
-    #region Dictionary Types Tests
 
     // Note: The current SchemaGenerator implementation has a limitation where Dictionary<K,V>
     // is treated as IEnumerable<KeyValuePair<K,V>> (an array) because list handling comes
@@ -458,10 +432,6 @@ public class SchemaGeneratorTests
         // Verify we got a valid schema (JsonElement is a value type, so we check the type property)
         Assert.Equal("json_schema", result.GetProperty("type").GetString());
     }
-
-    #endregion
-
-    #region Nested Object Tests
 
     [Fact]
     public void Generate_NestedClass_ReturnsCorrectStructure()
@@ -542,10 +512,6 @@ public class SchemaGeneratorTests
         Assert.Equal("object", itemsArray.GetProperty("items").GetProperty("type").GetString());
     }
 
-    #endregion
-
-    #region Required vs Optional Properties Tests
-
     [Fact]
     public void Generate_RequiredProperties_AreInRequiredArray()
     {
@@ -568,14 +534,10 @@ public class SchemaGeneratorTests
         Assert.DoesNotContain("optional_int", required);
     }
 
-    #endregion
-
-    #region Strict Mode Tests
-
     [Fact]
     public void Generate_StrictModeTrue_SetsAdditionalPropertiesToFalse()
     {
-        var result = SchemaGenerator.Generate<SimpleStringProperty>("test_schema", strict: true);
+        var result = SchemaGenerator.Generate<SimpleStringProperty>("test_schema", true);
         var schema = GetInnerSchema(result);
 
         Assert.False(schema.GetProperty("additionalProperties").GetBoolean());
@@ -584,7 +546,7 @@ public class SchemaGeneratorTests
     [Fact]
     public void Generate_StrictModeFalse_DoesNotSetAdditionalProperties()
     {
-        var result = SchemaGenerator.Generate<SimpleStringProperty>("test_schema", strict: false);
+        var result = SchemaGenerator.Generate<SimpleStringProperty>("test_schema", false);
         var schema = GetInnerSchema(result);
 
         Assert.False(schema.TryGetProperty("additionalProperties", out _));
@@ -602,7 +564,7 @@ public class SchemaGeneratorTests
     [Fact]
     public void Generate_StrictMode_PropagatesRecursively()
     {
-        var result = SchemaGenerator.Generate<NestedClass>("test_schema", strict: true);
+        var result = SchemaGenerator.Generate<NestedClass>("test_schema", true);
         var schema = GetInnerSchema(result);
 
         // Root level
@@ -616,7 +578,7 @@ public class SchemaGeneratorTests
     [Fact]
     public void Generate_StrictModeFalse_DoesNotSetAdditionalPropertiesRecursively()
     {
-        var result = SchemaGenerator.Generate<NestedClass>("test_schema", strict: false);
+        var result = SchemaGenerator.Generate<NestedClass>("test_schema", false);
         var schema = GetInnerSchema(result);
 
         // Root level
@@ -626,10 +588,6 @@ public class SchemaGeneratorTests
         var innerProp = schema.GetProperty("properties").GetProperty("inner");
         Assert.False(innerProp.TryGetProperty("additionalProperties", out _));
     }
-
-    #endregion
-
-    #region Description Attributes Tests
 
     [Fact]
     public void Generate_TypeWithDescriptionAttribute_IncludesDescription()
@@ -670,10 +628,6 @@ public class SchemaGeneratorTests
         Assert.Equal("Custom schema description takes precedence",
             properties.GetProperty("email").GetProperty("description").GetString());
     }
-
-    #endregion
-
-    #region Edge Cases Tests
 
     [Fact]
     public void Generate_EmptyClass_ReturnsObjectWithEmptyProperties()
@@ -732,10 +686,6 @@ public class SchemaGeneratorTests
         Assert.Equal("object", structProp.GetProperty("type").GetString());
     }
 
-    #endregion
-
-    #region Schema Wrapper Tests
-
     [Fact]
     public void Generate_ReturnsCorrectWrapperStructure()
     {
@@ -751,7 +701,7 @@ public class SchemaGeneratorTests
     [Fact]
     public void Generate_WithStrictFalse_ReturnsStrictFalseInWrapper()
     {
-        var result = SchemaGenerator.Generate<SimpleStringProperty>("my_schema", strict: false);
+        var result = SchemaGenerator.Generate<SimpleStringProperty>("my_schema", false);
 
         var jsonSchema = result.GetProperty("json_schema");
         Assert.False(jsonSchema.GetProperty("strict").GetBoolean());
@@ -765,10 +715,6 @@ public class SchemaGeneratorTests
         Assert.Equal("json_schema", result.GetProperty("type").GetString());
         Assert.Equal("type_schema", result.GetProperty("json_schema").GetProperty("name").GetString());
     }
-
-    #endregion
-
-    #region GenerateInnerSchema Tests
 
     [Fact]
     public void GenerateInnerSchema_ReturnsSchemaWithoutWrapper()
@@ -788,7 +734,7 @@ public class SchemaGeneratorTests
     [Fact]
     public void GenerateInnerSchema_WithStrictTrue_SetsAdditionalPropertiesToFalse()
     {
-        var result = SchemaGenerator.GenerateInnerSchema<SimpleStringProperty>(strict: true);
+        var result = SchemaGenerator.GenerateInnerSchema<SimpleStringProperty>(true);
         var jsonString = result.ToJsonString();
         var parsed = JsonDocument.Parse(jsonString).RootElement;
 
@@ -798,16 +744,12 @@ public class SchemaGeneratorTests
     [Fact]
     public void GenerateInnerSchema_WithStrictFalse_DoesNotSetAdditionalProperties()
     {
-        var result = SchemaGenerator.GenerateInnerSchema<SimpleStringProperty>(strict: false);
+        var result = SchemaGenerator.GenerateInnerSchema<SimpleStringProperty>(false);
         var jsonString = result.ToJsonString();
         var parsed = JsonDocument.Parse(jsonString).RootElement;
 
         Assert.False(parsed.TryGetProperty("additionalProperties", out _));
     }
-
-    #endregion
-
-    #region Snake Case Conversion Tests
 
     [Fact]
     public void Generate_PropertyNames_AreConvertedToSnakeCase()
@@ -837,10 +779,6 @@ public class SchemaGeneratorTests
         Assert.True(properties.TryGetProperty(expectedPropertyName, out _));
     }
 
-    #endregion
-
-    #region Helper Methods
-
     private static JsonElement GetInnerSchema(JsonElement result)
     {
         return result.GetProperty("json_schema").GetProperty("schema");
@@ -850,6 +788,4 @@ public class SchemaGeneratorTests
     {
         return array.EnumerateArray().Select(e => e.GetString()!).ToList();
     }
-
-    #endregion
 }

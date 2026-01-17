@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using Claude.AgentSdk.Messages;
 using Microsoft.Extensions.Logging;
 
@@ -34,7 +34,7 @@ namespace Claude.AgentSdk;
 ///         }
 ///     }
 /// }
-///
+/// 
 /// // With options
 /// var options = new ClaudeAgentOptions
 /// {
@@ -143,8 +143,6 @@ public static class Query
         return string.Join("", textParts);
     }
 
-    #region Convenience Overloads
-
     /// <summary>
     ///     Execute a one-shot query with common options specified inline.
     /// </summary>
@@ -238,6 +236,4 @@ public static class Query
 
         return GetTextAsync(prompt, options, loggerFactory, cancellationToken);
     }
-
-    #endregion
 }
