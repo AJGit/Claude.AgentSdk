@@ -4,7 +4,7 @@ A C# SDK for building agents with the Claude Code CLI. This SDK provides a .NET 
 
 ## Requirements
 
-- **.NET 10.0** or later
+- **.NET 8.0, 9.0, or 10.0**
 - **Claude Code CLI** installed and available in PATH
 
 ## Installation
@@ -22,14 +22,18 @@ claude --version
 
 ### Add SDK to Your Project
 
-Reference the project directly:
-```xml
-<ProjectReference Include="path/to/Claude.AgentSdk.csproj" />
-```
-
-Or:
 ```bash
 dotnet add package AJGit.Claude.AgentSdk
+```
+
+For ASP.NET Core dependency injection support:
+```bash
+dotnet add package AJGit.Claude.AgentSdk.Extensions.DependencyInjection
+```
+
+Or reference the project directly:
+```xml
+<ProjectReference Include="path/to/Claude.AgentSdk.csproj" />
 ```
 
 ## Quick Start
@@ -1855,6 +1859,214 @@ public class ValidatedTools
 
 Invalid inputs return `ToolResult.Error()` with descriptive messages before the method executes.
 
+### Dependency Injection (ASP.NET Core)
+
+The `AJGit.Claude.AgentSdk.Extensions.DependencyInjection` package provides integration with Microsoft.Extensions.DependencyInjection.
+
+#### Installation
+
+```bash
+dotnet add package AJGit.Claude.AgentSdk.Extensions.DependencyInjection
+```
+
+#### Basic Registration
+
+```csharp
+using Claude.AgentSdk.Extensions.DependencyInjection;
+
+services.AddClaudeAgent(options =>
+{
+    options.Model = "sonnet";
+    options.MaxTurns = 10;
+    options.AllowedTools = ["Read", "Write", "Bash"];
+});
+```
+
+#### Configuration from appsettings.json
+
+```csharp
+services.AddClaudeAgent(configuration.GetSection("Claude"));
+```
+
+```json
+{
+  "Claude": {
+    "Model": "sonnet",
+    "MaxTurns": 10,
+    "MaxBudgetUsd": 1.0,
+    "AllowedTools": ["Read", "Write", "Bash"],
+    "PermissionMode": "AcceptEdits"
+  }
+}
+```
+
+#### Named Instances for Multi-Agent Scenarios
+
+```csharp
+// Register multiple agents with different configurations
+services.AddClaudeAgent("analyzer", options =>
+{
+    options.Model = "sonnet";
+    options.SystemPrompt = "You analyze code for issues.";
+});
+
+services.AddClaudeAgent("generator", options =>
+{
+    options.Model = "opus";
+    options.SystemPrompt = "You generate high-quality code.";
+});
+
+// Resolve via factory
+public class MyService
+{
+    private readonly IClaudeAgentClientFactory _factory;
+
+    public MyService(IClaudeAgentClientFactory factory) => _factory = factory;
+
+    public async Task AnalyzeAsync()
+    {
+        var analyzer = _factory.CreateClient("analyzer");
+        // ...
+    }
+}
+```
+
+#### MCP Tool Server Registration
+
+```csharp
+services.AddClaudeAgent(options => options.Model = "sonnet")
+    .AddMcpServer("tools", myToolServer)
+    .AddMcpServer<MyToolServer>("custom");
+```
+
+#### Health Checks
+
+```csharp
+services.AddHealthChecks()
+    .AddClaudeAgentCheck();
+```
+
+### Functional Programming
+
+The SDK includes functional types for safer, more composable code.
+
+#### Option&lt;T&gt; for Null Safety
+
+```csharp
+using Claude.AgentSdk.Functional;
+
+// Create options
+Option<string> some = Option.Some("hello");
+Option<string> none = Option.NoneOf<string>();
+Option<string> fromNullable = Option.FromNullable(possiblyNull);
+
+// Chain operations safely
+var result = GetUserInput()
+    .Map(s => s.Trim())
+    .Where(s => !string.IsNullOrEmpty(s))
+    .Bind(ParseCommand);
+
+// Pattern match
+result.Match(
+    some: cmd => ProcessCommand(cmd),
+    none: () => ShowHelp()
+);
+
+// Get value with defaults
+var value = option.GetValueOrDefault("fallback");
+var lazyValue = option.GetValueOrElse(() => ExpensiveComputation());
+```
+
+#### Result&lt;T&gt; for Error Handling
+
+```csharp
+using Claude.AgentSdk.Functional;
+
+// Create results
+Result<int> success = Result.Success(42);
+Result<int> failure = Result.Failure<int>("Something went wrong");
+
+// Wrap operations that can throw
+var result = await Result.TryAsync(async () =>
+{
+    await using var client = new ClaudeAgentClient(options);
+    await using var session = await client.CreateSessionAsync();
+    return await ProcessAsync(session);
+});
+
+// Chain operations with automatic error propagation
+var processed = result
+    .Map(data => Transform(data))
+    .Bind(data => Validate(data))
+    .Ensure(data => data.IsValid, "Validation failed");
+
+// Handle both cases
+processed.Match(
+    success: data => Console.WriteLine($"Success: {data}"),
+    failure: error => Console.WriteLine($"Error: {error}")
+);
+```
+
+#### Pipeline&lt;TIn, TOut&gt; for Composable Processing
+
+```csharp
+using Claude.AgentSdk.Functional;
+
+// Build a processing pipeline
+var pipeline = Pipeline
+    .StartWith<Message, ProcessingResult>(ProcessMessage);
+
+// Or chain multiple steps
+var pipeline = Pipeline
+    .Start<string>()
+    .Then(ValidateInput)
+    .ThenBind(ParseJson)
+    .Then(TransformData)
+    .ThenTap(LogSuccess);
+
+// Run the pipeline
+Result<ProcessingResult> result = pipeline.Run(input);
+```
+
+#### Validation&lt;T&gt; for Accumulating Errors
+
+```csharp
+using Claude.AgentSdk.Functional;
+
+// Validate multiple fields, accumulating all errors
+var validation = Validation.Success<User, string>(new User())
+    .Ensure(u => !string.IsNullOrEmpty(u.Email), "Email is required")
+    .Ensure(u => u.Email.Contains('@'), "Email must be valid")
+    .Ensure(u => u.Age >= 18, "Must be 18 or older");
+
+// Check all errors at once
+if (validation.IsFailure)
+{
+    foreach (var error in validation.Errors)
+        Console.WriteLine($"- {error}");
+}
+```
+
+#### Functional Collection Extensions
+
+```csharp
+using Claude.AgentSdk.Functional;
+
+// Choose: Filter and transform in one operation
+var actions = blocks.Choose(block => block switch
+{
+    TextBlock text => Option.Some<Action>(() => Console.Write(text.Text)),
+    ToolUseBlock tool => Option.Some<Action>(() => PrintTool(tool)),
+    _ => Option.NoneOf<Action>()
+});
+
+// Sequence: Convert IEnumerable<Option<T>> to Option<IEnumerable<T>>
+var allValues = options.Sequence();  // None if any is None
+
+// Traverse: Map and sequence in one operation
+var results = items.Traverse(item => TryParse(item));
+```
+
 ## v1 Behavioral Contract
 
 This section describes the expected runtime behavior of the SDK in v1.
@@ -1989,7 +2201,7 @@ The SDK includes several example projects demonstrating different features and u
 
 ### Quick Start Examples
 
-**Claude.AgentSdk.Examples** - Interactive menu with 11 SDK feature demonstrations:
+**Claude.AgentSdk.Examples** - Interactive menu with 13 SDK feature demonstrations:
 
 ```bash
 cd examples/Claude.AgentSdk.Examples
@@ -2009,6 +2221,8 @@ Examples included:
 9. System Prompt - Custom and preset prompts
 10. Settings Sources - Loading CLAUDE.md files
 11. MCP Servers - External MCP server configuration
+12. Sandbox - Secure execution configuration
+13. Functional Patterns - Result, Option, Pipeline usage
 
 ### Standalone Examples
 
@@ -2023,6 +2237,12 @@ dotnet run -- "Your prompt here"    # Custom prompt
 ```bash
 cd examples/Claude.AgentSdk.SimpleChatApp
 dotnet run    # Interactive REPL with /clear and /exit commands
+```
+
+**FunctionalChatApp** - Chat app using functional programming patterns:
+```bash
+cd examples/Claude.AgentSdk.FunctionalChatApp
+dotnet run    # Demonstrates Result, Option, Pipeline, and immutable state
 ```
 
 **ResearchAgent** - Multi-agent orchestration with researcher and report-writer subagents:

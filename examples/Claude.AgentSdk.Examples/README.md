@@ -4,7 +4,7 @@ A comprehensive collection of examples demonstrating the core features of the Cl
 
 ## What This Project Contains
 
-This project provides a menu-driven console application with 12 standalone examples, each demonstrating a specific SDK feature. Run the project to see an interactive menu and choose which example to explore.
+This project provides a menu-driven console application with 13 standalone examples, each demonstrating a specific SDK feature. Run the project to see an interactive menu and choose which example to explore.
 
 ## Running the Examples
 
@@ -22,20 +22,21 @@ dotnet run -- 4   # Run example #4 (Custom Tools)
 
 ## Available Examples
 
-| #   | Example                 | Description                                                           |
-| --- | ----------------------- | --------------------------------------------------------------------- |
-| 1   | **Basic Query**         | Simple one-shot query with streaming response                         |
-| 2   | **Streaming**           | Detailed streaming with partial message updates                       |
-| 3   | **Interactive Session** | Bidirectional mode with `CreateSessionAsync`/`SendAsync`/`ReceiveAsync` |
-| 4   | **Custom Tools (MCP)**  | Create tools using `[ClaudeTool]` with compile-time registration      |
-| 5   | **Hooks**               | Intercept tool execution with hooks and enum accessors                |
-| 6   | **Subagents**           | Define specialized subagents using `AgentDefinition`                  |
-| 7   | **Structured Output**   | Get typed responses using JSON schema                                 |
-| 8   | **Permission Handler**  | Control tool permissions with `CanUseTool` callback                   |
-| 9   | **System Prompt**       | Configure system prompts (string, preset, or append)                  |
-| 10  | **Settings Sources**    | Load CLAUDE.md files from project/user directories                    |
-| 11  | **MCP Servers**         | Configure MCP servers with compile-time registration                  |
-| 12  | **Sandbox**             | Configure sandbox settings for secure execution                       |
+| #   | Example                   | Description                                                             |
+| --- | ------------------------- | ----------------------------------------------------------------------- |
+| 1   | **Basic Query**           | Simple one-shot query with streaming response                           |
+| 2   | **Streaming**             | Detailed streaming with partial message updates                         |
+| 3   | **Interactive Session**   | Bidirectional mode with `CreateSessionAsync`/`SendAsync`/`ReceiveAsync` |
+| 4   | **Custom Tools (MCP)**    | Create tools using `[ClaudeTool]` with compile-time registration        |
+| 5   | **Hooks**                 | Intercept tool execution with hooks and enum accessors                  |
+| 6   | **Subagents**             | Define specialized subagents using `AgentDefinition`                    |
+| 7   | **Structured Output**     | Get typed responses using JSON schema                                   |
+| 8   | **Permission Handler**    | Control tool permissions with `CanUseTool` callback                     |
+| 9   | **System Prompt**         | Configure system prompts (string, preset, or append)                    |
+| 10  | **Settings Sources**      | Load CLAUDE.md files from project/user directories                      |
+| 11  | **MCP Servers**           | Configure MCP servers with compile-time registration                    |
+| 12  | **Sandbox**               | Configure sandbox settings for secure execution                         |
+| 13  | **Functional Patterns**   | Use `Result`, `Option`, `Pipeline` for functional programming           |
 
 ## C#-Centric Features Demonstrated
 
@@ -489,7 +490,8 @@ Claude.AgentSdk.Examples/
 │   ├── SystemPromptExample.cs    # #9 - System prompt config
 │   ├── SettingsSourcesExample.cs # #10 - CLAUDE.md loading
 │   ├── McpServersExample.cs      # #11 - MCP server types with compile-time registration
-│   └── SandboxExample.cs         # Sandbox configuration
+│   ├── SandboxExample.cs         # #12 - Sandbox configuration
+│   └── FunctionalPatternsExample.cs  # #13 - Functional programming patterns
 └── Claude.AgentSdk.Examples.csproj
 ```
 

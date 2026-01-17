@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Claude.AgentSdk.Functional;
 using Claude.AgentSdk.Messages;
 
@@ -59,7 +59,7 @@ public class FunctionalPatternsExample : IExample
 
         // Chaining with Map and Bind
         var parsed = answer
-            .Bind(text => Option.TryParseInt(text))
+            .Bind(Option.TryParseInt)
             .Map(num => num * 2);
 
         Console.WriteLine($"  Doubled: {parsed.Match(n => n.ToString(), () => "Could not parse")}\n");
