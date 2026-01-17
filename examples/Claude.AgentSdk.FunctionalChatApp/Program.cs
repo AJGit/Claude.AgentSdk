@@ -1,18 +1,4 @@
-/// <summary>
-/// Functional Chat App - Claude Agent SDK Example
-///
-/// This example demonstrates functional programming patterns throughout a chat application:
-/// - Option for safe value handling
-/// - Result for error handling without exceptions
-/// - Pipeline for composing operations
-/// - Validation for input validation
-/// - Functional extensions for collections
-///
-/// Compare with SimpleChatApp to see the difference between imperative and functional styles.
-/// </summary>
-
-using System.Text.Json;
-using Claude.AgentSdk;
+﻿using System.Text.Json;
 using Claude.AgentSdk.Functional;
 using Claude.AgentSdk.Messages;
 
@@ -42,7 +28,7 @@ public static class Program
     private sealed record ClearCommand : Command;
     private sealed record ChatCommand(string Message) : Command;
 
-    private static readonly ChatConfig DefaultConfig = new(
+    private static readonly ChatConfig _defaultConfig = new(
         SystemPrompt: """
             You are a helpful AI assistant. You can help users with a wide variety of tasks including:
             - Answering questions
@@ -64,7 +50,7 @@ public static class Program
         PrintBanner();
 
         // Main loop using functional recursion pattern
-        await RunChatLoopAsync(DefaultConfig);
+        await RunChatLoopAsync(_defaultConfig);
     }
 
     private static void PrintBanner()

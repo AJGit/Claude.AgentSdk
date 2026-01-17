@@ -87,10 +87,8 @@ public sealed class InvalidConfigurationAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeMaxTurns(SyntaxNodeAnalysisContext context, ExpressionSyntax expression)
     {
-        if (expression is not LiteralExpressionSyntax literal)
-            return;
-
-        var constantValue = context.SemanticModel.GetConstantValue(literal);
+        // Handle both literal values and unary expressions (e.g., -5)
+        var constantValue = context.SemanticModel.GetConstantValue(expression);
         if (!constantValue.HasValue)
             return;
 
@@ -98,17 +96,15 @@ public sealed class InvalidConfigurationAnalyzer : DiagnosticAnalyzer
         {
             context.ReportDiagnostic(Diagnostic.Create(
                 DiagnosticDescriptors.InvalidMaxTurns,
-                literal.GetLocation(),
+                expression.GetLocation(),
                 intValue));
         }
     }
 
     private static void AnalyzeMaxBudget(SyntaxNodeAnalysisContext context, ExpressionSyntax expression)
     {
-        if (expression is not LiteralExpressionSyntax literal)
-            return;
-
-        var constantValue = context.SemanticModel.GetConstantValue(literal);
+        // Handle both literal values and unary expressions (e.g., -1.5)
+        var constantValue = context.SemanticModel.GetConstantValue(expression);
         if (!constantValue.HasValue)
             return;
 
@@ -124,7 +120,7 @@ public sealed class InvalidConfigurationAnalyzer : DiagnosticAnalyzer
         {
             context.ReportDiagnostic(Diagnostic.Create(
                 DiagnosticDescriptors.InvalidMaxBudget,
-                literal.GetLocation(),
+                expression.GetLocation(),
                 value.Value));
         }
     }
