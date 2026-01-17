@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Claude.AgentSdk.Exceptions;
 using Claude.AgentSdk.Messages;
@@ -6,18 +6,15 @@ using Claude.AgentSdk.Protocol;
 using Claude.AgentSdk.Transport;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Xunit;
 
 namespace Claude.AgentSdk.Tests;
 
 /// <summary>
-/// Comprehensive tests for ClaudeAgentClient covering initialization, queries,
-/// bidirectional mode, options merging, and error handling.
+///     Comprehensive tests for ClaudeAgentClient covering initialization, queries,
+///     bidirectional mode, options merging, and error handling.
 /// </summary>
 public class ClaudeAgentClientTests
 {
-    #region Constructor and Initialization Tests
-
     [Fact]
     public async Task Constructor_WithNullOptions_UsesDefaultOptions()
     {
@@ -67,15 +64,11 @@ public class ClaudeAgentClientTests
     public async Task Constructor_WithNullLoggerFactory_DoesNotThrow()
     {
         // Arrange & Act
-        await using var client = new ClaudeAgentClient(new ClaudeAgentOptions(), null);
+        await using var client = new ClaudeAgentClient(new ClaudeAgentOptions());
 
         // Assert
         Assert.NotNull(client);
     }
-
-    #endregion
-
-    #region DisposeAsync Tests
 
     [Fact]
     public async Task DisposeAsync_CanBeCalledMultipleTimes()
@@ -131,10 +124,6 @@ public class ClaudeAgentClientTests
             await client.CreateSessionAsync());
     }
 
-    #endregion
-
-    #region QueryAsync Tests
-
     [Fact]
     public async Task QueryAsync_WithEmptyPrompt_DoesNotThrow()
     {
@@ -187,7 +176,7 @@ public class ClaudeAgentClientTests
         };
         var client = new ClaudeAgentClient(options);
         var cts = new CancellationTokenSource();
-        cts.Cancel(); // Cancel immediately
+        await cts.CancelAsync(); // Cancel immediately
 
         // Act & Assert - CliNotFoundException is thrown before cancellation is checked
         // because the path validation is synchronous during StartAsync
@@ -215,10 +204,6 @@ public class ClaudeAgentClientTests
         });
     }
 
-    #endregion
-
-    #region QueryToCompletionAsync Tests
-
     [Fact]
     public async Task QueryToCompletionAsync_WithInvalidCliPath_ThrowsCliNotFoundException()
     {
@@ -245,16 +230,12 @@ public class ClaudeAgentClientTests
         };
         var client = new ClaudeAgentClient(options);
         var cts = new CancellationTokenSource();
-        cts.Cancel();
+        await cts.CancelAsync();
 
         // Act & Assert - CliNotFoundException is thrown before cancellation is checked
         await Assert.ThrowsAsync<CliNotFoundException>(async () =>
             await client.QueryToCompletionAsync("test", cancellationToken: cts.Token));
     }
-
-    #endregion
-
-    #region ConnectAsync Tests (Bidirectional Mode)
 
     [Fact]
     public async Task CreateSessionAsync_AfterDispose_ThrowsObjectDisposedException()
@@ -283,17 +264,9 @@ public class ClaudeAgentClientTests
             await client.CreateSessionAsync());
     }
 
-    #endregion
-
-    #region ClaudeAgentSession Tests
-
     // Note: Session-level operations (SendAsync, ReceiveAsync, InterruptAsync, etc.)
     // are now on ClaudeAgentSession, created via CreateSessionAsync.
     // These tests verify session behavior after disposal.
-
-    #endregion
-
-    #region GetSupportedCommandsAsync Tests
 
     // Note: Query methods (GetSupportedCommandsAsync, GetSupportedModelsAsync, etc.)
     // are now on ClaudeAgentSession, accessible after CreateSessionAsync.
@@ -301,10 +274,6 @@ public class ClaudeAgentClientTests
     // Note: GetSupportedCommandsAsync, GetSupportedModelsAsync, GetMcpServerStatusAsync,
     // and GetAccountInfoAsync methods have been moved to ClaudeAgentSession.
     // Use client.CreateSessionAsync() to get a session, then call these methods on the session.
-
-    #endregion
-
-    #region Options Merging Tests
 
     [Fact]
     public async Task QueryAsync_WithMethodOptions_MergesWithConstructorOptions()
@@ -346,7 +315,7 @@ public class ClaudeAgentClientTests
         // Act & Assert
         await Assert.ThrowsAsync<CliNotFoundException>(async () =>
         {
-            await foreach (var _ in client.QueryAsync("Hello", null))
+            await foreach (var _ in client.QueryAsync("Hello"))
             {
             }
         });
@@ -371,10 +340,6 @@ public class ClaudeAgentClientTests
         await Assert.ThrowsAsync<CliNotFoundException>(async () =>
             await client.QueryToCompletionAsync("Hello", methodOptions));
     }
-
-    #endregion
-
-    #region Options Merging Detailed Tests
 
     [Fact]
     public void OptionsMerging_ToolsOverride_UsesOverrideValue()
@@ -473,10 +438,6 @@ public class ClaudeAgentClientTests
         Assert.Equal(20, overrideOptions.MaxTurns);
     }
 
-    #endregion
-
-    #region IAsyncDisposable Pattern Tests
-
     [Fact]
     public async Task Client_ImplementsIAsyncDisposable()
     {
@@ -513,16 +474,8 @@ public class ClaudeAgentClientTests
             await capturedClient!.QueryAsync("test").FirstOrDefaultAsync());
     }
 
-    #endregion
-
-    #region Error Message Quality Tests
-
     // Note: SendAsync and ReceiveAsync error message tests have been removed.
     // These methods are now on ClaudeAgentSession, created via CreateSessionAsync.
-
-    #endregion
-
-    #region Concurrent Operations Tests
 
     [Fact]
     public async Task MultipleDisposeCalls_AreIdempotent()
@@ -565,10 +518,6 @@ public class ClaudeAgentClientTests
         await Task.WhenAll(tasks);
     }
 
-    #endregion
-
-    #region Complex Options Tests
-
     [Fact]
     public async Task QueryAsync_WithComplexOptions_DoesNotThrowBeforeConnect()
     {
@@ -580,7 +529,7 @@ public class ClaudeAgentClientTests
             Tools = new ToolsList(["Read", "Write", "Bash"]),
             AllowedTools = ["Task"],
             DisallowedTools = ["WebFetch"],
-            SystemPrompt = SystemPromptConfig.ClaudeCode(append: "Be helpful"),
+            SystemPrompt = SystemPromptConfig.ClaudeCode("Be helpful"),
             SettingSources = [SettingSource.Project, SettingSource.User],
             PermissionMode = PermissionMode.AcceptEdits,
             MaxTurns = 50,
@@ -614,7 +563,7 @@ public class ClaudeAgentClientTests
             {
                 [HookEvent.PreToolUse] = new List<HookMatcher>
                 {
-                    new HookMatcher
+                    new()
                     {
                         Matcher = "Bash",
                         Hooks = new List<HookCallback>
@@ -669,10 +618,6 @@ public class ClaudeAgentClientTests
             }
         });
     }
-
-    #endregion
-
-    #region Edge Cases Tests
 
     [Fact]
     public async Task QueryAsync_WithVeryLongPrompt_DoesNotThrowImmediately()
@@ -736,22 +681,18 @@ public class ClaudeAgentClientTests
 
     // Note: SendAsync tests have been moved to ClaudeAgentSession tests.
     // The session is created via client.CreateSessionAsync().
-
-    #endregion
 }
 
-#region Mock Transport Tests
-
 /// <summary>
-/// Tests using a mock ITransport to verify message flow without launching a subprocess.
-/// These tests verify the expected interactions with the transport layer.
+///     Tests using a mock ITransport to verify message flow without launching a subprocess.
+///     These tests verify the expected interactions with the transport layer.
 /// </summary>
 public class ClaudeAgentClientMockTransportTests
 {
     /// <summary>
-    /// Tests that verify the expected contract between client and transport.
-    /// Since ClaudeAgentClient creates its own transport internally, these tests
-    /// document expected behavior rather than inject mocks.
+    ///     Tests that verify the expected contract between client and transport.
+    ///     Since ClaudeAgentClient creates its own transport internally, these tests
+    ///     document expected behavior rather than inject mocks.
     /// </summary>
     [Fact]
     public void Transport_MustImplementITransport()
@@ -836,12 +777,8 @@ public class ClaudeAgentClientMockTransportTests
     }
 }
 
-#endregion
-
-#region Integration Contract Tests
-
 /// <summary>
-/// Tests that verify integration contracts and expected behaviors.
+///     Tests that verify integration contracts and expected behaviors.
 /// </summary>
 public class ClaudeAgentClientContractTests
 {
@@ -946,12 +883,8 @@ public class ClaudeAgentClientContractTests
     }
 }
 
-#endregion
-
-#region Exception Type Tests
-
 /// <summary>
-/// Tests verifying correct exception types are thrown in various scenarios.
+///     Tests verifying correct exception types are thrown in various scenarios.
 /// </summary>
 public class ClaudeAgentClientExceptionTests
 {
@@ -1016,5 +949,3 @@ public class ClaudeAgentClientExceptionTests
         // GetAccountInfoAsync have been moved to ClaudeAgentSession.
     }
 }
-
-#endregion

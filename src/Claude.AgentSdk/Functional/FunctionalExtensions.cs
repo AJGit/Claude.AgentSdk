@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 
 namespace Claude.AgentSdk.Functional;
 
@@ -7,30 +7,30 @@ namespace Claude.AgentSdk.Functional;
 /// </summary>
 /// <remarks>
 ///     <para>
-///     These utilities enable point-free style programming and function composition in C#.
+///         These utilities enable point-free style programming and function composition in C#.
 ///     </para>
 ///     <para>
-///     Example usage:
-///     <code>
+///         Example usage:
+///         <code>
 ///     // Pipe: value flows left to right through functions
 ///     var result = 5
 ///         .Pipe(x => x * 2)
 ///         .Pipe(x => x + 1)
 ///         .Pipe(x => x.ToString());
 ///     // result = "11"
-///
+/// 
 ///     // Compose: combine functions right to left
 ///     var composed = F.Compose&lt;int, int, string&gt;(
 ///         x => x.ToString(),
 ///         x => x * 2
 ///     );
 ///     // composed(5) = "10"
-///
+/// 
 ///     // Partial application
 ///     Func&lt;int, int, int&gt; add = (a, b) => a + b;
 ///     var add5 = add.Partial(5);
 ///     // add5(3) = 8
-///
+/// 
 ///     // Memoization
 ///     var expensiveFunc = F.Memoize&lt;int, int&gt;(x => {
 ///         Thread.Sleep(1000);
@@ -42,87 +42,88 @@ namespace Claude.AgentSdk.Functional;
 /// </remarks>
 public static class FunctionalExtensions
 {
-    #region Pipe (Forward Application)
-
-    /// <summary>
-    ///     Pipes a value through a function (forward application).
-    /// </summary>
+    /// <param name="value">The input value.</param>
     /// <typeparam name="T">The input type.</typeparam>
-    /// <typeparam name="TResult">The result type.</typeparam>
-    /// <param name="value">The input value.</param>
-    /// <param name="func">The function to apply.</param>
-    /// <returns>The result of applying the function to the value.</returns>
-    public static TResult Pipe<T, TResult>(this T value, Func<T, TResult> func)
+    extension<T>(T value)
     {
-        ArgumentNullException.ThrowIfNull(func);
-        return func(value);
+        /// <summary>
+        ///     Pipes a value through a function (forward application).
+        /// </summary>
+        /// <typeparam name="TResult">The result type.</typeparam>
+        /// <param name="func">The function to apply.</param>
+        /// <returns>The result of applying the function to the value.</returns>
+        public TResult Pipe<TResult>(Func<T, TResult> func)
+        {
+            ArgumentNullException.ThrowIfNull(func);
+            return func(value);
+        }
+
+        /// <summary>
+        ///     Pipes a value through a function and returns the original value (tap).
+        /// </summary>
+        /// <param name="action">The action to perform.</param>
+        /// <returns>The original value.</returns>
+        public T Tap(Action<T> action)
+        {
+            ArgumentNullException.ThrowIfNull(action);
+            action(value);
+            return value;
+        }
+
+        /// <summary>
+        ///     Pipes a value through an async function.
+        /// </summary>
+        public async Task<TResult> PipeAsync<TResult>(Func<T, Task<TResult>> func)
+        {
+            ArgumentNullException.ThrowIfNull(func);
+            return await func(value).ConfigureAwait(false);
+        }
     }
 
-    /// <summary>
-    ///     Pipes a value through a function and returns the original value (tap).
-    /// </summary>
-    /// <typeparam name="T">The value type.</typeparam>
-    /// <param name="value">The input value.</param>
-    /// <param name="action">The action to perform.</param>
-    /// <returns>The original value.</returns>
-    public static T Tap<T>(this T value, Action<T> action)
+    extension<T>(Task<T> task)
     {
-        ArgumentNullException.ThrowIfNull(action);
-        action(value);
-        return value;
+        /// <summary>
+        ///     Pipes a Task result through a function.
+        /// </summary>
+        public async Task<TResult> PipeAsync<TResult>(Func<T, TResult> func)
+        {
+            ArgumentNullException.ThrowIfNull(func);
+            var value = await task.ConfigureAwait(false);
+            return func(value);
+        }
+
+        /// <summary>
+        ///     Pipes a Task result through an async function.
+        /// </summary>
+        public async Task<TResult> PipeAsync<TResult>(Func<T, Task<TResult>> func)
+        {
+            ArgumentNullException.ThrowIfNull(func);
+            var value = await task.ConfigureAwait(false);
+            return await func(value).ConfigureAwait(false);
+        }
     }
 
-    /// <summary>
-    ///     Pipes a value through an async function.
-    /// </summary>
-    public static async Task<TResult> PipeAsync<T, TResult>(this T value, Func<T, Task<TResult>> func)
+    extension<T>(T value)
     {
-        ArgumentNullException.ThrowIfNull(func);
-        return await func(value).ConfigureAwait(false);
+        /// <summary>
+        ///     Conditionally applies a transformation.
+        /// </summary>
+        public T PipeIf(bool condition, Func<T, T> func)
+        {
+            ArgumentNullException.ThrowIfNull(func);
+            return condition ? func(value) : value;
+        }
+
+        /// <summary>
+        ///     Conditionally applies a transformation based on the value.
+        /// </summary>
+        public T PipeIf(Func<T, bool> predicate, Func<T, T> func)
+        {
+            ArgumentNullException.ThrowIfNull(predicate);
+            ArgumentNullException.ThrowIfNull(func);
+            return predicate(value) ? func(value) : value;
+        }
     }
-
-    /// <summary>
-    ///     Pipes a Task result through a function.
-    /// </summary>
-    public static async Task<TResult> PipeAsync<T, TResult>(this Task<T> task, Func<T, TResult> func)
-    {
-        ArgumentNullException.ThrowIfNull(func);
-        var value = await task.ConfigureAwait(false);
-        return func(value);
-    }
-
-    /// <summary>
-    ///     Pipes a Task result through an async function.
-    /// </summary>
-    public static async Task<TResult> PipeAsync<T, TResult>(this Task<T> task, Func<T, Task<TResult>> func)
-    {
-        ArgumentNullException.ThrowIfNull(func);
-        var value = await task.ConfigureAwait(false);
-        return await func(value).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    ///     Conditionally applies a transformation.
-    /// </summary>
-    public static T PipeIf<T>(this T value, bool condition, Func<T, T> func)
-    {
-        ArgumentNullException.ThrowIfNull(func);
-        return condition ? func(value) : value;
-    }
-
-    /// <summary>
-    ///     Conditionally applies a transformation based on the value.
-    /// </summary>
-    public static T PipeIf<T>(this T value, Func<T, bool> predicate, Func<T, T> func)
-    {
-        ArgumentNullException.ThrowIfNull(predicate);
-        ArgumentNullException.ThrowIfNull(func);
-        return predicate(value) ? func(value) : value;
-    }
-
-    #endregion
-
-    #region Apply (Function Application to Wrapped Values)
 
     /// <summary>
     ///     Applies a wrapped function to a wrapped value.
@@ -130,7 +131,7 @@ public static class FunctionalExtensions
     public static Option<TResult> Apply<T, TResult>(
         this Option<Func<T, TResult>> funcOption,
         Option<T> valueOption) =>
-        funcOption.Bind(f => valueOption.Map(f));
+        funcOption.Bind(valueOption.Map);
 
     /// <summary>
     ///     Applies a wrapped function to a wrapped value.
@@ -138,11 +139,7 @@ public static class FunctionalExtensions
     public static Result<TResult, TError> Apply<T, TResult, TError>(
         this Result<Func<T, TResult>, TError> funcResult,
         Result<T, TError> valueResult) =>
-        funcResult.Bind(f => valueResult.Map(f));
-
-    #endregion
-
-    #region Identity and Const
+        funcResult.Bind(valueResult.Map);
 
     /// <summary>
     ///     Returns the input value unchanged.
@@ -158,10 +155,6 @@ public static class FunctionalExtensions
     ///     Returns an action that does nothing.
     /// </summary>
     public static Action<T> Ignore<T>() => _ => { };
-
-    #endregion
-
-    #region Null Coalescing Functional Style
 
     /// <summary>
     ///     Returns the value if not null, otherwise executes the fallback.
@@ -181,10 +174,6 @@ public static class FunctionalExtensions
         return value ?? fallback();
     }
 
-    #endregion
-
-    #region Safe Operations
-
     /// <summary>
     ///     Safely casts to a type, returning Option.
     /// </summary>
@@ -200,8 +189,6 @@ public static class FunctionalExtensions
         ArgumentNullException.ThrowIfNull(accessor);
         return obj is not null ? Option.Some(accessor(obj)) : Option.NoneOf<TResult>();
     }
-
-    #endregion
 }
 
 /// <summary>
@@ -209,7 +196,14 @@ public static class FunctionalExtensions
 /// </summary>
 public static class F
 {
-    #region Compose (Backward Composition)
+    /// <summary>
+    ///     Flips the argument order of a two-argument function.
+    /// </summary>
+    public static Func<T2, T1, TResult> Flip<T1, T2, TResult>(this Func<T1, T2, TResult> func)
+    {
+        ArgumentNullException.ThrowIfNull(func);
+        return (arg2, arg1) => func(arg1, arg2);
+    }
 
     /// <summary>
     ///     Composes two functions (right to left): g after f.
@@ -243,42 +237,33 @@ public static class F
         return x => h(g(f(x)));
     }
 
-    #endregion
-
-    #region Then (Forward Composition)
-
-    /// <summary>
-    ///     Composes two functions (left to right): f then g.
-    /// </summary>
-    public static Func<T, TResult> Then<T, TIntermediate, TResult>(
-        this Func<T, TIntermediate> f,
-        Func<TIntermediate, TResult> g)
+    extension<T, TIntermediate>(Func<T, TIntermediate> f)
     {
-        ArgumentNullException.ThrowIfNull(f);
-        ArgumentNullException.ThrowIfNull(g);
-        return x => g(f(x));
-    }
-
-    /// <summary>
-    ///     Chains an action after a function.
-    /// </summary>
-    public static Func<T, TResult> ThenDo<T, TResult>(
-        this Func<T, TResult> f,
-        Action<TResult> action)
-    {
-        ArgumentNullException.ThrowIfNull(f);
-        ArgumentNullException.ThrowIfNull(action);
-        return x =>
+        /// <summary>
+        ///     Composes two functions (left to right): f then g.
+        /// </summary>
+        public Func<T, TResult> Then<TResult>(Func<TIntermediate, TResult> g)
         {
-            var result = f(x);
-            action(result);
-            return result;
-        };
+            ArgumentNullException.ThrowIfNull(f);
+            ArgumentNullException.ThrowIfNull(g);
+            return x => g(f(x));
+        }
+
+        /// <summary>
+        ///     Chains an action after a function.
+        /// </summary>
+        public Func<T, TIntermediate> ThenDo(Action<TIntermediate> action)
+        {
+            ArgumentNullException.ThrowIfNull(f);
+            ArgumentNullException.ThrowIfNull(action);
+            return x =>
+            {
+                var result = f(x);
+                action(result);
+                return result;
+            };
+        }
     }
-
-    #endregion
-
-    #region Partial Application
 
     /// <summary>
     ///     Partially applies the first argument of a two-argument function.
@@ -291,27 +276,26 @@ public static class F
         return arg2 => func(arg1, arg2);
     }
 
-    /// <summary>
-    ///     Partially applies the first argument of a three-argument function.
-    /// </summary>
-    public static Func<T2, T3, TResult> Partial<T1, T2, T3, TResult>(
-        this Func<T1, T2, T3, TResult> func,
-        T1 arg1)
+    extension<T1, T2, T3, TResult>(Func<T1, T2, T3, TResult> func)
     {
-        ArgumentNullException.ThrowIfNull(func);
-        return (arg2, arg3) => func(arg1, arg2, arg3);
-    }
+        /// <summary>
+        ///     Partially applies the first argument of a three-argument function.
+        /// </summary>
+        public Func<T2, T3, TResult> Partial(T1 arg1)
+        {
+            ArgumentNullException.ThrowIfNull(func);
+            return (arg2, arg3) => func(arg1, arg2, arg3);
+        }
 
-    /// <summary>
-    ///     Partially applies the first two arguments of a three-argument function.
-    /// </summary>
-    public static Func<T3, TResult> Partial<T1, T2, T3, TResult>(
-        this Func<T1, T2, T3, TResult> func,
-        T1 arg1,
-        T2 arg2)
-    {
-        ArgumentNullException.ThrowIfNull(func);
-        return arg3 => func(arg1, arg2, arg3);
+        /// <summary>
+        ///     Partially applies the first two arguments of a three-argument function.
+        /// </summary>
+        public Func<T3, TResult> Partial(T1 arg1,
+            T2 arg2)
+        {
+            ArgumentNullException.ThrowIfNull(func);
+            return arg3 => func(arg1, arg2, arg3);
+        }
     }
 
     /// <summary>
@@ -324,10 +308,6 @@ public static class F
         ArgumentNullException.ThrowIfNull(func);
         return (arg2, arg3, arg4) => func(arg1, arg2, arg3, arg4);
     }
-
-    #endregion
-
-    #region Curry
 
     /// <summary>
     ///     Curries a two-argument function.
@@ -379,23 +359,6 @@ public static class F
         return (arg1, arg2, arg3) => func(arg1)(arg2)(arg3);
     }
 
-    #endregion
-
-    #region Flip
-
-    /// <summary>
-    ///     Flips the argument order of a two-argument function.
-    /// </summary>
-    public static Func<T2, T1, TResult> Flip<T1, T2, TResult>(this Func<T1, T2, TResult> func)
-    {
-        ArgumentNullException.ThrowIfNull(func);
-        return (arg2, arg1) => func(arg1, arg2);
-    }
-
-    #endregion
-
-    #region Memoization
-
     /// <summary>
     ///     Creates a memoized version of a function (caches results).
     /// </summary>
@@ -424,7 +387,10 @@ public static class F
         return arg =>
         {
             if (cache.TryGetValue(arg, out var result))
+            {
                 return result;
+            }
+
             result = func(arg);
             cache[arg] = result;
             return result;
@@ -454,10 +420,6 @@ public static class F
         var cache = new ConcurrentDictionary<(T1, T2), TResult>();
         return (arg1, arg2) => cache.GetOrAdd((arg1, arg2), key => func(key.Item1, key.Item2));
     }
-
-    #endregion
-
-    #region Predicate Combinators
 
     /// <summary>
     ///     Negates a predicate.
@@ -506,10 +468,6 @@ public static class F
         return x => predicates.Any(p => p(x));
     }
 
-    #endregion
-
-    #region Try/Catch as Functions
-
     /// <summary>
     ///     Wraps a function call in a try-catch, returning a Result.
     /// </summary>
@@ -550,10 +508,6 @@ public static class F
             }
         };
     }
-
-    #endregion
-
-    #region Using/Dispose as Functions
 
     /// <summary>
     ///     Executes a function with a disposable resource, ensuring disposal.
@@ -596,6 +550,4 @@ public static class F
         await using var resource = resourceFactory();
         return await body(resource).ConfigureAwait(false);
     }
-
-    #endregion
 }

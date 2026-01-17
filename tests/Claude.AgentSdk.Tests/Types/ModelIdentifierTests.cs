@@ -1,4 +1,4 @@
-using Claude.AgentSdk.Types;
+﻿using Claude.AgentSdk.Types;
 
 namespace Claude.AgentSdk.Tests.Types;
 
@@ -8,8 +8,6 @@ namespace Claude.AgentSdk.Tests.Types;
 [UnitTest]
 public class ModelIdentifierTests
 {
-    #region Constructor Tests
-
     [Fact]
     public void Constructor_WithValidValue_SetsValue()
     {
@@ -37,10 +35,6 @@ public class ModelIdentifierTests
         Assert.Equal(string.Empty, model.Value);
     }
 
-    #endregion
-
-    #region Common Alias Tests
-
     [Fact]
     public void Sonnet_ReturnsCorrectValue()
     {
@@ -58,10 +52,6 @@ public class ModelIdentifierTests
     {
         Assert.Equal("haiku", ModelIdentifier.Haiku.Value);
     }
-
-    #endregion
-
-    #region Specific Version Tests
 
     [Fact]
     public void ClaudeSonnet4_ReturnsCorrectValue()
@@ -99,10 +89,6 @@ public class ModelIdentifierTests
         Assert.Equal("claude-3-opus-20240229", ModelIdentifier.ClaudeOpus3.Value);
     }
 
-    #endregion
-
-    #region Factory Method Tests
-
     [Fact]
     public void Custom_ReturnsNewModelIdentifier()
     {
@@ -133,10 +119,6 @@ public class ModelIdentifierTests
         // Assert
         Assert.Null(model);
     }
-
-    #endregion
-
-    #region Implicit Conversion Tests
 
     [Fact]
     public void ImplicitConversion_FromString_CreatesModelIdentifier()
@@ -173,10 +155,6 @@ public class ModelIdentifierTests
         // Assert
         Assert.Equal("sonnet", options.ModelId?.Value);
     }
-
-    #endregion
-
-    #region Equality Tests
 
     [Fact]
     public void Equals_WithSameValue_ReturnsTrue()
@@ -251,10 +229,6 @@ public class ModelIdentifierTests
         Assert.Equal(0, model.GetHashCode());
     }
 
-    #endregion
-
-    #region ToString Tests
-
     [Fact]
     public void ToString_ReturnsValue()
     {
@@ -274,6 +248,4 @@ public class ModelIdentifierTests
         // Act & Assert
         Assert.Equal(string.Empty, model.ToString());
     }
-
-    #endregion
 }

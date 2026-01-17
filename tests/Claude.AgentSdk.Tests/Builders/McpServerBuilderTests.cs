@@ -1,4 +1,4 @@
-using Claude.AgentSdk.Builders;
+﻿using Claude.AgentSdk.Builders;
 using Claude.AgentSdk.Tools;
 
 namespace Claude.AgentSdk.Tests.Builders;
@@ -9,7 +9,70 @@ namespace Claude.AgentSdk.Tests.Builders;
 [UnitTest]
 public class McpServerBuilderTests
 {
-    #region AddStdio Tests
+    [Fact]
+    public void AddSse_CreatesSSEConfig()
+    {
+        // Act
+        var servers = new McpServerBuilder()
+            .AddSse("remote-api", "https://api.example.com/mcp")
+            .Build();
+
+        // Assert
+        Assert.Single(servers);
+        var config = servers["remote-api"] as McpSseServerConfig;
+        Assert.NotNull(config);
+        Assert.Equal("https://api.example.com/mcp", config.Url);
+    }
+
+    [Fact]
+    public void AddHttp_CreatesHTTPConfig()
+    {
+        // Act
+        var servers = new McpServerBuilder()
+            .AddHttp("http-api", "https://api.example.com/rpc")
+            .Build();
+
+        // Assert
+        Assert.Single(servers);
+        var config = servers["http-api"] as McpHttpServerConfig;
+        Assert.NotNull(config);
+        Assert.Equal("https://api.example.com/rpc", config.Url);
+    }
+
+    [Fact]
+    public void AddSdk_CreatesSdkConfig()
+    {
+        // Arrange
+        var mockServer = new McpToolServer("test");
+
+        // Act
+        var servers = new McpServerBuilder()
+            .AddSdk("sdk-tools", mockServer)
+            .Build();
+
+        // Assert
+        Assert.Single(servers);
+        var config = servers["sdk-tools"] as McpSdkServerConfig;
+        Assert.NotNull(config);
+        Assert.Equal("sdk-tools", config.Name);
+        Assert.Same(mockServer, config.Instance);
+    }
+
+    [Fact]
+    public void AllMethods_ReturnBuilder_ForChaining()
+    {
+        // Arrange
+        var mockServer = new McpToolServer("test");
+
+        // Act & Assert - each method should return the builder
+        var builder = new McpServerBuilder();
+        Assert.Same(builder, builder.AddStdio("s1", "cmd"));
+        Assert.Same(builder, builder.WithEnvironment("K", "V"));
+        Assert.Same(builder, builder.AddSse("s2", "url"));
+        Assert.Same(builder, builder.WithHeaders("H", "V"));
+        Assert.Same(builder, builder.AddHttp("s3", "url"));
+        Assert.Same(builder, builder.AddSdk("s4", mockServer));
+    }
 
     [Fact]
     public void AddStdio_WithCommand_CreatesStdioConfig()
@@ -55,71 +118,6 @@ public class McpServerBuilderTests
         Assert.NotNull(config);
         Assert.Equal(["tools.js", "--port", "3000"], config.Args);
     }
-
-    #endregion
-
-    #region AddSse Tests
-
-    [Fact]
-    public void AddSse_CreatesSSEConfig()
-    {
-        // Act
-        var servers = new McpServerBuilder()
-            .AddSse("remote-api", "https://api.example.com/mcp")
-            .Build();
-
-        // Assert
-        Assert.Single(servers);
-        var config = servers["remote-api"] as McpSseServerConfig;
-        Assert.NotNull(config);
-        Assert.Equal("https://api.example.com/mcp", config.Url);
-    }
-
-    #endregion
-
-    #region AddHttp Tests
-
-    [Fact]
-    public void AddHttp_CreatesHTTPConfig()
-    {
-        // Act
-        var servers = new McpServerBuilder()
-            .AddHttp("http-api", "https://api.example.com/rpc")
-            .Build();
-
-        // Assert
-        Assert.Single(servers);
-        var config = servers["http-api"] as McpHttpServerConfig;
-        Assert.NotNull(config);
-        Assert.Equal("https://api.example.com/rpc", config.Url);
-    }
-
-    #endregion
-
-    #region AddSdk Tests
-
-    [Fact]
-    public void AddSdk_CreatesSdkConfig()
-    {
-        // Arrange
-        var mockServer = new McpToolServer("test", "1.0.0");
-
-        // Act
-        var servers = new McpServerBuilder()
-            .AddSdk("sdk-tools", mockServer)
-            .Build();
-
-        // Assert
-        Assert.Single(servers);
-        var config = servers["sdk-tools"] as McpSdkServerConfig;
-        Assert.NotNull(config);
-        Assert.Equal("sdk-tools", config.Name);
-        Assert.Same(mockServer, config.Instance);
-    }
-
-    #endregion
-
-    #region WithEnvironment Tests
 
     [Fact]
     public void WithEnvironment_SingleVar_AddsToStdioConfig()
@@ -186,10 +184,6 @@ public class McpServerBuilderTests
         Assert.Contains("No server has been added", ex.Message);
     }
 
-    #endregion
-
-    #region WithHeaders Tests
-
     [Fact]
     public void WithHeaders_SingleHeader_AddsToSseConfig()
     {
@@ -253,15 +247,11 @@ public class McpServerBuilderTests
         Assert.Contains("No server has been added", ex.Message);
     }
 
-    #endregion
-
-    #region Multiple Servers Tests
-
     [Fact]
     public void MultipleServers_BuildsAllConfigs()
     {
         // Arrange
-        var mockServer = new McpToolServer("test", "1.0.0");
+        var mockServer = new McpToolServer("test");
 
         // Act
         var servers = new McpServerBuilder()
@@ -298,10 +288,6 @@ public class McpServerBuilderTests
         Assert.Contains(new KeyValuePair<string, string>("KEY", "value"), config2.Env);
     }
 
-    #endregion
-
-    #region Build Tests
-
     [Fact]
     public void Build_WithNoServers_ReturnsEmptyDictionary()
     {
@@ -323,26 +309,4 @@ public class McpServerBuilderTests
         // Assert
         Assert.IsAssignableFrom<IReadOnlyDictionary<string, McpServerConfig>>(servers);
     }
-
-    #endregion
-
-    #region Chaining Tests
-
-    [Fact]
-    public void AllMethods_ReturnBuilder_ForChaining()
-    {
-        // Arrange
-        var mockServer = new McpToolServer("test", "1.0.0");
-
-        // Act & Assert - each method should return the builder
-        var builder = new McpServerBuilder();
-        Assert.Same(builder, builder.AddStdio("s1", "cmd"));
-        Assert.Same(builder, builder.WithEnvironment("K", "V"));
-        Assert.Same(builder, builder.AddSse("s2", "url"));
-        Assert.Same(builder, builder.WithHeaders("H", "V"));
-        Assert.Same(builder, builder.AddHttp("s3", "url"));
-        Assert.Same(builder, builder.AddSdk("s4", mockServer));
-    }
-
-    #endregion
 }

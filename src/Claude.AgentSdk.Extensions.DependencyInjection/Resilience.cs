@@ -1,4 +1,4 @@
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 
 namespace Claude.AgentSdk.Extensions.DependencyInjection;
 
@@ -140,7 +140,10 @@ public class ResiliencePolicyBuilder
     /// <summary>
     ///     Builds the resilience options.
     /// </summary>
-    public ResilienceOptions Build() => _options;
+    public ResilienceOptions Build()
+    {
+        return _options;
+    }
 }
 
 /// <summary>
@@ -148,49 +151,49 @@ public class ResiliencePolicyBuilder
 /// </summary>
 public static class ResilienceExtensions
 {
-    /// <summary>
-    ///     Adds resilience policies to the Claude agent configuration.
-    /// </summary>
     /// <param name="builder">The agent builder.</param>
-    /// <param name="configure">Action to configure resilience policies.</param>
-    /// <returns>The builder for chaining.</returns>
-    public static IClaudeAgentBuilder AddResilience(
-        this IClaudeAgentBuilder builder,
-        Action<ResiliencePolicyBuilder> configure)
+    extension(IClaudeAgentBuilder builder)
     {
-        ArgumentNullException.ThrowIfNull(configure);
-
-        var policyBuilder = new ResiliencePolicyBuilder();
-        configure(policyBuilder);
-
-        builder.Services.Configure<ResilienceOptions>(options =>
+        /// <summary>
+        ///     Adds resilience policies to the Claude agent configuration.
+        /// </summary>
+        /// <param name="configure">Action to configure resilience policies.</param>
+        /// <returns>The builder for chaining.</returns>
+        public IClaudeAgentBuilder AddResilience(Action<ResiliencePolicyBuilder> configure)
         {
-            var built = policyBuilder.Build();
-            options.MaxRetryAttempts = built.MaxRetryAttempts;
-            options.RetryDelay = built.RetryDelay;
-            options.UseExponentialBackoff = built.UseExponentialBackoff;
-            options.CircuitBreakerFailureThreshold = built.CircuitBreakerFailureThreshold;
-            options.CircuitBreakerBreakDuration = built.CircuitBreakerBreakDuration;
-            options.Timeout = built.Timeout;
-            options.EnableCircuitBreaker = built.EnableCircuitBreaker;
-            options.EnableRetry = built.EnableRetry;
-            options.EnableTimeout = built.EnableTimeout;
-        });
+            ArgumentNullException.ThrowIfNull(configure);
 
-        return builder;
-    }
+            ResiliencePolicyBuilder policyBuilder = new();
+            configure(policyBuilder);
 
-    /// <summary>
-    ///     Adds default resilience policies (retry with exponential backoff, circuit breaker, timeout).
-    /// </summary>
-    /// <param name="builder">The agent builder.</param>
-    /// <returns>The builder for chaining.</returns>
-    public static IClaudeAgentBuilder AddDefaultResilience(this IClaudeAgentBuilder builder)
-    {
-        return builder.AddResilience(policy => policy
-            .AddRetry()
-            .AddCircuitBreaker()
-            .AddTimeout(TimeSpan.FromMinutes(2)));
+            builder.Services.Configure<ResilienceOptions>(options =>
+            {
+                ResilienceOptions built = policyBuilder.Build();
+                options.MaxRetryAttempts = built.MaxRetryAttempts;
+                options.RetryDelay = built.RetryDelay;
+                options.UseExponentialBackoff = built.UseExponentialBackoff;
+                options.CircuitBreakerFailureThreshold = built.CircuitBreakerFailureThreshold;
+                options.CircuitBreakerBreakDuration = built.CircuitBreakerBreakDuration;
+                options.Timeout = built.Timeout;
+                options.EnableCircuitBreaker = built.EnableCircuitBreaker;
+                options.EnableRetry = built.EnableRetry;
+                options.EnableTimeout = built.EnableTimeout;
+            });
+
+            return builder;
+        }
+
+        /// <summary>
+        ///     Adds default resilience policies (retry with exponential backoff, circuit breaker, timeout).
+        /// </summary>
+        /// <returns>The builder for chaining.</returns>
+        public IClaudeAgentBuilder AddDefaultResilience()
+        {
+            return builder.AddResilience(policy => policy
+                .AddRetry()
+                .AddCircuitBreaker()
+                .AddTimeout(TimeSpan.FromMinutes(2)));
+        }
     }
 }
 
@@ -199,15 +202,15 @@ public static class ResilienceExtensions
 /// </summary>
 /// <remarks>
 ///     <para>
-///     This provides a lightweight implementation of common resilience patterns
-///     without requiring Polly as a dependency. For more advanced scenarios,
-///     consider using Polly directly with Microsoft.Extensions.Http.Resilience.
+///         This provides a lightweight implementation of common resilience patterns
+///         without requiring Polly as a dependency. For more advanced scenarios,
+///         consider using Polly directly with Microsoft.Extensions.Http.Resilience.
 ///     </para>
 ///     <para>
-///     Example usage:
-///     <code>
+///         Example usage:
+///         <code>
 ///     var executor = new ResilientExecutor(options);
-///
+/// 
 ///     var result = await executor.ExecuteAsync(async ct => {
 ///         return await session.StreamAsync(prompt, ct).ToListAsync(ct);
 ///     }, cancellationToken);
@@ -217,9 +220,9 @@ public static class ResilienceExtensions
 public class ResilientExecutor
 {
     private readonly ResilienceOptions _options;
-    private int _consecutiveFailures;
-    private DateTime _circuitOpenedAt;
     private bool _circuitIsOpen;
+    private DateTime _circuitOpenedAt;
+    private int _consecutiveFailures;
 
     /// <summary>
     ///     Creates a new resilient executor with the specified options.
@@ -255,7 +258,7 @@ public class ResilientExecutor
             _circuitIsOpen = false;
         }
 
-        var attempt = 0;
+        int attempt = 0;
         Exception? lastException = null;
 
         while (true)
@@ -268,14 +271,16 @@ public class ResilientExecutor
 
                 if (_options.EnableTimeout)
                 {
-                    using var timeoutCts = new CancellationTokenSource(_options.Timeout);
-                    using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
+                    using CancellationTokenSource timeoutCts = new(_options.Timeout);
+                    using CancellationTokenSource linkedCts =
+                        CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
 
                     try
                     {
                         result = await operation(linkedCts.Token).ConfigureAwait(false);
                     }
-                    catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
+                    catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested &&
+                                                             !ct.IsCancellationRequested)
                     {
                         throw new TimeoutException($"Operation timed out after {_options.Timeout}");
                     }
@@ -314,7 +319,7 @@ public class ResilientExecutor
                 }
 
                 // Calculate delay
-                var delay = _options.UseExponentialBackoff
+                TimeSpan delay = _options.UseExponentialBackoff
                     ? TimeSpan.FromTicks(_options.RetryDelay.Ticks * (long)Math.Pow(2, attempt - 1))
                     : _options.RetryDelay;
 
@@ -356,5 +361,7 @@ public class CircuitBreakerOpenException : Exception
     ///     Creates a new circuit breaker open exception with an inner exception.
     /// </summary>
     public CircuitBreakerOpenException(string message, Exception innerException)
-        : base(message, innerException) { }
+        : base(message, innerException)
+    {
+    }
 }

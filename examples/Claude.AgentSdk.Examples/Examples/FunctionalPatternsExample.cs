@@ -1,12 +1,11 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Claude.AgentSdk.Functional;
-using Claude.AgentSdk.Messages;
 
 namespace Claude.AgentSdk.Examples.Examples;
 
 /// <summary>
-/// Demonstrates functional programming patterns with the Claude Agent SDK.
-/// Shows Option, Result, Validation, Pipeline, and functional composition.
+///     Demonstrates functional programming patterns with the Claude Agent SDK.
+///     Shows Option, Result, Validation, Pipeline, and functional composition.
 /// </summary>
 public class FunctionalPatternsExample : IExample
 {
@@ -51,8 +50,8 @@ public class FunctionalPatternsExample : IExample
 
         // Pattern matching on Option
         var message = answer.Match(
-            some: text => $"Claude answered: {text}",
-            none: () => "No response received"
+            text => $"Claude answered: {text}",
+            () => "No response received"
         );
 
         Console.WriteLine($"  Result: {message}");
@@ -132,9 +131,9 @@ public class FunctionalPatternsExample : IExample
         // Simulate validating Claude agent options
         var testCases = new[]
         {
-            new AgentConfig("", -1, "invalid-model"),  // Multiple errors
-            new AgentConfig("Valid prompt", 5, "sonnet"),  // Valid
-            new AgentConfig("", 10, "sonnet"),  // One error
+            new AgentConfig("", -1, "invalid-model"), // Multiple errors
+            new AgentConfig("Valid prompt", 5, "sonnet"), // Valid
+            new AgentConfig("", 10, "sonnet") // One error
         };
 
         foreach (var config in testCases)
@@ -142,8 +141,9 @@ public class FunctionalPatternsExample : IExample
             var validation = ValidateAgentConfig(config);
 
             validation.Match(
-                valid: cfg => Console.WriteLine($"  Valid: Prompt='{cfg.SystemPrompt[..Math.Min(20, cfg.SystemPrompt.Length)]}...', MaxTurns={cfg.MaxTurns}"),
-                invalid: errors => Console.WriteLine($"  Invalid ({errors.Count} errors): {string.Join("; ", errors)}")
+                cfg => Console.WriteLine(
+                    $"  Valid: Prompt='{cfg.SystemPrompt[..Math.Min(20, cfg.SystemPrompt.Length)]}...', MaxTurns={cfg.MaxTurns}"),
+                errors => Console.WriteLine($"  Invalid ({errors.Count} errors): {string.Join("; ", errors)}")
             );
         }
 
@@ -168,8 +168,6 @@ public class FunctionalPatternsExample : IExample
             Console.WriteLine($"  Response: {result?.Result?.Trim()}\n");
         }
     }
-
-    private sealed record AgentConfig(string SystemPrompt, int MaxTurns, string Model);
 
     private static Validation<AgentConfig, string> ValidateAgentConfig(AgentConfig config)
     {
@@ -230,8 +228,8 @@ public class FunctionalPatternsExample : IExample
         {
             var result = queryPipeline.Run(prompt);
             result.Match(
-                success: p => Console.WriteLine($"  Valid prompt: '{p[..Math.Min(20, p.Length)]}...'"),
-                failure: err => Console.WriteLine($"  Rejected: {err}")
+                p => Console.WriteLine($"  Valid prompt: '{p[..Math.Min(20, p.Length)]}...'"),
+                err => Console.WriteLine($"  Rejected: {err}")
             );
         }
 
@@ -312,4 +310,6 @@ public class FunctionalPatternsExample : IExample
 
         Console.WriteLine();
     }
+
+    private sealed record AgentConfig(string SystemPrompt, int MaxTurns, string Model);
 }

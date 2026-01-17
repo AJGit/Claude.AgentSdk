@@ -18,7 +18,7 @@ public static class CSharpAnalyzerVerifier<TAnalyzer>
     /// </summary>
     public static async Task VerifyNoDiagnosticsAsync(string source)
     {
-        var test = new Test
+        Test test = new()
         {
             TestCode = source
         };
@@ -31,7 +31,7 @@ public static class CSharpAnalyzerVerifier<TAnalyzer>
     /// </summary>
     public static async Task VerifyAnalyzerAsync(string source, params DiagnosticResult[] expected)
     {
-        var test = new Test
+        Test test = new()
         {
             TestCode = source
         };
@@ -43,14 +43,18 @@ public static class CSharpAnalyzerVerifier<TAnalyzer>
     /// <summary>
     ///     Creates a diagnostic result for the given descriptor.
     /// </summary>
-    public static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor) =>
-        CSharpAnalyzerVerifier<TAnalyzer, DefaultVerifier>.Diagnostic(descriptor);
+    public static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor)
+    {
+        return CSharpAnalyzerVerifier<TAnalyzer, DefaultVerifier>.Diagnostic(descriptor);
+    }
 
     /// <summary>
     ///     Creates a diagnostic result for the given diagnostic ID.
     /// </summary>
-    public static DiagnosticResult Diagnostic(string diagnosticId) =>
-        CSharpAnalyzerVerifier<TAnalyzer, DefaultVerifier>.Diagnostic(diagnosticId);
+    public static DiagnosticResult Diagnostic(string diagnosticId)
+    {
+        return CSharpAnalyzerVerifier<TAnalyzer, DefaultVerifier>.Diagnostic(diagnosticId);
+    }
 #pragma warning restore CA1000
 
     /// <summary>
@@ -69,7 +73,7 @@ public static class CSharpAnalyzerVerifier<TAnalyzer>
 
         protected override CompilationOptions CreateCompilationOptions()
         {
-            var options = base.CreateCompilationOptions();
+            CompilationOptions options = base.CreateCompilationOptions();
             return options.WithSpecificDiagnosticOptions(
                 options.SpecificDiagnosticOptions.SetItem("CS8019", ReportDiagnostic.Suppress));
         }

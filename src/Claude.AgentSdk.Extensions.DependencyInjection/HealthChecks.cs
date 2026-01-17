@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
@@ -15,14 +15,16 @@ namespace Claude.AgentSdk.Extensions.DependencyInjection;
 /// </remarks>
 public class ClaudeAgentHealthCheck : IHealthCheck
 {
-    private readonly IOptionsMonitor<ClaudeAgentConfiguration> _options;
     private readonly string? _agentName;
+    private readonly IOptionsMonitor<ClaudeAgentConfiguration> _options;
 
     /// <summary>
     ///     Creates a health check for the default agent.
     /// </summary>
     public ClaudeAgentHealthCheck(IOptionsMonitor<ClaudeAgentConfiguration> options)
-        : this(options, null) { }
+        : this(options, null)
+    {
+    }
 
     /// <summary>
     ///     Creates a health check for a named agent.
@@ -38,19 +40,19 @@ public class ClaudeAgentHealthCheck : IHealthCheck
         HealthCheckContext context,
         CancellationToken cancellationToken = default)
     {
-        var data = new Dictionary<string, object>();
+        Dictionary<string, object> data = new();
 
         try
         {
-            var config = _agentName is null
+            ClaudeAgentConfiguration config = _agentName is null
                 ? _options.CurrentValue
                 : _options.Get(_agentName);
 
             // Check CLI availability
-            var cliPath = config.CliPath ?? "claude";
+            string cliPath = config.CliPath ?? "claude";
             data["cli_path"] = cliPath;
 
-            var cliAvailable = await CheckCliAvailableAsync(cliPath, cancellationToken).ConfigureAwait(false);
+            bool cliAvailable = await CheckCliAvailableAsync(cliPath, cancellationToken).ConfigureAwait(false);
             if (!cliAvailable)
             {
                 return HealthCheckResult.Unhealthy(
@@ -62,13 +64,19 @@ public class ClaudeAgentHealthCheck : IHealthCheck
 
             // Check configuration validity
             if (!string.IsNullOrEmpty(config.Model))
+            {
                 data["model"] = config.Model;
+            }
 
             if (config.MaxTurns.HasValue)
+            {
                 data["max_turns"] = config.MaxTurns.Value;
+            }
 
             if (config.MaxBudgetUsd.HasValue)
+            {
                 data["max_budget_usd"] = config.MaxBudgetUsd.Value;
+            }
 
             if (!string.IsNullOrEmpty(config.WorkingDirectory))
             {
@@ -96,30 +104,30 @@ public class ClaudeAgentHealthCheck : IHealthCheck
     {
         try
         {
-            using var process = new Process
+            using Process process = new();
+            process.StartInfo = new ProcessStartInfo
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = cliPath,
-                    Arguments = "--version",
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
+                FileName = cliPath,
+                Arguments = "--version",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
             };
 
             process.Start();
 
             // Wait max 5 seconds for version check
-            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(5), ct);
-            var waitTask = process.WaitForExitAsync(ct);
+            Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(5), ct);
+            Task waitTask = process.WaitForExitAsync(ct);
 
-            var completedTask = await Task.WhenAny(waitTask, timeoutTask).ConfigureAwait(false);
+            Task completedTask = await Task.WhenAny(waitTask, timeoutTask).ConfigureAwait(false);
 
             if (completedTask == timeoutTask)
             {
-                try { process.Kill(); } catch { }
+                try { process.Kill(); }
+                catch { }
+
                 return false;
             }
 
@@ -137,50 +145,48 @@ public class ClaudeAgentHealthCheck : IHealthCheck
 /// </summary>
 public static class HealthCheckExtensions
 {
-    /// <summary>
-    ///     Adds a health check for the default Claude agent.
-    /// </summary>
     /// <param name="builder">The health checks builder.</param>
-    /// <param name="name">The health check name.</param>
-    /// <param name="failureStatus">The failure status.</param>
-    /// <param name="tags">The health check tags.</param>
-    /// <returns>The builder for chaining.</returns>
-    public static IHealthChecksBuilder AddClaudeAgent(
-        this IHealthChecksBuilder builder,
-        string name = "claude-agent",
-        HealthStatus? failureStatus = null,
-        IEnumerable<string>? tags = null)
+    extension(IHealthChecksBuilder builder)
     {
-        return builder.Add(new HealthCheckRegistration(
-            name,
-            sp => new ClaudeAgentHealthCheck(sp.GetRequiredService<IOptionsMonitor<ClaudeAgentConfiguration>>()),
-            failureStatus,
-            tags));
-    }
+        /// <summary>
+        ///     Adds a health check for the default Claude agent.
+        /// </summary>
+        /// <param name="name">The health check name.</param>
+        /// <param name="failureStatus">The failure status.</param>
+        /// <param name="tags">The health check tags.</param>
+        /// <returns>The builder for chaining.</returns>
+        public IHealthChecksBuilder AddClaudeAgent(string name = "claude-agent",
+            HealthStatus? failureStatus = null,
+            IEnumerable<string>? tags = null)
+        {
+            return builder.Add(new HealthCheckRegistration(
+                name,
+                sp => new ClaudeAgentHealthCheck(sp.GetRequiredService<IOptionsMonitor<ClaudeAgentConfiguration>>()),
+                failureStatus,
+                tags));
+        }
 
-    /// <summary>
-    ///     Adds a health check for a named Claude agent.
-    /// </summary>
-    /// <param name="builder">The health checks builder.</param>
-    /// <param name="agentName">The agent name.</param>
-    /// <param name="name">The health check name.</param>
-    /// <param name="failureStatus">The failure status.</param>
-    /// <param name="tags">The health check tags.</param>
-    /// <returns>The builder for chaining.</returns>
-    public static IHealthChecksBuilder AddClaudeAgent(
-        this IHealthChecksBuilder builder,
-        string agentName,
-        string? name = null,
-        HealthStatus? failureStatus = null,
-        IEnumerable<string>? tags = null)
-    {
-        return builder.Add(new HealthCheckRegistration(
-            name ?? $"claude-agent-{agentName}",
-            sp => new ClaudeAgentHealthCheck(
-                sp.GetRequiredService<IOptionsMonitor<ClaudeAgentConfiguration>>(),
-                agentName),
-            failureStatus,
-            tags));
+        /// <summary>
+        ///     Adds a health check for a named Claude agent.
+        /// </summary>
+        /// <param name="agentName">The agent name.</param>
+        /// <param name="name">The health check name.</param>
+        /// <param name="failureStatus">The failure status.</param>
+        /// <param name="tags">The health check tags.</param>
+        /// <returns>The builder for chaining.</returns>
+        public IHealthChecksBuilder AddClaudeAgent(string agentName,
+            string? name = null,
+            HealthStatus? failureStatus = null,
+            IEnumerable<string>? tags = null)
+        {
+            return builder.Add(new HealthCheckRegistration(
+                name ?? $"claude-agent-{agentName}",
+                sp => new ClaudeAgentHealthCheck(
+                    sp.GetRequiredService<IOptionsMonitor<ClaudeAgentConfiguration>>(),
+                    agentName),
+                failureStatus,
+                tags));
+        }
     }
 
     /// <summary>
@@ -196,7 +202,7 @@ public static class HealthCheckExtensions
         agentBuilder.Services.AddHealthChecks()
             .AddClaudeAgent(
                 agentBuilder.Name ?? "default",
-                name: agentBuilder.Name is null ? "claude-agent" : $"claude-agent-{agentBuilder.Name}");
+                agentBuilder.Name is null ? "claude-agent" : $"claude-agent-{agentBuilder.Name}");
 
         configure?.Invoke(agentBuilder.Services.AddHealthChecks());
 

@@ -11,7 +11,6 @@
 /// </summary>
 
 using System.Text.Json;
-using Claude.AgentSdk;
 using Claude.AgentSdk.Messages;
 
 namespace Claude.AgentSdk.SimpleChatApp;
@@ -19,15 +18,15 @@ namespace Claude.AgentSdk.SimpleChatApp;
 public static class Program
 {
     private const string SystemPrompt = """
-        You are a helpful AI assistant. You can help users with a wide variety of tasks including:
-        - Answering questions
-        - Writing and editing text
-        - Coding and debugging
-        - Analysis and research
-        - Creative tasks
+                                        You are a helpful AI assistant. You can help users with a wide variety of tasks including:
+                                        - Answering questions
+                                        - Writing and editing text
+                                        - Coding and debugging
+                                        - Analysis and research
+                                        - Creative tasks
 
-        Be concise but thorough in your responses.
-        """;
+                                        Be concise but thorough in your responses.
+                                        """;
 
     public static async Task Main(string[] args)
     {
@@ -44,7 +43,7 @@ public static class Program
         Console.WriteLine(new string('-', 50));
         Console.WriteLine();
 
-        var options = new ClaudeAgentOptions
+        ClaudeAgentOptions options = new()
         {
             SystemPrompt = SystemPrompt,
             Model = "sonnet",
@@ -66,10 +65,10 @@ public static class Program
         {
             try
             {
-                await using var client = new ClaudeAgentClient(options);
+                await using ClaudeAgentClient client = new(options);
 
                 // Create a session for bidirectional communication
-                await using var session = await client.CreateSessionAsync();
+                await using ClaudeAgentSession session = await client.CreateSessionAsync();
 
                 Console.ForegroundColor = ConsoleColor.DarkGray;
                 Console.WriteLine("[Connected - new conversation started]");
@@ -84,10 +83,12 @@ public static class Program
                     Console.Write("You: ");
                     Console.ResetColor();
 
-                    var input = Console.ReadLine()?.Trim();
+                    string? input = Console.ReadLine()?.Trim();
 
                     if (string.IsNullOrEmpty(input))
+                    {
                         continue;
+                    }
 
                     // Handle commands
                     if (input.Equals("/exit", StringComparison.OrdinalIgnoreCase) ||
@@ -115,16 +116,20 @@ public static class Program
                     Console.Write("Claude: ");
                     Console.ResetColor();
 
-                    var hasOutput = MessageResult.NoMessage;
-                    await foreach (var message in session.ReceiveResponseAsync())
+                    MessageResult hasOutput = MessageResult.NoMessage;
+                    await foreach (Message message in session.ReceiveResponseAsync())
                     {
                         hasOutput = ProcessMessage(message);
                         if (hasOutput == MessageResult.Completed)
+                        {
                             break;
+                        }
                     }
 
                     if (hasOutput == MessageResult.Completed)
+                    {
                         Console.WriteLine();
+                    }
 
                     Console.WriteLine();
                 }
@@ -142,19 +147,12 @@ public static class Program
         }
     }
 
-    private enum MessageResult
-    {
-        MoreMessages,
-        NoMessage,
-        Completed
-    }
-
     private static MessageResult ProcessMessage(Message message)
     {
         switch (message)
         {
             case AssistantMessage assistant:
-                foreach (var block in assistant.MessageContent.Content)
+                foreach (ContentBlock block in assistant.MessageContent.Content)
                 {
                     switch (block)
                     {
@@ -167,7 +165,7 @@ public static class Program
                             Console.Write($"\n[Using {toolUse.Name}");
 
                             // Show brief tool input summary
-                            var summary = GetToolInputSummary(toolUse.Name, toolUse.Input);
+                            string? summary = GetToolInputSummary(toolUse.Name, toolUse.Input);
                             if (!string.IsNullOrEmpty(summary))
                             {
                                 Console.Write($": {summary}");
@@ -185,6 +183,7 @@ public static class Program
                             return MessageResult.MoreMessages;
                     }
                 }
+
                 break;
 
             case ResultMessage result:
@@ -201,33 +200,35 @@ public static class Program
     private static string? GetToolInputSummary(string toolName, JsonElement? input)
     {
         if (input is null)
+        {
             return null;
+        }
 
         try
         {
-            var element = input.Value;
+            JsonElement element = input.Value;
 
             return toolName switch
             {
-                "WebSearch" when element.TryGetProperty("query", out var q) =>
+                "WebSearch" when element.TryGetProperty("query", out JsonElement q) =>
                     $"\"{Truncate(q.GetString(), 40)}\"",
 
-                "Read" when element.TryGetProperty("file_path", out var p) =>
-                    System.IO.Path.GetFileName(p.GetString()),
+                "Read" when element.TryGetProperty("file_path", out JsonElement p) =>
+                    Path.GetFileName(p.GetString()),
 
-                "Write" when element.TryGetProperty("file_path", out var p) =>
-                    System.IO.Path.GetFileName(p.GetString()),
+                "Write" when element.TryGetProperty("file_path", out JsonElement p) =>
+                    Path.GetFileName(p.GetString()),
 
-                "Edit" when element.TryGetProperty("file_path", out var p) =>
-                    System.IO.Path.GetFileName(p.GetString()),
+                "Edit" when element.TryGetProperty("file_path", out JsonElement p) =>
+                    Path.GetFileName(p.GetString()),
 
-                "Bash" when element.TryGetProperty("command", out var c) =>
+                "Bash" when element.TryGetProperty("command", out JsonElement c) =>
                     Truncate(c.GetString(), 30),
 
-                "Glob" when element.TryGetProperty("pattern", out var p) =>
+                "Glob" when element.TryGetProperty("pattern", out JsonElement p) =>
                     p.GetString(),
 
-                "Grep" when element.TryGetProperty("pattern", out var p) =>
+                "Grep" when element.TryGetProperty("pattern", out JsonElement p) =>
                     $"\"{Truncate(p.GetString(), 30)}\"",
 
                 _ => null
@@ -242,8 +243,17 @@ public static class Program
     private static string Truncate(string? text, int maxLength)
     {
         if (string.IsNullOrEmpty(text))
+        {
             return "";
+        }
 
         return text.Length <= maxLength ? text : text[..maxLength] + "...";
+    }
+
+    private enum MessageResult
+    {
+        MoreMessages,
+        NoMessage,
+        Completed
     }
 }

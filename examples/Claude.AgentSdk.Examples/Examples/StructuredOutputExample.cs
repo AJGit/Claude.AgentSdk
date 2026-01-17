@@ -1,11 +1,10 @@
 using System.Text.Json;
-using Claude.AgentSdk.Messages;
 using Claude.AgentSdk.Schema;
 
 namespace Claude.AgentSdk.Examples.Examples;
 
 /// <summary>
-/// Demonstrates using structured outputs with JSON schema validation.
+///     Demonstrates using structured outputs with JSON schema validation.
 /// </summary>
 public class StructuredOutputExample : IExample
 {
@@ -28,7 +27,8 @@ public class StructuredOutputExample : IExample
 
         var options = new ClaudeAgentOptions
         {
-            SystemPrompt = "You are a movie critic. Analyze movies and provide structured reviews. Return ONLY the JSON object with no additional text.",
+            SystemPrompt =
+                "You are a movie critic. Analyze movies and provide structured reviews. Return ONLY the JSON object with no additional text.",
             OutputFormat = schema,
             MaxTurns = 3 // Allow enough turns for structured output completion
         };
@@ -59,16 +59,18 @@ public class StructuredOutputExample : IExample
                     Console.WriteLine($"Rating: {review.Rating}/10");
                     Console.WriteLine($"Genre: {string.Join(", ", review.Genres)}");
                     Console.WriteLine($"\nSummary:\n{review.Summary}");
-                    Console.WriteLine($"\nPros:");
+                    Console.WriteLine("\nPros:");
                     foreach (var pro in review.Pros)
                     {
                         Console.WriteLine($"  + {pro}");
                     }
-                    Console.WriteLine($"\nCons:");
+
+                    Console.WriteLine("\nCons:");
                     foreach (var con in review.Cons)
                     {
                         Console.WriteLine($"  - {con}");
                     }
+
                     Console.WriteLine($"\nRecommended: {(review.Recommended ? "Yes" : "No")}");
                 }
             }
@@ -93,7 +95,7 @@ public class StructuredOutputExample : IExample
 }
 
 /// <summary>
-/// Schema for movie review structured output.
+///     Schema for movie review structured output.
 /// </summary>
 public class MovieReview
 {

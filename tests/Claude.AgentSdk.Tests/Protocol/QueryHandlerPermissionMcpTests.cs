@@ -1,9 +1,7 @@
-using System.Text.Json;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json;
 using Claude.AgentSdk.Protocol;
 using Claude.AgentSdk.Tools;
 using Moq;
-using Xunit;
 
 namespace Claude.AgentSdk.Tests.Protocol;
 
@@ -17,8 +15,6 @@ public class QueryHandlerPermissionMcpTests
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         PropertyNameCaseInsensitive = true
     };
-
-    #region Test Helpers
 
     /// <summary>
     ///     Creates a control request JSON string for testing.
@@ -70,7 +66,8 @@ public class QueryHandlerPermissionMcpTests
     /// <summary>
     ///     Creates a hook_callback request JSON string.
     /// </summary>
-    private static string CreateHookCallbackRequestJson(string requestId, string callbackId, object input, string? toolUseId = null)
+    private static string CreateHookCallbackRequestJson(string requestId, string callbackId, object input,
+        string? toolUseId = null)
     {
         return CreateControlRequestJson(requestId, new
         {
@@ -92,7 +89,8 @@ public class QueryHandlerPermissionMcpTests
     /// <summary>
     ///     Waits for a response to be written and returns it.
     /// </summary>
-    private static async Task<JsonElement> WaitForWrittenResponseAsync(MockTransport transport, int expectedCount, TimeSpan? timeout = null)
+    private static async Task<JsonElement> WaitForWrittenResponseAsync(MockTransport transport, int expectedCount,
+        TimeSpan? timeout = null)
     {
         timeout ??= TimeSpan.FromSeconds(5);
         var deadline = DateTime.UtcNow + timeout.Value;
@@ -102,8 +100,9 @@ public class QueryHandlerPermissionMcpTests
             var messages = transport.WrittenMessages;
             if (messages.Count >= expectedCount)
             {
-                return (JsonElement)messages[expectedCount - 1];
+                return messages[expectedCount - 1];
             }
+
             await Task.Delay(10);
         }
 
@@ -117,10 +116,6 @@ public class QueryHandlerPermissionMcpTests
     {
         return controlResponse.GetProperty("response").GetProperty("response");
     }
-
-    #endregion
-
-    #region Tool Permission Handling (HandleToolPermissionAsync) Tests
 
     [Fact]
     public async Task HandleToolPermissionAsync_NoCanUseToolCallback_ReturnsAllow()
@@ -174,7 +169,7 @@ public class QueryHandlerPermissionMcpTests
             "req-2",
             "Write",
             inputObj,
-            blockedPath: "/test/blocked"));
+            "/test/blocked"));
 
         await Task.Delay(100);
         await WaitForWrittenResponseAsync(transport, 1);
@@ -244,7 +239,7 @@ public class QueryHandlerPermissionMcpTests
             "req-4",
             "Edit",
             new { file_path = "/etc/passwd" },
-            blockedPath: "/etc/passwd"));
+            "/etc/passwd"));
 
         await Task.Delay(100);
         await WaitForWrittenResponseAsync(transport, 1);
@@ -315,18 +310,19 @@ public class QueryHandlerPermissionMcpTests
     }
 
     [Fact]
-    public async Task HandleToolPermissionAsync_PermissionResultAllow_WithUpdatedPermissions_ReturnsPermissionUpdateField()
+    public async Task
+        HandleToolPermissionAsync_PermissionResultAllow_WithUpdatedPermissions_ReturnsPermissionUpdateField()
     {
         // Arrange
         var transport = new MockTransport();
         var permissions = new List<PermissionUpdate>
         {
-            new PermissionUpdate
+            new()
             {
                 Type = PermissionUpdateType.AddRules,
                 Rules = new List<PermissionRuleValue>
                 {
-                    new PermissionRuleValue { ToolName = "Read", RuleContent = "/*" }
+                    new() { ToolName = "Read", RuleContent = "/*" }
                 },
                 Behavior = PermissionBehavior.Allow,
                 Destination = PermissionUpdateDestination.Session
@@ -480,10 +476,6 @@ public class QueryHandlerPermissionMcpTests
     // Helper class for testing unknown permission result types
     private sealed record UnknownPermissionResult : PermissionResult;
 
-    #endregion
-
-    #region MCP Message Routing (HandleMcpMessageAsync) Tests
-
     [Fact]
     public async Task HandleMcpMessageAsync_LooksUpServerByName()
     {
@@ -517,7 +509,8 @@ public class QueryHandlerPermissionMcpTests
         await WaitForWrittenResponseAsync(transport, 1);
 
         // Assert
-        mockMcpServer.Verify(s => s.HandleRequestAsync(It.IsAny<JsonElement>(), It.IsAny<CancellationToken>()), Times.Once);
+        mockMcpServer.Verify(s => s.HandleRequestAsync(It.IsAny<JsonElement>(), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -711,7 +704,7 @@ public class QueryHandlerPermissionMcpTests
         await handler.StartAsync();
 
         transport.EnqueueMessage(CreateMcpMessageRequestJson(
-            $"req-string-id",
+            "req-string-id",
             "nonexistent",
             new { jsonrpc = "2.0", id, method = "test" }));
 
@@ -763,10 +756,6 @@ public class QueryHandlerPermissionMcpTests
         Assert.Equal(JsonValueKind.Null, idProp.ValueKind);
     }
 
-    #endregion
-
-    #region MCP Server Registration Tests
-
     [Fact]
     public async Task McpServerRegistration_SdkMcpServersFromOptions_Registered()
     {
@@ -776,13 +765,15 @@ public class QueryHandlerPermissionMcpTests
         mockServer1.SetupGet(s => s.Name).Returns("server1");
         mockServer1
             .Setup(s => s.HandleRequestAsync(It.IsAny<JsonElement>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Dictionary<string, object?> { ["jsonrpc"] = "2.0", ["id"] = 1, ["result"] = "server1-response" });
+            .ReturnsAsync(new Dictionary<string, object?>
+                { ["jsonrpc"] = "2.0", ["id"] = 1, ["result"] = "server1-response" });
 
         var mockServer2 = new Mock<IMcpToolServer>();
         mockServer2.SetupGet(s => s.Name).Returns("server2");
         mockServer2
             .Setup(s => s.HandleRequestAsync(It.IsAny<JsonElement>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Dictionary<string, object?> { ["jsonrpc"] = "2.0", ["id"] = 1, ["result"] = "server2-response" });
+            .ReturnsAsync(new Dictionary<string, object?>
+                { ["jsonrpc"] = "2.0", ["id"] = 1, ["result"] = "server2-response" });
 
         var options = new ClaudeAgentOptions
         {
@@ -797,18 +788,22 @@ public class QueryHandlerPermissionMcpTests
         await handler.StartAsync();
 
         // Test server1
-        transport.EnqueueMessage(CreateMcpMessageRequestJson("req-s1", "server1", new { jsonrpc = "2.0", id = 1, method = "test" }));
+        transport.EnqueueMessage(CreateMcpMessageRequestJson("req-s1", "server1",
+            new { jsonrpc = "2.0", id = 1, method = "test" }));
         await Task.Delay(100);
         await WaitForWrittenResponseAsync(transport, 1);
 
         // Test server2
-        transport.EnqueueMessage(CreateMcpMessageRequestJson("req-s2", "server2", new { jsonrpc = "2.0", id = 1, method = "test" }));
+        transport.EnqueueMessage(CreateMcpMessageRequestJson("req-s2", "server2",
+            new { jsonrpc = "2.0", id = 1, method = "test" }));
         await Task.Delay(100);
         await WaitForWrittenResponseAsync(transport, 2);
 
         // Assert both servers were called
-        mockServer1.Verify(s => s.HandleRequestAsync(It.IsAny<JsonElement>(), It.IsAny<CancellationToken>()), Times.Once);
-        mockServer2.Verify(s => s.HandleRequestAsync(It.IsAny<JsonElement>(), It.IsAny<CancellationToken>()), Times.Once);
+        mockServer1.Verify(s => s.HandleRequestAsync(It.IsAny<JsonElement>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+        mockServer2.Verify(s => s.HandleRequestAsync(It.IsAny<JsonElement>(), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -837,7 +832,8 @@ public class QueryHandlerPermissionMcpTests
         {
             McpServers = new Dictionary<string, McpServerConfig>
             {
-                ["correct-server"] = new McpSdkServerConfig { Name = "correct-server", Instance = mockCorrectServer.Object },
+                ["correct-server"] = new McpSdkServerConfig
+                    { Name = "correct-server", Instance = mockCorrectServer.Object },
                 ["other-server"] = new McpSdkServerConfig { Name = "other-server", Instance = mockOtherServer.Object }
             }
         };
@@ -881,10 +877,6 @@ public class QueryHandlerPermissionMcpTests
         // Assert - handler created successfully, no SDK servers registered
         // (verified by internal _mcpServers dictionary being empty for SDK servers)
     }
-
-    #endregion
-
-    #region Control Request Routing Tests
 
     [Fact]
     public async Task ControlRequestRouting_CanUseTool_RoutedToHandleToolPermissionAsync()
@@ -948,7 +940,8 @@ public class QueryHandlerPermissionMcpTests
         await WaitForWrittenResponseAsync(transport, 1);
 
         // Assert
-        mockServer.Verify(s => s.HandleRequestAsync(It.IsAny<JsonElement>(), It.IsAny<CancellationToken>()), Times.Once);
+        mockServer.Verify(s => s.HandleRequestAsync(It.IsAny<JsonElement>(), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -1009,10 +1002,6 @@ public class QueryHandlerPermissionMcpTests
         Assert.Equal("success", responseObj.GetProperty("subtype").GetString());
     }
 
-    #endregion
-
-    #region Integration Tests
-
     [Fact]
     public async Task Integration_MultipleControlRequestTypes_ProcessedCorrectly()
     {
@@ -1037,7 +1026,8 @@ public class QueryHandlerPermissionMcpTests
             },
             McpServers = new Dictionary<string, McpServerConfig>
             {
-                ["integration-server"] = new McpSdkServerConfig { Name = "integration-server", Instance = mockServer.Object }
+                ["integration-server"] = new McpSdkServerConfig
+                    { Name = "integration-server", Instance = mockServer.Object }
             }
         };
 
@@ -1046,9 +1036,11 @@ public class QueryHandlerPermissionMcpTests
 
         // Send mixed requests
         transport.EnqueueMessage(CreateCanUseToolRequestJson("int-1", "Read", new { }));
-        transport.EnqueueMessage(CreateMcpMessageRequestJson("int-2", "integration-server", new { jsonrpc = "2.0", id = 1, method = "test" }));
+        transport.EnqueueMessage(CreateMcpMessageRequestJson("int-2", "integration-server",
+            new { jsonrpc = "2.0", id = 1, method = "test" }));
         transport.EnqueueMessage(CreateCanUseToolRequestJson("int-3", "Write", new { }));
-        transport.EnqueueMessage(CreateMcpMessageRequestJson("int-4", "integration-server", new { jsonrpc = "2.0", id = 2, method = "test2" }));
+        transport.EnqueueMessage(CreateMcpMessageRequestJson("int-4", "integration-server",
+            new { jsonrpc = "2.0", id = 2, method = "test2" }));
 
         await Task.Delay(300);
 
@@ -1076,12 +1068,16 @@ public class QueryHandlerPermissionMcpTests
             CanUseTool = (request, ct) =>
             {
                 if (request.ToolName == "DangerousTool")
+                {
                     return Task.FromResult<PermissionResult>(new PermissionResultDeny { Message = "Denied!" });
+                }
+
                 return Task.FromResult<PermissionResult>(new PermissionResultAllow());
             },
             McpServers = new Dictionary<string, McpServerConfig>
             {
-                ["deny-test-server"] = new McpSdkServerConfig { Name = "deny-test-server", Instance = mockServer.Object }
+                ["deny-test-server"] = new McpSdkServerConfig
+                    { Name = "deny-test-server", Instance = mockServer.Object }
             }
         };
 
@@ -1090,7 +1086,8 @@ public class QueryHandlerPermissionMcpTests
 
         // Send a denied permission request and an MCP call
         transport.EnqueueMessage(CreateCanUseToolRequestJson("deny-1", "DangerousTool", new { }));
-        transport.EnqueueMessage(CreateMcpMessageRequestJson("deny-2", "deny-test-server", new { jsonrpc = "2.0", id = 1, method = "test" }));
+        transport.EnqueueMessage(CreateMcpMessageRequestJson("deny-2", "deny-test-server",
+            new { jsonrpc = "2.0", id = 1, method = "test" }));
 
         await Task.Delay(200);
 
@@ -1107,10 +1104,6 @@ public class QueryHandlerPermissionMcpTests
         Assert.True(data2.TryGetProperty("mcp_response", out var mcpResp));
         Assert.Equal("success", mcpResp.GetProperty("result").GetString());
     }
-
-    #endregion
-
-    #region Edge Cases and Error Handling
 
     [Fact]
     public async Task EdgeCase_EmptyInput_HandledGracefully()
@@ -1288,6 +1281,4 @@ public class QueryHandlerPermissionMcpTests
         Assert.Equal(20, processedCount);
         Assert.Equal(20, transport.WrittenMessages.Count);
     }
-
-    #endregion
 }

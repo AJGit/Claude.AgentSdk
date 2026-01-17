@@ -1,4 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 
 // Suppress CA1000: Static members on generic types are the standard pattern for functional types
 #pragma warning disable CA1000
@@ -13,17 +13,17 @@ namespace Claude.AgentSdk.Functional;
 /// <typeparam name="TError">The error type.</typeparam>
 /// <remarks>
 ///     <para>
-///     Result&lt;T, TError&gt; makes error handling explicit in the type system,
-///     forcing callers to handle both success and failure cases.
+///         Result&lt;T, TError&gt; makes error handling explicit in the type system,
+///         forcing callers to handle both success and failure cases.
 ///     </para>
 ///     <para>
-///     Example usage:
-///     <code>
+///         Example usage:
+///         <code>
 ///     Result&lt;User, ValidationError&gt; CreateUser(string email) =>
 ///         IsValidEmail(email)
 ///             ? Result.Success&lt;User, ValidationError&gt;(new User(email))
 ///             : Result.Failure&lt;User, ValidationError&gt;(new ValidationError("Invalid email"));
-///
+/// 
 ///     // Pattern matching
 ///     var message = CreateUser(email).Match(
 ///         success: user => $"Welcome, {user.Email}!",
@@ -36,31 +36,30 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
 {
     private readonly T _value;
     private readonly TError _error;
-    private readonly bool _isSuccess;
 
     private Result(T value)
     {
         _value = value;
         _error = default!;
-        _isSuccess = true;
+        IsSuccess = true;
     }
 
     private Result(TError error, bool _)
     {
         _value = default!;
         _error = error;
-        _isSuccess = false;
+        IsSuccess = false;
     }
 
     /// <summary>
     ///     Gets whether this result represents success.
     /// </summary>
-    public bool IsSuccess => _isSuccess;
+    public bool IsSuccess { get; }
 
     /// <summary>
     ///     Gets whether this result represents failure.
     /// </summary>
-    public bool IsFailure => !_isSuccess;
+    public bool IsFailure => !IsSuccess;
 
     /// <summary>
     ///     Creates a successful result.
@@ -76,7 +75,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     ///     Gets the success value, or throws if this is a failure.
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when this is a failure.</exception>
-    public T Value => _isSuccess
+    public T Value => IsSuccess
         ? _value
         : throw new InvalidOperationException($"Result is a failure: {_error}");
 
@@ -84,7 +83,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     ///     Gets the error, or throws if this is a success.
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when this is a success.</exception>
-    public TError Error => !_isSuccess
+    public TError Error => !IsSuccess
         ? _error
         : throw new InvalidOperationException("Result is a success, no error available.");
 
@@ -94,7 +93,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     public bool TryGetValue([MaybeNullWhen(false)] out T value)
     {
         value = _value;
-        return _isSuccess;
+        return IsSuccess;
     }
 
     /// <summary>
@@ -103,7 +102,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     public bool TryGetError([MaybeNullWhen(false)] out TError error)
     {
         error = _error;
-        return !_isSuccess;
+        return !IsSuccess;
     }
 
     /// <summary>
@@ -113,7 +112,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     {
         ArgumentNullException.ThrowIfNull(success);
         ArgumentNullException.ThrowIfNull(failure);
-        return _isSuccess ? success(_value) : failure(_error);
+        return IsSuccess ? success(_value) : failure(_error);
     }
 
     /// <summary>
@@ -124,10 +123,14 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
         ArgumentNullException.ThrowIfNull(success);
         ArgumentNullException.ThrowIfNull(failure);
 
-        if (_isSuccess)
+        if (IsSuccess)
+        {
             success(_value);
+        }
         else
+        {
             failure(_error);
+        }
     }
 
     /// <summary>
@@ -136,7 +139,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     public Result<TResult, TError> Map<TResult>(Func<T, TResult> mapper)
     {
         ArgumentNullException.ThrowIfNull(mapper);
-        return _isSuccess
+        return IsSuccess
             ? Result<TResult, TError>.Success(mapper(_value))
             : Result<TResult, TError>.Failure(_error);
     }
@@ -147,7 +150,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     public async Task<Result<TResult, TError>> MapAsync<TResult>(Func<T, Task<TResult>> mapper)
     {
         ArgumentNullException.ThrowIfNull(mapper);
-        return _isSuccess
+        return IsSuccess
             ? Result<TResult, TError>.Success(await mapper(_value).ConfigureAwait(false))
             : Result<TResult, TError>.Failure(_error);
     }
@@ -158,7 +161,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     public Result<T, TNewError> MapError<TNewError>(Func<TError, TNewError> mapper)
     {
         ArgumentNullException.ThrowIfNull(mapper);
-        return _isSuccess
+        return IsSuccess
             ? Result<T, TNewError>.Success(_value)
             : Result<T, TNewError>.Failure(mapper(_error));
     }
@@ -169,7 +172,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     public Result<TResult, TError> Bind<TResult>(Func<T, Result<TResult, TError>> binder)
     {
         ArgumentNullException.ThrowIfNull(binder);
-        return _isSuccess ? binder(_value) : Result<TResult, TError>.Failure(_error);
+        return IsSuccess ? binder(_value) : Result<TResult, TError>.Failure(_error);
     }
 
     /// <summary>
@@ -179,7 +182,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
         Func<T, Task<Result<TResult, TError>>> binder)
     {
         ArgumentNullException.ThrowIfNull(binder);
-        return _isSuccess
+        return IsSuccess
             ? await binder(_value).ConfigureAwait(false)
             : Result<TResult, TError>.Failure(_error);
     }
@@ -187,7 +190,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     /// <summary>
     ///     Gets the value or a default if this is a failure.
     /// </summary>
-    public T GetValueOrDefault(T defaultValue = default!) => _isSuccess ? _value : defaultValue;
+    public T GetValueOrDefault(T defaultValue = default!) => IsSuccess ? _value : defaultValue;
 
     /// <summary>
     ///     Gets the value or computes a default lazily if this is a failure.
@@ -195,7 +198,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     public T GetValueOrElse(Func<TError, T> defaultFactory)
     {
         ArgumentNullException.ThrowIfNull(defaultFactory);
-        return _isSuccess ? _value : defaultFactory(_error);
+        return IsSuccess ? _value : defaultFactory(_error);
     }
 
     /// <summary>
@@ -204,8 +207,11 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     public Result<T, TError> Do(Action<T> action)
     {
         ArgumentNullException.ThrowIfNull(action);
-        if (_isSuccess)
+        if (IsSuccess)
+        {
             action(_value);
+        }
+
         return this;
     }
 
@@ -215,15 +221,18 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     public Result<T, TError> DoOnError(Action<TError> action)
     {
         ArgumentNullException.ThrowIfNull(action);
-        if (!_isSuccess)
+        if (!IsSuccess)
+        {
             action(_error);
+        }
+
         return this;
     }
 
     /// <summary>
     ///     Returns this result if success, otherwise returns the alternative.
     /// </summary>
-    public Result<T, TError> Or(Result<T, TError> alternative) => _isSuccess ? this : alternative;
+    public Result<T, TError> Or(Result<T, TError> alternative) => IsSuccess ? this : alternative;
 
     /// <summary>
     ///     Returns this result if success, otherwise computes an alternative lazily.
@@ -231,18 +240,18 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     public Result<T, TError> OrElse(Func<TError, Result<T, TError>> alternativeFactory)
     {
         ArgumentNullException.ThrowIfNull(alternativeFactory);
-        return _isSuccess ? this : alternativeFactory(_error);
+        return IsSuccess ? this : alternativeFactory(_error);
     }
 
     /// <summary>
     ///     Converts to an Option, discarding the error.
     /// </summary>
-    public Option<T> ToOption() => _isSuccess ? Option.Some(_value) : Option.NoneOf<T>();
+    public Option<T> ToOption() => IsSuccess ? Option.Some(_value) : Option.NoneOf<T>();
 
     /// <summary>
     ///     Converts to an Option of the error.
     /// </summary>
-    public Option<TError> ToErrorOption() => !_isSuccess ? Option.Some(_error) : Option.NoneOf<TError>();
+    public Option<TError> ToErrorOption() => !IsSuccess ? Option.Some(_error) : Option.NoneOf<TError>();
 
     /// <summary>
     ///     Throws an exception if this is a failure.
@@ -252,8 +261,11 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     public T GetValueOrThrow(Func<TError, Exception> exceptionFactory)
     {
         ArgumentNullException.ThrowIfNull(exceptionFactory);
-        if (_isSuccess)
+        if (IsSuccess)
+        {
             return _value;
+        }
+
         throw exceptionFactory(_error);
     }
 
@@ -263,8 +275,11 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     public Result<T, TError> Ensure(Func<T, bool> predicate, TError error)
     {
         ArgumentNullException.ThrowIfNull(predicate);
-        if (!_isSuccess)
+        if (!IsSuccess)
+        {
             return this;
+        }
+
         return predicate(_value) ? this : Failure(error);
     }
 
@@ -275,20 +290,23 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     {
         ArgumentNullException.ThrowIfNull(predicate);
         ArgumentNullException.ThrowIfNull(errorFactory);
-        if (!_isSuccess)
+        if (!IsSuccess)
+        {
             return this;
+        }
+
         return predicate(_value) ? this : Failure(errorFactory(_value));
     }
-
-    #region Equality
 
     /// <inheritdoc />
     public bool Equals(Result<T, TError> other)
     {
-        if (_isSuccess != other._isSuccess)
+        if (IsSuccess != other.IsSuccess)
+        {
             return false;
+        }
 
-        return _isSuccess
+        return IsSuccess
             ? EqualityComparer<T>.Default.Equals(_value, other._value)
             : EqualityComparer<TError>.Default.Equals(_error, other._error);
     }
@@ -297,7 +315,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     public override bool Equals(object? obj) => obj is Result<T, TError> other && Equals(other);
 
     /// <inheritdoc />
-    public override int GetHashCode() => _isSuccess
+    public override int GetHashCode() => IsSuccess
         ? HashCode.Combine(true, _value)
         : HashCode.Combine(false, _error);
 
@@ -313,10 +331,8 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     public static bool operator !=(Result<T, TError> left, Result<T, TError> right) =>
         !left.Equals(right);
 
-    #endregion
-
     /// <inheritdoc />
-    public override string ToString() => _isSuccess
+    public override string ToString() => IsSuccess
         ? $"Success({_value})"
         : $"Failure({_error})";
 }
@@ -479,8 +495,6 @@ public readonly struct Result<T> : IEquatable<Result<T>>
     public Result<T> Ensure(Func<T, bool> predicate, string error) =>
         new(_inner.Ensure(predicate, error));
 
-    #region Equality
-
     /// <inheritdoc />
     public bool Equals(Result<T> other) => _inner.Equals(other._inner);
 
@@ -499,8 +513,6 @@ public readonly struct Result<T> : IEquatable<Result<T>>
     ///     Inequality operator.
     /// </summary>
     public static bool operator !=(Result<T> left, Result<T> right) => !left.Equals(right);
-
-    #endregion
 
     /// <inheritdoc />
     public override string ToString() => _inner.ToString();
@@ -621,8 +633,16 @@ public static class Result
     /// </summary>
     public static Result<(T1, T2)> Combine<T1, T2>(Result<T1> r1, Result<T2> r2)
     {
-        if (r1.IsFailure) return Failure<(T1, T2)>(r1.Error);
-        if (r2.IsFailure) return Failure<(T1, T2)>(r2.Error);
+        if (r1.IsFailure)
+        {
+            return Failure<(T1, T2)>(r1.Error);
+        }
+
+        if (r2.IsFailure)
+        {
+            return Failure<(T1, T2)>(r2.Error);
+        }
+
         return Success((r1.Value, r2.Value));
     }
 
@@ -631,9 +651,21 @@ public static class Result
     /// </summary>
     public static Result<(T1, T2, T3)> Combine<T1, T2, T3>(Result<T1> r1, Result<T2> r2, Result<T3> r3)
     {
-        if (r1.IsFailure) return Failure<(T1, T2, T3)>(r1.Error);
-        if (r2.IsFailure) return Failure<(T1, T2, T3)>(r2.Error);
-        if (r3.IsFailure) return Failure<(T1, T2, T3)>(r3.Error);
+        if (r1.IsFailure)
+        {
+            return Failure<(T1, T2, T3)>(r1.Error);
+        }
+
+        if (r2.IsFailure)
+        {
+            return Failure<(T1, T2, T3)>(r2.Error);
+        }
+
+        if (r3.IsFailure)
+        {
+            return Failure<(T1, T2, T3)>(r3.Error);
+        }
+
         return Success((r1.Value, r2.Value, r3.Value));
     }
 
@@ -647,9 +679,13 @@ public static class Result
         foreach (var result in results)
         {
             if (result.IsFailure)
+            {
                 return Failure<IReadOnlyList<T>>(result.Error);
+            }
+
             list.Add(result.Value);
         }
+
         return Success<IReadOnlyList<T>>(list);
     }
 
@@ -666,9 +702,13 @@ public static class Result
         foreach (var result in results)
         {
             if (result.IsSuccess)
+            {
                 successes.Add(result.Value);
+            }
             else
+            {
                 errors.Add(result.Error);
+            }
         }
 
         return errors.Count > 0
@@ -690,9 +730,13 @@ public static class Result
         {
             var result = mapper(item);
             if (result.IsFailure)
+            {
                 return Failure<IReadOnlyList<TResult>>(result.Error);
+            }
+
             list.Add(result.Value);
         }
+
         return Success<IReadOnlyList<TResult>>(list);
     }
 }

@@ -1,3 +1,4 @@
+﻿using System.Diagnostics;
 using System.Text.Json;
 using Claude.AgentSdk.Transport;
 
@@ -9,8 +10,6 @@ namespace Claude.AgentSdk.Tests.Transport;
 [UnitTest]
 public class MockTransportTests
 {
-    #region MockTransport Basic Tests
-
     [Fact]
     public async Task MockTransport_InitialState_IsNotReady()
     {
@@ -54,10 +53,6 @@ public class MockTransportTests
         // Assert
         Assert.False(transport.IsReady);
     }
-
-    #endregion
-
-    #region Message Enqueueing Tests
 
     [Fact]
     public async Task MockTransport_EnqueueMessage_CanBeRead()
@@ -108,10 +103,6 @@ public class MockTransportTests
 
         await transport.DisposeAsync();
     }
-
-    #endregion
-
-    #region Write Tests
 
     [Fact]
     public async Task MockTransport_WriteAsync_TracksMessages()
@@ -192,10 +183,6 @@ public class MockTransportTests
         await transport.DisposeAsync();
     }
 
-    #endregion
-
-    #region EndInput and Close Tests
-
     [Fact]
     public async Task MockTransport_EndInputAsync_SetsInputEnded()
     {
@@ -248,10 +235,6 @@ public class MockTransportTests
         await transport.DisposeAsync();
     }
 
-    #endregion
-
-    #region Error Handling Tests
-
     [Fact]
     public async Task MockTransport_WriteBeforeConnect_ThrowsException()
     {
@@ -259,8 +242,7 @@ public class MockTransportTests
         var transport = new MockTransport();
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => transport.WriteAsync(new { Type = "test" }));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => transport.WriteAsync(new { Type = "test" }));
 
         await transport.DisposeAsync();
     }
@@ -305,20 +287,16 @@ public class MockTransportTests
         await transport.DisposeAsync();
     }
 
-    #endregion
-
-    #region StreamingMockTransport Tests
-
     [Fact]
     public async Task StreamingMockTransport_WriteAsync_HasDelay()
     {
         // Arrange
         var delay = TimeSpan.FromMilliseconds(100);
-        var transport = new StreamingMockTransport(messageDelay: delay);
+        var transport = new StreamingMockTransport(delay);
         await transport.ConnectAsync();
 
         // Act
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var stopwatch = Stopwatch.StartNew();
         await transport.WriteAsync(new { Type = "test" });
         stopwatch.Stop();
 
@@ -339,7 +317,7 @@ public class MockTransportTests
         var delay = TimeSpan.FromMilliseconds(50);
 
         // Act
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var stopwatch = Stopwatch.StartNew();
         await transport.EnqueueMessagesWithDelaysAsync(messages, delay);
         stopwatch.Stop();
 
@@ -348,6 +326,4 @@ public class MockTransportTests
 
         await transport.DisposeAsync();
     }
-
-    #endregion
 }

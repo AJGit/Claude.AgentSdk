@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using Claude.AgentSdk.Exceptions;
@@ -157,7 +157,7 @@ internal sealed class QueryHandler : IAsyncDisposable
         // The reader should only stop when DisposeAsync is called, not when the
         // startup cancellation token is cancelled.
         _readerCts = new CancellationTokenSource();
-        _readerTask = Task.Run(() => ReadMessagesLoopAsync(_readerCts.Token));
+        _readerTask = Task.Run(() => ReadMessagesLoopAsync(_readerCts.Token), cancellationToken);
     }
 
     /// <summary>

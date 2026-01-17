@@ -1,6 +1,4 @@
 using System.Runtime.Serialization;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Claude.AgentSdk.Attributes;
 
 namespace Claude.AgentSdk.Types;
@@ -12,24 +10,19 @@ namespace Claude.AgentSdk.Types;
 public enum MessageType
 {
     /// <summary>User message.</summary>
-    [EnumMember(Value = "user")]
-    User,
+    [EnumMember(Value = "user")] User,
 
     /// <summary>Assistant (Claude) message.</summary>
-    [EnumMember(Value = "assistant")]
-    Assistant,
+    [EnumMember(Value = "assistant")] Assistant,
 
     /// <summary>System message with metadata.</summary>
-    [EnumMember(Value = "system")]
-    System,
+    [EnumMember(Value = "system")] System,
 
     /// <summary>Result message with cost and usage information.</summary>
-    [EnumMember(Value = "result")]
-    Result,
+    [EnumMember(Value = "result")] Result,
 
     /// <summary>Stream event for partial message updates.</summary>
-    [EnumMember(Value = "stream_event")]
-    StreamEvent
+    [EnumMember(Value = "stream_event")] StreamEvent
 }
 
 /// <summary>
@@ -39,20 +32,16 @@ public enum MessageType
 public enum ContentBlockType
 {
     /// <summary>Text content block.</summary>
-    [EnumMember(Value = "text")]
-    Text,
+    [EnumMember(Value = "text")] Text,
 
     /// <summary>Thinking content block (extended thinking mode).</summary>
-    [EnumMember(Value = "thinking")]
-    Thinking,
+    [EnumMember(Value = "thinking")] Thinking,
 
     /// <summary>Tool use request block.</summary>
-    [EnumMember(Value = "tool_use")]
-    ToolUse,
+    [EnumMember(Value = "tool_use")] ToolUse,
 
     /// <summary>Tool result block.</summary>
-    [EnumMember(Value = "tool_result")]
-    ToolResult
+    [EnumMember(Value = "tool_result")] ToolResult
 }
 
 /// <summary>
@@ -62,16 +51,13 @@ public enum ContentBlockType
 public enum ResultMessageSubtype
 {
     /// <summary>Successful completion.</summary>
-    [EnumMember(Value = "success")]
-    Success,
+    [EnumMember(Value = "success")] Success,
 
     /// <summary>Error during execution.</summary>
-    [EnumMember(Value = "error")]
-    Error,
+    [EnumMember(Value = "error")] Error,
 
     /// <summary>Partial result (streaming).</summary>
-    [EnumMember(Value = "partial")]
-    Partial
+    [EnumMember(Value = "partial")] Partial
 }
 
 /// <summary>
@@ -81,8 +67,7 @@ public enum ResultMessageSubtype
 public enum SystemMessageSubtype
 {
     /// <summary>Initialization message with session info.</summary>
-    [EnumMember(Value = "init")]
-    Init,
+    [EnumMember(Value = "init")] Init,
 
     /// <summary>Compact boundary marker after conversation compaction.</summary>
     [EnumMember(Value = "compact_boundary")]
@@ -96,20 +81,16 @@ public enum SystemMessageSubtype
 public enum McpServerStatusType
 {
     /// <summary>Server is connected and ready.</summary>
-    [EnumMember(Value = "connected")]
-    Connected,
+    [EnumMember(Value = "connected")] Connected,
 
     /// <summary>Server connection failed.</summary>
-    [EnumMember(Value = "failed")]
-    Failed,
+    [EnumMember(Value = "failed")] Failed,
 
     /// <summary>Server requires authentication.</summary>
-    [EnumMember(Value = "needs-auth")]
-    NeedsAuth,
+    [EnumMember(Value = "needs-auth")] NeedsAuth,
 
     /// <summary>Server connection is pending.</summary>
-    [EnumMember(Value = "pending")]
-    Pending
+    [EnumMember(Value = "pending")] Pending
 }
 
 /// <summary>
@@ -119,20 +100,16 @@ public enum McpServerStatusType
 public enum SessionStartSource
 {
     /// <summary>Fresh startup.</summary>
-    [EnumMember(Value = "startup")]
-    Startup,
+    [EnumMember(Value = "startup")] Startup,
 
     /// <summary>Resumed from previous session.</summary>
-    [EnumMember(Value = "resume")]
-    Resume,
+    [EnumMember(Value = "resume")] Resume,
 
     /// <summary>Session cleared and restarted.</summary>
-    [EnumMember(Value = "clear")]
-    Clear,
+    [EnumMember(Value = "clear")] Clear,
 
     /// <summary>Session compacted and continued.</summary>
-    [EnumMember(Value = "compact")]
-    Compact
+    [EnumMember(Value = "compact")] Compact
 }
 
 /// <summary>
@@ -142,12 +119,10 @@ public enum SessionStartSource
 public enum SessionEndReason
 {
     /// <summary>Session explicitly cleared.</summary>
-    [EnumMember(Value = "clear")]
-    Clear,
+    [EnumMember(Value = "clear")] Clear,
 
     /// <summary>User logged out.</summary>
-    [EnumMember(Value = "logout")]
-    Logout,
+    [EnumMember(Value = "logout")] Logout,
 
     /// <summary>User exited at prompt.</summary>
     [EnumMember(Value = "prompt_input_exit")]
@@ -158,8 +133,7 @@ public enum SessionEndReason
     BypassPermissionsDisabled,
 
     /// <summary>Other reason.</summary>
-    [EnumMember(Value = "other")]
-    Other
+    [EnumMember(Value = "other")] Other
 }
 
 /// <summary>
@@ -173,12 +147,10 @@ public enum NotificationType
     PermissionPrompt,
 
     /// <summary>Idle prompt notification.</summary>
-    [EnumMember(Value = "idle_prompt")]
-    IdlePrompt,
+    [EnumMember(Value = "idle_prompt")] IdlePrompt,
 
     /// <summary>Authentication success notification.</summary>
-    [EnumMember(Value = "auth_success")]
-    AuthSuccess,
+    [EnumMember(Value = "auth_success")] AuthSuccess,
 
     /// <summary>Elicitation dialog notification.</summary>
     [EnumMember(Value = "elicitation_dialog")]
@@ -192,36 +164,29 @@ public enum NotificationType
 public enum ControlSubtypeEnum
 {
     /// <summary>Interrupt the current operation.</summary>
-    [EnumMember(Value = "interrupt")]
-    Interrupt,
+    [EnumMember(Value = "interrupt")] Interrupt,
 
     /// <summary>Check if a tool can be used.</summary>
-    [EnumMember(Value = "can_use_tool")]
-    CanUseTool,
+    [EnumMember(Value = "can_use_tool")] CanUseTool,
 
     /// <summary>Initialize the session.</summary>
-    [EnumMember(Value = "initialize")]
-    Initialize,
+    [EnumMember(Value = "initialize")] Initialize,
 
     /// <summary>Set the permission mode.</summary>
     [EnumMember(Value = "set_permission_mode")]
     SetPermissionMode,
 
     /// <summary>Hook callback request.</summary>
-    [EnumMember(Value = "hook_callback")]
-    HookCallback,
+    [EnumMember(Value = "hook_callback")] HookCallback,
 
     /// <summary>MCP message request.</summary>
-    [EnumMember(Value = "mcp_message")]
-    McpMessage,
+    [EnumMember(Value = "mcp_message")] McpMessage,
 
     /// <summary>Rewind files to a previous state.</summary>
-    [EnumMember(Value = "rewind_files")]
-    RewindFiles,
+    [EnumMember(Value = "rewind_files")] RewindFiles,
 
     /// <summary>Set the model to use.</summary>
-    [EnumMember(Value = "set_model")]
-    SetModel,
+    [EnumMember(Value = "set_model")] SetModel,
 
     /// <summary>Set the maximum thinking tokens.</summary>
     [EnumMember(Value = "set_max_thinking_tokens")]
@@ -240,8 +205,7 @@ public enum ControlSubtypeEnum
     McpServerStatus,
 
     /// <summary>Query account information.</summary>
-    [EnumMember(Value = "account_info")]
-    AccountInfo
+    [EnumMember(Value = "account_info")] AccountInfo
 }
 
 /// <summary>
@@ -251,12 +215,10 @@ public enum ControlSubtypeEnum
 public enum HookDecision
 {
     /// <summary>Block the operation.</summary>
-    [EnumMember(Value = "block")]
-    Block,
+    [EnumMember(Value = "block")] Block,
 
     /// <summary>Allow the operation.</summary>
-    [EnumMember(Value = "allow")]
-    Allow
+    [EnumMember(Value = "allow")] Allow
 }
 
 /// <summary>
@@ -266,12 +228,10 @@ public enum HookDecision
 public enum PermissionBehavior
 {
     /// <summary>Allow the operation.</summary>
-    [EnumMember(Value = "allow")]
-    Allow,
+    [EnumMember(Value = "allow")] Allow,
 
     /// <summary>Deny the operation.</summary>
-    [EnumMember(Value = "deny")]
-    Deny
+    [EnumMember(Value = "deny")] Deny
 }
 
 /// <summary>

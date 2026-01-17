@@ -5,8 +5,8 @@ using Claude.AgentSdk.Types;
 namespace Claude.AgentSdk.Examples.Examples;
 
 /// <summary>
-/// Demonstrates using hooks to intercept and modify tool execution.
-/// Shows usage of strongly-typed enum accessors for hook inputs.
+///     Demonstrates using hooks to intercept and modify tool execution.
+///     Shows usage of strongly-typed enum accessors for hook inputs.
 /// </summary>
 public class HooksExample : IExample
 {
@@ -18,7 +18,7 @@ public class HooksExample : IExample
         Console.WriteLine("This example demonstrates using hooks to intercept tool execution.");
         Console.WriteLine("We'll log all tool calls and their results.\n");
 
-        var options = new ClaudeAgentOptions
+        ClaudeAgentOptions options = new()
         {
             SystemPrompt = "You are a helpful assistant. You can read files.",
             AllowedTools = ["Read"],
@@ -41,7 +41,7 @@ public class HooksExample : IExample
                                 if (input is PreToolUseHookInput preInput)
                                 {
                                     Console.ForegroundColor = ConsoleColor.Yellow;
-                                    Console.WriteLine($"[Hook: PreToolUse]");
+                                    Console.WriteLine("[Hook: PreToolUse]");
                                     Console.WriteLine($"  Tool: {preInput.ToolName}");
                                     Console.WriteLine($"  Tool Use ID: {toolUseId}");
                                     Console.ResetColor();
@@ -66,7 +66,7 @@ public class HooksExample : IExample
                                 if (input is PostToolUseHookInput postInput)
                                 {
                                     Console.ForegroundColor = ConsoleColor.Green;
-                                    Console.WriteLine($"[Hook: PostToolUse]");
+                                    Console.WriteLine("[Hook: PostToolUse]");
                                     Console.WriteLine($"  Tool: {postInput.ToolName}");
                                     Console.WriteLine($"  Has Response: {postInput.ToolResponse != null}");
                                     Console.ResetColor();
@@ -90,7 +90,7 @@ public class HooksExample : IExample
                                 if (input is StopHookInput stopInput)
                                 {
                                     Console.ForegroundColor = ConsoleColor.Cyan;
-                                    Console.WriteLine($"[Hook: Stop]");
+                                    Console.WriteLine("[Hook: Stop]");
                                     Console.WriteLine($"  Stop Hook Active: {stopInput.StopHookActive}");
                                     Console.ResetColor();
                                 }
@@ -113,10 +113,10 @@ public class HooksExample : IExample
                                 if (input is SessionStartHookInput sessionStart)
                                 {
                                     Console.ForegroundColor = ConsoleColor.Magenta;
-                                    Console.WriteLine($"[Hook: SessionStart]");
+                                    Console.WriteLine("[Hook: SessionStart]");
 
                                     // Use SourceEnum for type-safe source checking
-                                    var sourceDescription = sessionStart.SourceEnum switch
+                                    string sourceDescription = sessionStart.SourceEnum switch
                                     {
                                         SessionStartSource.Startup => "Fresh startup",
                                         SessionStartSource.Resume => "Resumed from previous session",
@@ -146,10 +146,10 @@ public class HooksExample : IExample
                                 if (input is SessionEndHookInput sessionEnd)
                                 {
                                     Console.ForegroundColor = ConsoleColor.DarkMagenta;
-                                    Console.WriteLine($"[Hook: SessionEnd]");
+                                    Console.WriteLine("[Hook: SessionEnd]");
 
                                     // Use ReasonEnum for type-safe reason checking
-                                    var reasonDescription = sessionEnd.ReasonEnum switch
+                                    string reasonDescription = sessionEnd.ReasonEnum switch
                                     {
                                         SessionEndReason.Clear => "User cleared the session",
                                         SessionEndReason.Logout => "User logged out",
@@ -180,10 +180,10 @@ public class HooksExample : IExample
                                 if (input is NotificationHookInput notification)
                                 {
                                     Console.ForegroundColor = ConsoleColor.DarkYellow;
-                                    Console.WriteLine($"[Hook: Notification]");
+                                    Console.WriteLine("[Hook: Notification]");
 
                                     // Use NotificationTypeEnum for type-safe notification type checking
-                                    var icon = notification.NotificationTypeEnum switch
+                                    string icon = notification.NotificationTypeEnum switch
                                     {
                                         NotificationType.PermissionPrompt => "Permission Required",
                                         NotificationType.IdlePrompt => "Idle",
@@ -204,31 +204,32 @@ public class HooksExample : IExample
             }
         };
 
-        await using var client = new ClaudeAgentClient(options);
+        await using ClaudeAgentClient client = new(options);
 
         // Ask Claude to read a file (which will trigger the hooks)
-        var prompt = "Read the file at ./README.md and tell me what it's about in one sentence.";
+        string prompt = "Read the file at ./README.md and tell me what it's about in one sentence.";
         Console.WriteLine($"Prompt: {prompt}\n");
         Console.WriteLine("Output:");
         Console.WriteLine("-------");
 
-        await foreach (var message in client.QueryAsync(prompt))
+        await foreach (Message message in client.QueryAsync(prompt))
         {
             switch (message)
             {
                 case AssistantMessage assistant:
-                    foreach (var block in assistant.MessageContent.Content)
+                    foreach (ContentBlock block in assistant.MessageContent.Content)
                     {
                         if (block is TextBlock text)
                         {
                             Console.WriteLine(text.Text);
                         }
                     }
+
                     break;
 
                 case ResultMessage result:
                     // Use SubtypeEnum for type-safe result checking
-                    var status = result.SubtypeEnum switch
+                    string status = result.SubtypeEnum switch
                     {
                         ResultMessageSubtype.Success => "Completed successfully",
                         ResultMessageSubtype.Error => "Completed with error",

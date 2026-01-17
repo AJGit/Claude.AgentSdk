@@ -1,4 +1,4 @@
-using Claude.AgentSdk.Functional;
+﻿using Claude.AgentSdk.Functional;
 
 namespace Claude.AgentSdk.Tests.Functional;
 
@@ -8,8 +8,6 @@ namespace Claude.AgentSdk.Tests.Functional;
 [UnitTest]
 public class OptionTests
 {
-    #region Creation Tests
-
     [Fact]
     public void Some_CreatesOptionWithValue()
     {
@@ -74,10 +72,6 @@ public class OptionTests
         Assert.True(option.IsNone);
     }
 
-    #endregion
-
-    #region Value Access Tests
-
     [Fact]
     public void Value_WhenSome_ReturnsValue()
     {
@@ -123,7 +117,7 @@ public class OptionTests
 
         // Assert
         Assert.False(result);
-        Assert.Equal(default, value);
+        Assert.Equal(0, value);
     }
 
     [Fact]
@@ -133,7 +127,7 @@ public class OptionTests
         var option = Option.Some(42);
 
         // Act
-        var result = option.GetValueOrDefault(0);
+        var result = option.GetValueOrDefault();
 
         // Assert
         Assert.Equal(42, result);
@@ -160,7 +154,11 @@ public class OptionTests
         var factoryCalled = false;
 
         // Act
-        var result = option.GetValueOrElse(() => { factoryCalled = true; return 99; });
+        var result = option.GetValueOrElse(() =>
+        {
+            factoryCalled = true;
+            return 99;
+        });
 
         // Assert
         Assert.Equal(42, result);
@@ -180,10 +178,6 @@ public class OptionTests
         Assert.Equal(99, result);
     }
 
-    #endregion
-
-    #region Match Tests
-
     [Fact]
     public void Match_WhenSome_CallsSomeFunc()
     {
@@ -192,8 +186,8 @@ public class OptionTests
 
         // Act
         var result = option.Match(
-            some: x => x * 2,
-            none: () => 0);
+            x => x * 2,
+            () => 0);
 
         // Assert
         Assert.Equal(10, result);
@@ -207,8 +201,8 @@ public class OptionTests
 
         // Act
         var result = option.Match(
-            some: x => x * 2,
-            none: () => -1);
+            x => x * 2,
+            () => -1);
 
         // Assert
         Assert.Equal(-1, result);
@@ -224,8 +218,8 @@ public class OptionTests
 
         // Act
         option.Match(
-            some: _ => someCalled = true,
-            none: () => noneCalled = true);
+            _ => someCalled = true,
+            () => noneCalled = true);
 
         // Assert
         Assert.True(someCalled);
@@ -242,17 +236,13 @@ public class OptionTests
 
         // Act
         option.Match(
-            some: _ => someCalled = true,
-            none: () => noneCalled = true);
+            _ => someCalled = true,
+            () => noneCalled = true);
 
         // Assert
         Assert.False(someCalled);
         Assert.True(noneCalled);
     }
-
-    #endregion
-
-    #region Map Tests
 
     [Fact]
     public void Map_WhenSome_TransformsValue()
@@ -319,16 +309,16 @@ public class OptionTests
         Assert.False(mapperCalled);
     }
 
-    #endregion
-
-    #region Bind Tests
-
     [Fact]
     public void Bind_WhenSome_ChainsOperation()
     {
         // Arrange
         var option = Option.Some(10);
-        Option<int> Halve(int x) => x % 2 == 0 ? Option.Some(x / 2) : Option<int>.None;
+
+        Option<int> Halve(int x)
+        {
+            return x % 2 == 0 ? Option.Some(x / 2) : Option<int>.None;
+        }
 
         // Act
         var result = option.Bind(Halve);
@@ -343,7 +333,11 @@ public class OptionTests
     {
         // Arrange
         var option = Option.Some(9);
-        Option<int> Halve(int x) => x % 2 == 0 ? Option.Some(x / 2) : Option<int>.None;
+
+        Option<int> Halve(int x)
+        {
+            return x % 2 == 0 ? Option.Some(x / 2) : Option<int>.None;
+        }
 
         // Act
         var result = option.Bind(Halve);
@@ -389,10 +383,6 @@ public class OptionTests
         Assert.Equal(5, result.Value);
     }
 
-    #endregion
-
-    #region Where Tests
-
     [Fact]
     public void Where_WhenSomeAndPredicatePasses_ReturnsSame()
     {
@@ -433,10 +423,6 @@ public class OptionTests
         Assert.True(result.IsNone);
     }
 
-    #endregion
-
-    #region Do Tests
-
     [Fact]
     public void Do_WhenSome_ExecutesAction()
     {
@@ -465,10 +451,6 @@ public class OptionTests
         // Assert
         Assert.False(actionCalled);
     }
-
-    #endregion
-
-    #region Or and OrElse Tests
 
     [Fact]
     public void Or_WhenSome_ReturnsOriginal()
@@ -506,7 +488,11 @@ public class OptionTests
         var factoryCalled = false;
 
         // Act
-        var result = option.OrElse(() => { factoryCalled = true; return Option.Some(2); });
+        var result = option.OrElse(() =>
+        {
+            factoryCalled = true;
+            return Option.Some(2);
+        });
 
         // Assert
         Assert.Equal(1, result.Value);
@@ -525,10 +511,6 @@ public class OptionTests
         // Assert
         Assert.Equal(2, result.Value);
     }
-
-    #endregion
-
-    #region Conversion Tests
 
     [Fact]
     public void ToNullableRef_WhenSome_ReturnsValue()
@@ -639,10 +621,6 @@ public class OptionTests
         Assert.Equal("not found", result.Error);
     }
 
-    #endregion
-
-    #region Equality Tests
-
     [Fact]
     public void Equals_SameValue_ReturnsTrue()
     {
@@ -700,10 +678,6 @@ public class OptionTests
         Assert.Equal(option1.GetHashCode(), option2.GetHashCode());
     }
 
-    #endregion
-
-    #region ToString Tests
-
     [Fact]
     public void ToString_WhenSome_ReturnsSomeFormat()
     {
@@ -723,10 +697,6 @@ public class OptionTests
         // Act & Assert
         Assert.Equal("None", option.ToString());
     }
-
-    #endregion
-
-    #region Static Helper Tests
 
     [Fact]
     public void FromNullable_Class_WithValue_ReturnsSome()
@@ -854,6 +824,4 @@ public class OptionTests
         // Assert
         Assert.True(result.IsNone);
     }
-
-    #endregion
 }

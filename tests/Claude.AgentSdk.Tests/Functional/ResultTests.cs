@@ -1,4 +1,4 @@
-using Claude.AgentSdk.Functional;
+﻿using Claude.AgentSdk.Functional;
 
 namespace Claude.AgentSdk.Tests.Functional;
 
@@ -8,8 +8,6 @@ namespace Claude.AgentSdk.Tests.Functional;
 [UnitTest]
 public class ResultTests
 {
-    #region Creation Tests
-
     [Fact]
     public void Success_CreatesSuccessfulResult()
     {
@@ -56,10 +54,6 @@ public class ResultTests
         Assert.True(result.IsFailure);
         Assert.Same(error, result.Error);
     }
-
-    #endregion
-
-    #region Value Access Tests
 
     [Fact]
     public void Value_WhenSuccess_ReturnsValue()
@@ -149,7 +143,7 @@ public class ResultTests
         var result = Result.Success(42);
 
         // Act
-        var value = result.GetValueOrDefault(0);
+        var value = result.GetValueOrDefault();
 
         // Assert
         Assert.Equal(42, value);
@@ -176,7 +170,11 @@ public class ResultTests
         var factoryCalled = false;
 
         // Act
-        var value = result.GetValueOrElse(_ => { factoryCalled = true; return 99; });
+        var value = result.GetValueOrElse(_ =>
+        {
+            factoryCalled = true;
+            return 99;
+        });
 
         // Assert
         Assert.Equal(42, value);
@@ -228,10 +226,6 @@ public class ResultTests
         Assert.Equal("error", ex.Message);
     }
 
-    #endregion
-
-    #region Match Tests
-
     [Fact]
     public void Match_WhenSuccess_CallsSuccessFunc()
     {
@@ -240,8 +234,8 @@ public class ResultTests
 
         // Act
         var output = result.Match(
-            success: x => x * 2,
-            failure: _ => -1);
+            x => x * 2,
+            _ => -1);
 
         // Assert
         Assert.Equal(10, output);
@@ -255,8 +249,8 @@ public class ResultTests
 
         // Act
         var output = result.Match(
-            success: x => x * 2,
-            failure: err => err.Length);
+            x => x * 2,
+            err => err.Length);
 
         // Assert
         Assert.Equal(5, output);
@@ -272,17 +266,13 @@ public class ResultTests
 
         // Act
         result.Match(
-            success: _ => successCalled = true,
-            failure: _ => failureCalled = true);
+            _ => successCalled = true,
+            _ => failureCalled = true);
 
         // Assert
         Assert.True(successCalled);
         Assert.False(failureCalled);
     }
-
-    #endregion
-
-    #region Map Tests
 
     [Fact]
     public void Map_WhenSuccess_TransformsValue()
@@ -358,18 +348,18 @@ public class ResultTests
         Assert.Equal(42, mapped.Value);
     }
 
-    #endregion
-
-    #region Bind Tests
-
     [Fact]
     public void Bind_WhenSuccess_ChainsOperation()
     {
         // Arrange
         var result = Result.Success(10);
-        Result<int> Halve(int x) => x % 2 == 0
-            ? Result.Success(x / 2)
-            : Result.Failure<int>("Not even");
+
+        Result<int> Halve(int x)
+        {
+            return x % 2 == 0
+                ? Result.Success(x / 2)
+                : Result.Failure<int>("Not even");
+        }
 
         // Act
         var bound = result.Bind(Halve);
@@ -384,9 +374,13 @@ public class ResultTests
     {
         // Arrange
         var result = Result.Success(9);
-        Result<int> Halve(int x) => x % 2 == 0
-            ? Result.Success(x / 2)
-            : Result.Failure<int>("Not even");
+
+        Result<int> Halve(int x)
+        {
+            return x % 2 == 0
+                ? Result.Success(x / 2)
+                : Result.Failure<int>("Not even");
+        }
 
         // Act
         var bound = result.Bind(Halve);
@@ -433,10 +427,6 @@ public class ResultTests
         Assert.True(bound.IsSuccess);
         Assert.Equal(5, bound.Value);
     }
-
-    #endregion
-
-    #region Do Tests
 
     [Fact]
     public void Do_WhenSuccess_ExecutesAction()
@@ -494,10 +484,6 @@ public class ResultTests
         Assert.False(actionCalled);
     }
 
-    #endregion
-
-    #region Ensure Tests
-
     [Fact]
     public void Ensure_WhenSuccessAndPredicatePasses_ReturnsSuccess()
     {
@@ -540,10 +526,6 @@ public class ResultTests
         Assert.Equal("initial error", ensured.Error);
     }
 
-    #endregion
-
-    #region Conversion Tests
-
     [Fact]
     public void ToOption_WhenSuccess_ReturnsSome()
     {
@@ -570,10 +552,6 @@ public class ResultTests
         // Assert
         Assert.True(option.IsNone);
     }
-
-    #endregion
-
-    #region Try Tests
 
     [Fact]
     public void Try_WhenSucceeds_ReturnsSuccess()
@@ -626,10 +604,6 @@ public class ResultTests
         Assert.True(result.IsFailure);
         Assert.Equal("async error", result.Error);
     }
-
-    #endregion
-
-    #region Combine Tests
 
     [Fact]
     public void Combine_AllSuccess_ReturnsCombinedSuccess()
@@ -691,10 +665,6 @@ public class ResultTests
         Assert.True(combined.IsSuccess);
         Assert.Equal((1, "two", 3.0), combined.Value);
     }
-
-    #endregion
-
-    #region Sequence and Traverse Tests
 
     [Fact]
     public void Sequence_AllSuccess_ReturnsSuccessWithList()
@@ -768,10 +738,6 @@ public class ResultTests
         Assert.Equal("Not a number", result.Error);
     }
 
-    #endregion
-
-    #region FromNullable Tests
-
     [Fact]
     public void FromNullable_Class_WithValue_ReturnsSuccess()
     {
@@ -815,10 +781,6 @@ public class ResultTests
         Assert.True(result.IsFailure);
         Assert.Equal("was null", result.Error);
     }
-
-    #endregion
-
-    #region Equality Tests
 
     [Fact]
     public void Equals_SameSuccessValue_ReturnsTrue()
@@ -866,10 +828,6 @@ public class ResultTests
         Assert.False(success.Equals(failure));
     }
 
-    #endregion
-
-    #region ToString Tests
-
     [Fact]
     public void ToString_WhenSuccess_ReturnsSuccessFormat()
     {
@@ -889,6 +847,4 @@ public class ResultTests
         // Act & Assert
         Assert.Equal("Failure(error)", result.ToString());
     }
-
-    #endregion
 }

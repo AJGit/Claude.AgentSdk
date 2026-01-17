@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Claude.AgentSdk.Functional;
 using Claude.AgentSdk.Messages;
 
@@ -6,43 +6,21 @@ namespace Claude.AgentSdk.FunctionalChatApp;
 
 public static class Program
 {
-    // Configuration as an immutable record
-    private sealed record ChatConfig(
-        string SystemPrompt,
-        string Model,
-        int MaxTurns,
-        PermissionMode PermissionMode,
-        IReadOnlyList<string> AllowedTools
-    );
-
-    // Chat state as an immutable record
-    private sealed record ChatState(
-        bool ShouldContinue,
-        bool ShouldRestart,
-        Option<string> LastError
-    );
-
-    // Command result as a discriminated union using Either
-    private abstract record Command;
-    private sealed record QuitCommand : Command;
-    private sealed record ClearCommand : Command;
-    private sealed record ChatCommand(string Message) : Command;
-
     private static readonly ChatConfig _defaultConfig = new(
-        SystemPrompt: """
-            You are a helpful AI assistant. You can help users with a wide variety of tasks including:
-            - Answering questions
-            - Writing and editing text
-            - Coding and debugging
-            - Analysis and research
-            - Creative tasks
+        """
+        You are a helpful AI assistant. You can help users with a wide variety of tasks including:
+        - Answering questions
+        - Writing and editing text
+        - Coding and debugging
+        - Analysis and research
+        - Creative tasks
 
-            Be concise but thorough in your responses.
-            """,
-        Model: "sonnet",
-        MaxTurns: 100,
-        PermissionMode: PermissionMode.AcceptEdits,
-        AllowedTools: ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "WebSearch", "WebFetch", "TodoWrite"]
+        Be concise but thorough in your responses.
+        """,
+        "sonnet",
+        100,
+        PermissionMode.AcceptEdits,
+        ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "WebSearch", "WebFetch", "TodoWrite"]
     );
 
     public static async Task Main(string[] args)
@@ -75,10 +53,10 @@ public static class Program
         while (true)
         {
             // Create session and run chat using Result for error handling
-            var sessionResult = await RunSessionAsync(config);
+            Result<ChatState> sessionResult = await RunSessionAsync(config);
 
             sessionResult.Match(
-                success: state =>
+                state =>
                 {
                     if (!state.ShouldContinue)
                     {
@@ -87,7 +65,7 @@ public static class Program
                     }
                     // Continue to restart session
                 },
-                failure: error =>
+                error =>
                 {
                     PrintError(error);
                     Console.WriteLine("Press Enter to start a new conversation, or Ctrl+C to exit...");
@@ -103,9 +81,9 @@ public static class Program
     {
         return await Result.TryAsync(async () =>
         {
-            var options = CreateOptions(config);
-            await using var client = new ClaudeAgentClient(options);
-            await using var session = await client.CreateSessionAsync();
+            ClaudeAgentOptions options = CreateOptions(config);
+            await using ClaudeAgentClient client = new(options);
+            await using ClaudeAgentSession session = await client.CreateSessionAsync();
 
             PrintConnected();
 
@@ -113,8 +91,9 @@ public static class Program
         });
     }
 
-    private static ClaudeAgentOptions CreateOptions(ChatConfig config) =>
-        new()
+    private static ClaudeAgentOptions CreateOptions(ChatConfig config)
+    {
+        return new ClaudeAgentOptions
         {
             SystemPrompt = config.SystemPrompt,
             Model = config.Model,
@@ -122,6 +101,7 @@ public static class Program
             PermissionMode = config.PermissionMode,
             AllowedTools = config.AllowedTools.ToList()
         };
+    }
 
     private static void PrintConnected()
     {
@@ -143,13 +123,13 @@ public static class Program
         while (true)
         {
             // Get and parse user input using Option
-            var command = GetUserInput()
+            Option<Command> command = GetUserInput()
                 .Bind(ParseCommand);
 
             // Handle command using pattern matching
-            var (shouldContinue, shouldRestart) = await command.Match(
-                some: async cmd => await HandleCommandAsync(cmd, session),
-                none: () => Task.FromResult((true, false))
+            (bool shouldContinue, bool shouldRestart) = await command.Match(
+                async cmd => await HandleCommandAsync(cmd, session),
+                () => Task.FromResult((true, false))
             );
 
             if (!shouldContinue || shouldRestart)
@@ -171,14 +151,16 @@ public static class Program
     }
 
     // Parse input string into a Command using functional pattern matching
-    private static Option<Command> ParseCommand(string input) =>
-        input.ToLowerInvariant() switch
+    private static Option<Command> ParseCommand(string input)
+    {
+        return input.ToLowerInvariant() switch
         {
             "/exit" or "/quit" => Option.Some<Command>(new QuitCommand()),
             "/clear" => Option.Some<Command>(new ClearCommand()),
             _ when input.StartsWith('/') => Option.NoneOf<Command>(), // Unknown command
             _ => Option.Some<Command>(new ChatCommand(input))
         };
+    }
 
     private static async Task<(bool ShouldContinue, bool ShouldRestart)> HandleCommandAsync(
         Command command,
@@ -211,11 +193,11 @@ public static class Program
         Console.ResetColor();
 
         // Process response using functional pipeline
-        var processingPipeline = CreateMessageProcessingPipeline();
+        Pipeline<Message, ProcessingResult> processingPipeline = CreateMessageProcessingPipeline();
 
-        await foreach (var msg in session.ReceiveResponseAsync())
+        await foreach (Message msg in session.ReceiveResponseAsync())
         {
-            var result = processingPipeline.Run(msg);
+            Result<ProcessingResult> result = processingPipeline.Run(msg);
 
             if (result.Match(r => r == ProcessingResult.Completed, _ => false))
             {
@@ -228,10 +210,10 @@ public static class Program
         return (true, false);
     }
 
-    private enum ProcessingResult { Continue, NoOutput, Completed }
-
-    private static Pipeline<Message, ProcessingResult> CreateMessageProcessingPipeline() =>
-        Pipeline.StartWith<Message, ProcessingResult>(ProcessMessage);
+    private static Pipeline<Message, ProcessingResult> CreateMessageProcessingPipeline()
+    {
+        return Pipeline.StartWith<Message, ProcessingResult>(ProcessMessage);
+    }
 
     private static Result<ProcessingResult> ProcessMessage(Message message)
     {
@@ -246,7 +228,7 @@ public static class Program
     private static Result<ProcessingResult> ProcessAssistantMessage(AssistantMessage assistant)
     {
         // Use functional collection operations
-        var blocks = assistant.MessageContent.Content;
+        IReadOnlyList<ContentBlock> blocks = assistant.MessageContent.Content;
 
         blocks
             .Choose(block => block switch
@@ -291,35 +273,70 @@ public static class Program
         return Result.Success(ProcessingResult.Completed);
     }
 
-    private static Option<string> GetToolInputSummary(string toolName, JsonElement? input) =>
-        input.HasValue
+    private static Option<string> GetToolInputSummary(string toolName, JsonElement? input)
+    {
+        return input.HasValue
             ? ExtractToolSummary(toolName, input.Value)
             : Option.NoneOf<string>();
+    }
 
-    private static Option<string> ExtractToolSummary(string toolName, JsonElement element) =>
-        Result.Try(() => toolName switch
-        {
-            "WebSearch" => GetPropertyString(element, "query").Map(q => $"\"{Truncate(q, 40)}\""),
-            "Read" => GetPropertyString(element, "file_path").Map(p => Path.GetFileName(p) ?? p),
-            "Write" => GetPropertyString(element, "file_path").Map(p => Path.GetFileName(p) ?? p),
-            "Edit" => GetPropertyString(element, "file_path").Map(p => Path.GetFileName(p) ?? p),
-            "Bash" => GetPropertyString(element, "command").Map(c => Truncate(c, 30)),
-            "Glob" => GetPropertyString(element, "pattern"),
-            "Grep" => GetPropertyString(element, "pattern").Map(p => $"\"{Truncate(p, 30)}\""),
-            _ => Option.NoneOf<string>()
-        })
-        .Match(
-            success: opt => opt,
-            failure: _ => Option.NoneOf<string>()
-        );
+    private static Option<string> ExtractToolSummary(string toolName, JsonElement element)
+    {
+        return Result.Try(() => toolName switch
+            {
+                "WebSearch" => GetPropertyString(element, "query").Map(q => $"\"{Truncate(q, 40)}\""),
+                "Read" => GetPropertyString(element, "file_path").Map(p => Path.GetFileName(p) ?? p),
+                "Write" => GetPropertyString(element, "file_path").Map(p => Path.GetFileName(p) ?? p),
+                "Edit" => GetPropertyString(element, "file_path").Map(p => Path.GetFileName(p) ?? p),
+                "Bash" => GetPropertyString(element, "command").Map(c => Truncate(c, 30)),
+                "Glob" => GetPropertyString(element, "pattern"),
+                "Grep" => GetPropertyString(element, "pattern").Map(p => $"\"{Truncate(p, 30)}\""),
+                _ => Option.NoneOf<string>()
+            })
+            .Match(
+                opt => opt,
+                _ => Option.NoneOf<string>()
+            );
+    }
 
-    private static Option<string> GetPropertyString(JsonElement element, string propertyName) =>
-        element.TryGetProperty(propertyName, out var prop)
+    private static Option<string> GetPropertyString(JsonElement element, string propertyName)
+    {
+        return element.TryGetProperty(propertyName, out JsonElement prop)
             ? Option.FromNullable(prop.GetString())
             : Option.NoneOf<string>();
+    }
 
-    private static string Truncate(string? text, int maxLength) =>
-        Option.FromNullable(text)
+    private static string Truncate(string? text, int maxLength)
+    {
+        return Option.FromNullable(text)
             .Map(t => t.Length <= maxLength ? t : t[..maxLength] + "...")
             .GetValueOrDefault("");
+    }
+
+    // Configuration as an immutable record
+    private sealed record ChatConfig(
+        string SystemPrompt,
+        string Model,
+        int MaxTurns,
+        PermissionMode PermissionMode,
+        IReadOnlyList<string> AllowedTools
+    );
+
+    // Chat state as an immutable record
+    private sealed record ChatState(
+        bool ShouldContinue,
+        bool ShouldRestart,
+        Option<string> LastError
+    );
+
+    // Command result as a discriminated union using Either
+    private abstract record Command;
+
+    private sealed record QuitCommand : Command;
+
+    private sealed record ClearCommand : Command;
+
+    private sealed record ChatCommand(string Message) : Command;
+
+    private enum ProcessingResult { Continue, NoOutput, Completed }
 }

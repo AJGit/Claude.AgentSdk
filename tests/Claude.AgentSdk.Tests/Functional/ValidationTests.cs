@@ -1,4 +1,4 @@
-using Claude.AgentSdk.Functional;
+﻿using Claude.AgentSdk.Functional;
 
 namespace Claude.AgentSdk.Tests.Functional;
 
@@ -8,7 +8,7 @@ namespace Claude.AgentSdk.Tests.Functional;
 [UnitTest]
 public class ValidationTests
 {
-    #region Creation Tests
+    private sealed record CustomError(string Code, string Message);
 
     [Fact]
     public void Valid_CreatesValidValidation()
@@ -71,10 +71,6 @@ public class ValidationTests
         Assert.Single(validation.Errors);
         Assert.Equal("E001", validation.Errors[0].Code);
     }
-
-    #endregion
-
-    #region Value Access Tests
 
     [Fact]
     public void Value_WhenValid_ReturnsValue()
@@ -150,7 +146,7 @@ public class ValidationTests
         var validation = Validation.Valid(42);
 
         // Act
-        var value = validation.GetValueOrDefault(0);
+        var value = validation.GetValueOrDefault();
 
         // Assert
         Assert.Equal(42, value);
@@ -169,10 +165,6 @@ public class ValidationTests
         Assert.Equal(99, value);
     }
 
-    #endregion
-
-    #region Match Tests
-
     [Fact]
     public void Match_WhenValid_CallsValidFunc()
     {
@@ -181,8 +173,8 @@ public class ValidationTests
 
         // Act
         var result = validation.Match(
-            valid: x => x * 2,
-            invalid: _ => -1);
+            x => x * 2,
+            _ => -1);
 
         // Assert
         Assert.Equal(10, result);
@@ -196,8 +188,8 @@ public class ValidationTests
 
         // Act
         var result = validation.Match(
-            valid: _ => -1,
-            invalid: errors => errors.Count);
+            _ => -1,
+            errors => errors.Count);
 
         // Assert
         Assert.Equal(2, result);
@@ -213,17 +205,13 @@ public class ValidationTests
 
         // Act
         validation.Match(
-            valid: _ => validCalled = true,
-            invalid: _ => invalidCalled = true);
+            _ => validCalled = true,
+            _ => invalidCalled = true);
 
         // Assert
         Assert.True(validCalled);
         Assert.False(invalidCalled);
     }
-
-    #endregion
-
-    #region Map Tests
 
     [Fact]
     public void Map_WhenValid_TransformsValue()
@@ -281,10 +269,6 @@ public class ValidationTests
         Assert.Equal(42, result.Value);
     }
 
-    #endregion
-
-    #region Bind Tests
-
     [Fact]
     public void Bind_WhenValid_ChainsOperation()
     {
@@ -334,10 +318,6 @@ public class ValidationTests
         Assert.False(binderCalled);
     }
 
-    #endregion
-
-    #region Ensure Tests
-
     [Fact]
     public void Ensure_WhenValidAndPredicatePasses_ReturnsValid()
     {
@@ -378,10 +358,6 @@ public class ValidationTests
         Assert.True(result.IsInvalid);
         Assert.Equal("initial error", result.Errors[0]);
     }
-
-    #endregion
-
-    #region Combine Tests (Error Accumulation)
 
     [Fact]
     public void Combine_BothValid_ReturnsCombinedValid()
@@ -464,10 +440,6 @@ public class ValidationTests
         Assert.Equal(["error1", "error2", "error3"], result.Errors);
     }
 
-    #endregion
-
-    #region Map2 and Map3 Tests
-
     [Fact]
     public void Map2_BothValid_AppliesFunction()
     {
@@ -534,10 +506,6 @@ public class ValidationTests
         Assert.Contains("Invalid email", result.Errors);
         Assert.Contains("Age must be positive", result.Errors);
     }
-
-    #endregion
-
-    #region Sequence and Traverse Tests
 
     [Fact]
     public void Sequence_AllValid_ReturnsValidWithList()
@@ -616,10 +584,6 @@ public class ValidationTests
         Assert.Contains("'bad' is not a number", result.Errors);
     }
 
-    #endregion
-
-    #region Conversion Tests
-
     [Fact]
     public void ToResult_WhenValid_ReturnsSuccess()
     {
@@ -689,10 +653,6 @@ public class ValidationTests
         Assert.Equal(42, generic.Value);
     }
 
-    #endregion
-
-    #region From Tests
-
     [Fact]
     public void From_WhenPredicatePasses_ReturnsValid()
     {
@@ -743,10 +703,6 @@ public class ValidationTests
         Assert.Equal("error", validation.Errors[0]);
     }
 
-    #endregion
-
-    #region Equality Tests
-
     [Fact]
     public void Equals_SameValidValue_ReturnsTrue()
     {
@@ -793,10 +749,6 @@ public class ValidationTests
         Assert.False(valid.Equals(invalid));
     }
 
-    #endregion
-
-    #region ToString Tests
-
     [Fact]
     public void ToString_WhenValid_ReturnsValidFormat()
     {
@@ -816,12 +768,4 @@ public class ValidationTests
         // Act & Assert
         Assert.Equal("Invalid([e1, e2])", validation.ToString());
     }
-
-    #endregion
-
-    #region Helper Types
-
-    private sealed record CustomError(string Code, string Message);
-
-    #endregion
 }

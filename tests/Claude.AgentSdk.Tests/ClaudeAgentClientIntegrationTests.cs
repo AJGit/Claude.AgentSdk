@@ -1,25 +1,18 @@
-using System.Collections.Concurrent;
-using System.Reflection;
-using System.Runtime.CompilerServices;
+﻿using System.Reflection;
 using System.Text.Json;
-using System.Threading.Channels;
 using Claude.AgentSdk.Exceptions;
 using Claude.AgentSdk.Messages;
 using Claude.AgentSdk.Protocol;
 using Claude.AgentSdk.Tools;
 using Claude.AgentSdk.Transport;
-using Microsoft.Extensions.Logging;
 using Moq;
-using Xunit;
 using MockTransport = Claude.AgentSdk.Tests.Protocol.MockTransport;
 
 namespace Claude.AgentSdk.Tests.Integration;
 
-#region QueryHandler Integration Tests
-
 /// <summary>
-/// Integration tests for QueryHandler using MockTransport.
-/// Tests the full message flow through the protocol handler.
+///     Integration tests for QueryHandler using MockTransport.
+///     Tests the full message flow through the protocol handler.
 /// </summary>
 public class QueryHandlerIntegrationTests
 {
@@ -29,7 +22,36 @@ public class QueryHandlerIntegrationTests
         PropertyNameCaseInsensitive = true
     };
 
-    #region Message Flow Tests
+    [Fact]
+    public async Task QueryHandler_InitializeAsync_SendsInitializeRequest()
+    {
+        // Arrange
+        var transport = new MockTransport();
+        var options = new ClaudeAgentOptions();
+        var handler = new QueryHandler(transport, options);
+
+        await handler.StartAsync();
+
+        // Act - start initialization (it will timeout, but we just want to verify request was sent)
+        var initTask = handler.InitializeAsync();
+
+        // Wait a bit for the request to be sent
+        await Task.Delay(50);
+
+        // Assert - check that initialize request was sent (even if not yet responded to)
+        var writtenMessages = transport.WrittenMessages;
+        Assert.NotEmpty(writtenMessages);
+
+        var hasInitialize = writtenMessages.Any(m =>
+        {
+            var json = m.GetRawText();
+            return json.Contains("initialize");
+        });
+        Assert.True(hasInitialize, "Initialize request should have been sent");
+
+        // Clean up - don't wait for the init task as it will timeout
+        await handler.DisposeAsync();
+    }
 
     [Fact]
     public async Task QueryHandler_ReceivesUserMessage_ParsesCorrectly()
@@ -43,14 +65,14 @@ public class QueryHandlerIntegrationTests
         await handler.StartAsync();
 
         transport.EnqueueMessage("""
-        {
-            "type": "user",
-            "message": {
-                "content": "Hello, Claude!",
-                "uuid": "test-uuid-123"
-            }
-        }
-        """);
+                                 {
+                                     "type": "user",
+                                     "message": {
+                                         "content": "Hello, Claude!",
+                                         "uuid": "test-uuid-123"
+                                     }
+                                 }
+                                 """);
         transport.CompleteMessages();
 
         var messages = new List<Message>();
@@ -77,16 +99,16 @@ public class QueryHandlerIntegrationTests
         await handler.StartAsync();
 
         transport.EnqueueMessage("""
-        {
-            "type": "assistant",
-            "message": {
-                "content": [
-                    {"type": "text", "text": "Hello! How can I help you?"}
-                ],
-                "model": "claude-sonnet-4-20250514"
-            }
-        }
-        """);
+                                 {
+                                     "type": "assistant",
+                                     "message": {
+                                         "content": [
+                                             {"type": "text", "text": "Hello! How can I help you?"}
+                                         ],
+                                         "model": "claude-sonnet-4-20250514"
+                                     }
+                                 }
+                                 """);
         transport.CompleteMessages();
 
         var messages = new List<Message>();
@@ -114,15 +136,15 @@ public class QueryHandlerIntegrationTests
         await handler.StartAsync();
 
         transport.EnqueueMessage("""
-        {
-            "type": "system",
-            "subtype": "init",
-            "session_id": "session-123",
-            "cwd": "/home/user/project",
-            "model": "claude-sonnet-4-20250514",
-            "permission_mode": "default"
-        }
-        """);
+                                 {
+                                     "type": "system",
+                                     "subtype": "init",
+                                     "session_id": "session-123",
+                                     "cwd": "/home/user/project",
+                                     "model": "claude-sonnet-4-20250514",
+                                     "permission_mode": "default"
+                                 }
+                                 """);
         transport.CompleteMessages();
 
         var messages = new List<Message>();
@@ -152,18 +174,18 @@ public class QueryHandlerIntegrationTests
         await handler.StartAsync();
 
         transport.EnqueueMessage("""
-        {
-            "type": "result",
-            "subtype": "success",
-            "duration_ms": 1500,
-            "duration_api_ms": 1200,
-            "is_error": false,
-            "num_turns": 3,
-            "session_id": "session-123",
-            "total_cost_usd": 0.0025,
-            "result": "Task completed successfully"
-        }
-        """);
+                                 {
+                                     "type": "result",
+                                     "subtype": "success",
+                                     "duration_ms": 1500,
+                                     "duration_api_ms": 1200,
+                                     "is_error": false,
+                                     "num_turns": 3,
+                                     "session_id": "session-123",
+                                     "total_cost_usd": 0.0025,
+                                     "result": "Task completed successfully"
+                                 }
+                                 """);
         transport.CompleteMessages();
 
         var messages = new List<Message>();
@@ -197,13 +219,13 @@ public class QueryHandlerIntegrationTests
         await handler.StartAsync();
 
         transport.EnqueueMessage("""
-        {
-            "type": "stream_event",
-            "uuid": "event-uuid-456",
-            "session_id": "session-123",
-            "event": {"type": "content_block_delta", "delta": {"text": "Hello"}}
-        }
-        """);
+                                 {
+                                     "type": "stream_event",
+                                     "uuid": "event-uuid-456",
+                                     "session_id": "session-123",
+                                     "event": {"type": "content_block_delta", "delta": {"text": "Hello"}}
+                                 }
+                                 """);
         transport.CompleteMessages();
 
         var messages = new List<Message>();
@@ -234,7 +256,8 @@ public class QueryHandlerIntegrationTests
         transport.EnqueueMessage("""{"type": "system", "subtype": "init", "session_id": "s1", "cwd": "/tmp"}""");
         transport.EnqueueMessage("""{"type": "user", "message": {"content": "Hi"}}""");
         transport.EnqueueMessage("""{"type": "assistant", "message": {"content": [], "model": "claude"}}""");
-        transport.EnqueueMessage("""{"type": "result", "subtype": "success", "duration_ms": 100, "duration_api_ms": 80, "is_error": false, "num_turns": 1, "session_id": "s1"}""");
+        transport.EnqueueMessage(
+            """{"type": "result", "subtype": "success", "duration_ms": 100, "duration_api_ms": 80, "is_error": false, "num_turns": 1, "session_id": "s1"}""");
         transport.CompleteMessages();
 
         var messages = new List<Message>();
@@ -262,7 +285,8 @@ public class QueryHandlerIntegrationTests
         await handler.StartAsync();
 
         transport.EnqueueMessage("""{"type": "unknown_type", "data": "something"}""");
-        transport.EnqueueMessage("""{"type": "result", "subtype": "success", "duration_ms": 100, "duration_api_ms": 80, "is_error": false, "num_turns": 1, "session_id": "s1"}""");
+        transport.EnqueueMessage(
+            """{"type": "result", "subtype": "success", "duration_ms": 100, "duration_api_ms": 80, "is_error": false, "num_turns": 1, "session_id": "s1"}""");
         transport.CompleteMessages();
 
         var messages = new List<Message>();
@@ -289,7 +313,8 @@ public class QueryHandlerIntegrationTests
         // First message is malformed (missing required fields)
         transport.EnqueueMessage("""{"type": "assistant", "message": {}}""");
         // Second message is valid
-        transport.EnqueueMessage("""{"type": "result", "subtype": "success", "duration_ms": 100, "duration_api_ms": 80, "is_error": false, "num_turns": 1, "session_id": "s1"}""");
+        transport.EnqueueMessage(
+            """{"type": "result", "subtype": "success", "duration_ms": 100, "duration_api_ms": 80, "is_error": false, "num_turns": 1, "session_id": "s1"}""");
         transport.CompleteMessages();
 
         var messages = new List<Message>();
@@ -302,10 +327,6 @@ public class QueryHandlerIntegrationTests
         Assert.Single(messages);
         Assert.IsType<ResultMessage>(messages[0]);
     }
-
-    #endregion
-
-    #region Cancellation Tests
 
     [Fact]
     public async Task QueryHandler_Cancellation_StopsReceiving()
@@ -335,7 +356,7 @@ public class QueryHandlerIntegrationTests
                     await cts.CancelAsync();
                 }
             }
-        });
+        }, cts.Token);
 
         // Assert - TaskCanceledException is a subclass of OperationCanceledException
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
@@ -370,10 +391,6 @@ public class QueryHandlerIntegrationTests
         await handler.DisposeAsync();
     }
 
-    #endregion
-
-    #region Cleanup Tests
-
     [Fact]
     public async Task QueryHandler_Dispose_CanBeCalledMultipleTimes()
     {
@@ -400,7 +417,8 @@ public class QueryHandlerIntegrationTests
 
         await handler.StartAsync();
 
-        transport.EnqueueMessage("""{"type": "result", "subtype": "success", "duration_ms": 100, "duration_api_ms": 80, "is_error": false, "num_turns": 1, "session_id": "s1"}""");
+        transport.EnqueueMessage(
+            """{"type": "result", "subtype": "success", "duration_ms": 100, "duration_api_ms": 80, "is_error": false, "num_turns": 1, "session_id": "s1"}""");
         transport.CompleteMessages();
 
         // Consume all messages
@@ -413,10 +431,6 @@ public class QueryHandlerIntegrationTests
 
         // Assert - no exception thrown
     }
-
-    #endregion
-
-    #region Control Request Handling Tests
 
     [Fact]
     public async Task QueryHandler_CanUseToolRequest_WithCallback_InvokesCallback()
@@ -442,16 +456,16 @@ public class QueryHandlerIntegrationTests
 
         // Send a control request from the "CLI"
         transport.EnqueueMessage("""
-        {
-            "type": "control_request",
-            "request_id": "req-1",
-            "request": {
-                "subtype": "can_use_tool",
-                "tool_name": "Bash",
-                "input": {"command": "ls -la"}
-            }
-        }
-        """);
+                                 {
+                                     "type": "control_request",
+                                     "request_id": "req-1",
+                                     "request": {
+                                         "subtype": "can_use_tool",
+                                         "tool_name": "Bash",
+                                         "input": {"command": "ls -la"}
+                                     }
+                                 }
+                                 """);
 
         // Need to wait a bit for the control request to be processed
         await Task.Delay(100);
@@ -479,16 +493,16 @@ public class QueryHandlerIntegrationTests
         await handler.StartAsync();
 
         transport.EnqueueMessage("""
-        {
-            "type": "control_request",
-            "request_id": "req-1",
-            "request": {
-                "subtype": "can_use_tool",
-                "tool_name": "Bash",
-                "input": {"command": "ls"}
-            }
-        }
-        """);
+                                 {
+                                     "type": "control_request",
+                                     "request_id": "req-1",
+                                     "request": {
+                                         "subtype": "can_use_tool",
+                                         "tool_name": "Bash",
+                                         "input": {"command": "ls"}
+                                     }
+                                 }
+                                 """);
 
         await Task.Delay(100);
         transport.CompleteMessages();
@@ -502,7 +516,7 @@ public class QueryHandlerIntegrationTests
         Assert.NotEmpty(writtenMessages);
 
         // Verify response contains "allow" behavior
-        var lastMessage = (JsonElement)writtenMessages.Last();
+        var lastMessage = writtenMessages.Last();
         var json = lastMessage.GetRawText();
         Assert.Contains("allow", json);
 
@@ -530,16 +544,16 @@ public class QueryHandlerIntegrationTests
         await handler.StartAsync();
 
         transport.EnqueueMessage("""
-        {
-            "type": "control_request",
-            "request_id": "req-deny",
-            "request": {
-                "subtype": "can_use_tool",
-                "tool_name": "DangerousTool",
-                "input": {}
-            }
-        }
-        """);
+                                 {
+                                     "type": "control_request",
+                                     "request_id": "req-deny",
+                                     "request": {
+                                         "subtype": "can_use_tool",
+                                         "tool_name": "DangerousTool",
+                                         "input": {}
+                                     }
+                                 }
+                                 """);
 
         await Task.Delay(100);
         transport.CompleteMessages();
@@ -552,52 +566,13 @@ public class QueryHandlerIntegrationTests
         var writtenMessages = transport.WrittenMessages;
         Assert.NotEmpty(writtenMessages);
 
-        var lastMessage = (JsonElement)writtenMessages.Last();
+        var lastMessage = writtenMessages.Last();
         var lastJson = lastMessage.GetRawText();
         Assert.Contains("deny", lastJson);
         Assert.Contains("Tool not allowed", lastJson);
 
         await handler.DisposeAsync();
     }
-
-    #endregion
-
-    #region Control Response Tests
-
-    [Fact]
-    public async Task QueryHandler_InitializeAsync_SendsInitializeRequest()
-    {
-        // Arrange
-        var transport = new MockTransport();
-        var options = new ClaudeAgentOptions();
-        var handler = new QueryHandler(transport, options);
-
-        await handler.StartAsync();
-
-        // Act - start initialization (it will timeout, but we just want to verify request was sent)
-        var initTask = handler.InitializeAsync();
-
-        // Wait a bit for the request to be sent
-        await Task.Delay(50);
-
-        // Assert - check that initialize request was sent (even if not yet responded to)
-        var writtenMessages = transport.WrittenMessages;
-        Assert.NotEmpty(writtenMessages);
-
-        var hasInitialize = writtenMessages.Any(m =>
-        {
-            var json = ((JsonElement)m).GetRawText();
-            return json.Contains("initialize");
-        });
-        Assert.True(hasInitialize, "Initialize request should have been sent");
-
-        // Clean up - don't wait for the init task as it will timeout
-        await handler.DisposeAsync();
-    }
-
-    #endregion
-
-    #region Hook Callback Tests
 
     [Fact]
     public async Task QueryHandler_HookCallback_ProcessedWithoutError()
@@ -609,7 +584,7 @@ public class QueryHandlerIntegrationTests
             {
                 [HookEvent.PreToolUse] = new List<HookMatcher>
                 {
-                    new HookMatcher
+                    new()
                     {
                         Matcher = "Bash",
                         Hooks = new List<HookCallback>
@@ -633,24 +608,24 @@ public class QueryHandlerIntegrationTests
 
         // Simulate hook callback request from CLI
         transport.EnqueueMessage("""
-        {
-            "type": "control_request",
-            "request_id": "hook-req-1",
-            "request": {
-                "subtype": "hook_callback",
-                "callback_id": "hook_0",
-                "input": {
-                    "hook_event_name": "PreToolUse",
-                    "session_id": "session-123",
-                    "transcript_path": "/tmp/transcript.json",
-                    "cwd": "/home/user",
-                    "tool_name": "Bash",
-                    "tool_input": {"command": "ls"}
-                },
-                "tool_use_id": "tool-use-1"
-            }
-        }
-        """);
+                                 {
+                                     "type": "control_request",
+                                     "request_id": "hook-req-1",
+                                     "request": {
+                                         "subtype": "hook_callback",
+                                         "callback_id": "hook_0",
+                                         "input": {
+                                             "hook_event_name": "PreToolUse",
+                                             "session_id": "session-123",
+                                             "transcript_path": "/tmp/transcript.json",
+                                             "cwd": "/home/user",
+                                             "tool_name": "Bash",
+                                             "tool_input": {"command": "ls"}
+                                         },
+                                         "tool_use_id": "tool-use-1"
+                                     }
+                                 }
+                                 """);
 
         await Task.Delay(100);
         transport.CompleteMessages();
@@ -677,21 +652,21 @@ public class QueryHandlerIntegrationTests
         await handler.StartAsync();
 
         transport.EnqueueMessage("""
-        {
-            "type": "control_request",
-            "request_id": "hook-req-unknown",
-            "request": {
-                "subtype": "hook_callback",
-                "callback_id": "unknown_callback_id",
-                "input": {
-                    "hook_event_name": "PreToolUse",
-                    "session_id": "session-123",
-                    "transcript_path": "/tmp/transcript.json",
-                    "cwd": "/home/user"
-                }
-            }
-        }
-        """);
+                                 {
+                                     "type": "control_request",
+                                     "request_id": "hook-req-unknown",
+                                     "request": {
+                                         "subtype": "hook_callback",
+                                         "callback_id": "unknown_callback_id",
+                                         "input": {
+                                             "hook_event_name": "PreToolUse",
+                                             "session_id": "session-123",
+                                             "transcript_path": "/tmp/transcript.json",
+                                             "cwd": "/home/user"
+                                         }
+                                     }
+                                 }
+                                 """);
 
         await Task.Delay(100);
         transport.CompleteMessages();
@@ -704,16 +679,12 @@ public class QueryHandlerIntegrationTests
         var writtenMessages = transport.WrittenMessages;
         Assert.NotEmpty(writtenMessages);
 
-        var lastMessage = (JsonElement)writtenMessages.Last();
+        var lastMessage = writtenMessages.Last();
         var lastJson = lastMessage.GetRawText();
         Assert.Contains("continue", lastJson);
 
         await handler.DisposeAsync();
     }
-
-    #endregion
-
-    #region MCP Message Tests
 
     [Fact]
     public async Task QueryHandler_McpMessage_WithRegisteredServer_DelegatesRequest()
@@ -722,7 +693,9 @@ public class QueryHandlerIntegrationTests
         var mockMcpServer = new Mock<IMcpToolServer>();
         mockMcpServer
             .Setup(s => s.HandleRequestAsync(It.IsAny<JsonElement>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(JsonDocument.Parse("""{"jsonrpc": "2.0", "id": 1, "result": {"content": [{"type": "text", "text": "Success"}]}}""").RootElement);
+            .ReturnsAsync(JsonDocument
+                .Parse("""{"jsonrpc": "2.0", "id": 1, "result": {"content": [{"type": "text", "text": "Success"}]}}""")
+                .RootElement);
 
         var options = new ClaudeAgentOptions
         {
@@ -742,16 +715,16 @@ public class QueryHandlerIntegrationTests
         await handler.StartAsync();
 
         transport.EnqueueMessage("""
-        {
-            "type": "control_request",
-            "request_id": "mcp-req-1",
-            "request": {
-                "subtype": "mcp_message",
-                "server_name": "test-server",
-                "message": {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "test-tool"}}
-            }
-        }
-        """);
+                                 {
+                                     "type": "control_request",
+                                     "request_id": "mcp-req-1",
+                                     "request": {
+                                         "subtype": "mcp_message",
+                                         "server_name": "test-server",
+                                         "message": {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "test-tool"}}
+                                     }
+                                 }
+                                 """);
 
         await Task.Delay(100);
         transport.CompleteMessages();
@@ -779,16 +752,16 @@ public class QueryHandlerIntegrationTests
         await handler.StartAsync();
 
         transport.EnqueueMessage("""
-        {
-            "type": "control_request",
-            "request_id": "mcp-req-unknown",
-            "request": {
-                "subtype": "mcp_message",
-                "server_name": "unknown-server",
-                "message": {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
-            }
-        }
-        """);
+                                 {
+                                     "type": "control_request",
+                                     "request_id": "mcp-req-unknown",
+                                     "request": {
+                                         "subtype": "mcp_message",
+                                         "server_name": "unknown-server",
+                                         "message": {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
+                                     }
+                                 }
+                                 """);
 
         await Task.Delay(100);
         transport.CompleteMessages();
@@ -801,24 +774,18 @@ public class QueryHandlerIntegrationTests
         var writtenMessages = transport.WrittenMessages;
         Assert.NotEmpty(writtenMessages);
 
-        var lastMessage = (JsonElement)writtenMessages.Last();
+        var lastMessage = writtenMessages.Last();
         var lastJson = lastMessage.GetRawText();
         Assert.Contains("error", lastJson);
         Assert.Contains("not found", lastJson);
 
         await handler.DisposeAsync();
     }
-
-    #endregion
 }
 
-#endregion
-
-#region Options Merging Tests
-
 /// <summary>
-/// Tests for ClaudeAgentOptions merging behavior.
-/// Uses reflection to access the private MergeOptions method.
+///     Tests for ClaudeAgentOptions merging behavior.
+///     Uses reflection to access the private MergeOptions method.
 /// </summary>
 public class OptionsMergingTests
 {
@@ -834,8 +801,6 @@ public class OptionsMergingTests
         var result = method?.Invoke(client, new object?[] { overrides });
         return (ClaudeAgentOptions)result!;
     }
-
-    #region Null Override Tests
 
     [Fact]
     public void MergeOptions_NullOverride_ReturnsBaseOptions()
@@ -854,9 +819,60 @@ public class OptionsMergingTests
         Assert.Same(baseOptions, merged);
     }
 
-    #endregion
+    [Fact]
+    public void MergeOptions_AllPropertiesSet_MergesCorrectly()
+    {
+        // Arrange
+        var baseOptions = new ClaudeAgentOptions
+        {
+            Model = "sonnet",
+            FallbackModel = "haiku",
+            MaxTurns = 5,
+            MaxBudgetUsd = 1.0,
+            WorkingDirectory = "/base/dir",
+            CliPath = "/base/cli",
+            AllowedTools = ["Tool1"],
+            DisallowedTools = ["DisallowedBase"],
+            ContinueConversation = false,
+            IncludePartialMessages = true,
+            MaxThinkingTokens = 1000,
+            User = "base-user"
+        };
 
-    #region Simple Property Override Tests
+        var overrides = new ClaudeAgentOptions
+        {
+            Model = "opus",
+            // FallbackModel not set - should use base
+            MaxTurns = 20,
+            // MaxBudgetUsd not set - should use base
+            WorkingDirectory = "/override/dir",
+            // CliPath not set - should use base
+            AllowedTools = ["Tool2", "Tool3"],
+            DisallowedTools = [], // Empty - should use base
+            ContinueConversation = true, // OR with base
+            IncludePartialMessages = false, // OR with base - should be true
+            MaxThinkingTokens = 2000,
+            User = "override-user"
+        };
+
+        // Act
+        var merged = MergeOptions(baseOptions, overrides);
+
+        // Assert
+        Assert.Equal("opus", merged.Model);
+        Assert.Equal("haiku", merged.FallbackModel);
+        Assert.Equal(20, merged.MaxTurns);
+        Assert.Equal(1.0, merged.MaxBudgetUsd);
+        Assert.Equal("/override/dir", merged.WorkingDirectory);
+        Assert.Equal("/base/cli", merged.CliPath);
+        Assert.Equal(2, merged.AllowedTools.Count);
+        Assert.Contains("Tool2", merged.AllowedTools);
+        Assert.Single(merged.DisallowedTools); // Empty override, uses base
+        Assert.True(merged.ContinueConversation); // OR logic
+        Assert.True(merged.IncludePartialMessages); // OR logic
+        Assert.Equal(2000, merged.MaxThinkingTokens);
+        Assert.Equal("override-user", merged.User);
+    }
 
     [Fact]
     public void MergeOptions_ModelOverride_UsesOverrideValue()
@@ -913,10 +929,6 @@ public class OptionsMergingTests
         // Assert
         Assert.Equal(5.0, merged.MaxBudgetUsd);
     }
-
-    #endregion
-
-    #region Collection Override Tests (Non-Empty Wins)
 
     [Fact]
     public void MergeOptions_AllowedTools_NonEmptyOverrideWins()
@@ -1021,10 +1033,6 @@ public class OptionsMergingTests
         Assert.Single(merged.ExtraArgs);
         Assert.True(merged.ExtraArgs.ContainsKey("--flag2"));
     }
-
-    #endregion
-
-    #region Boolean OR Semantics Tests
 
     [Fact]
     public void MergeOptions_ContinueConversation_OrLogic_BaseTrue()
@@ -1138,10 +1146,6 @@ public class OptionsMergingTests
         Assert.True(merged.NoHooks);
     }
 
-    #endregion
-
-    #region Complex Type Override Tests
-
     [Fact]
     public void MergeOptions_ToolsOverride_UsesOverrideValue()
     {
@@ -1244,76 +1248,11 @@ public class OptionsMergingTests
         // Assert
         Assert.Same(overrideCallback, merged.CanUseTool);
     }
-
-    #endregion
-
-    #region Full Options Merge Test
-
-    [Fact]
-    public void MergeOptions_AllPropertiesSet_MergesCorrectly()
-    {
-        // Arrange
-        var baseOptions = new ClaudeAgentOptions
-        {
-            Model = "sonnet",
-            FallbackModel = "haiku",
-            MaxTurns = 5,
-            MaxBudgetUsd = 1.0,
-            WorkingDirectory = "/base/dir",
-            CliPath = "/base/cli",
-            AllowedTools = ["Tool1"],
-            DisallowedTools = ["DisallowedBase"],
-            ContinueConversation = false,
-            IncludePartialMessages = true,
-            MaxThinkingTokens = 1000,
-            User = "base-user"
-        };
-
-        var overrides = new ClaudeAgentOptions
-        {
-            Model = "opus",
-            // FallbackModel not set - should use base
-            MaxTurns = 20,
-            // MaxBudgetUsd not set - should use base
-            WorkingDirectory = "/override/dir",
-            // CliPath not set - should use base
-            AllowedTools = ["Tool2", "Tool3"],
-            DisallowedTools = [], // Empty - should use base
-            ContinueConversation = true, // OR with base
-            IncludePartialMessages = false, // OR with base - should be true
-            MaxThinkingTokens = 2000,
-            User = "override-user"
-        };
-
-        // Act
-        var merged = MergeOptions(baseOptions, overrides);
-
-        // Assert
-        Assert.Equal("opus", merged.Model);
-        Assert.Equal("haiku", merged.FallbackModel);
-        Assert.Equal(20, merged.MaxTurns);
-        Assert.Equal(1.0, merged.MaxBudgetUsd);
-        Assert.Equal("/override/dir", merged.WorkingDirectory);
-        Assert.Equal("/base/cli", merged.CliPath);
-        Assert.Equal(2, merged.AllowedTools.Count);
-        Assert.Contains("Tool2", merged.AllowedTools);
-        Assert.Single(merged.DisallowedTools); // Empty override, uses base
-        Assert.True(merged.ContinueConversation); // OR logic
-        Assert.True(merged.IncludePartialMessages); // OR logic
-        Assert.Equal(2000, merged.MaxThinkingTokens);
-        Assert.Equal("override-user", merged.User);
-    }
-
-    #endregion
 }
 
-#endregion
-
-#region QueryToCompletionAsync Tests
-
 /// <summary>
-/// Tests for QueryToCompletionAsync behavior.
-/// Since this method internally uses QueryAsync, we test through QueryHandler with MockTransport.
+///     Tests for QueryToCompletionAsync behavior.
+///     Since this method internally uses QueryAsync, we test through QueryHandler with MockTransport.
 /// </summary>
 public class QueryToCompletionTests
 {
@@ -1329,9 +1268,11 @@ public class QueryToCompletionTests
 
         // Multiple result messages - should return the last one
         transport.EnqueueMessage("""{"type": "system", "subtype": "init", "session_id": "s1", "cwd": "/tmp"}""");
-        transport.EnqueueMessage("""{"type": "result", "subtype": "partial", "duration_ms": 50, "duration_api_ms": 40, "is_error": false, "num_turns": 1, "session_id": "s1", "result": "First result"}""");
+        transport.EnqueueMessage(
+            """{"type": "result", "subtype": "partial", "duration_ms": 50, "duration_api_ms": 40, "is_error": false, "num_turns": 1, "session_id": "s1", "result": "First result"}""");
         transport.EnqueueMessage("""{"type": "assistant", "message": {"content": [], "model": "claude"}}""");
-        transport.EnqueueMessage("""{"type": "result", "subtype": "success", "duration_ms": 150, "duration_api_ms": 120, "is_error": false, "num_turns": 3, "session_id": "s1", "result": "Final result"}""");
+        transport.EnqueueMessage(
+            """{"type": "result", "subtype": "success", "duration_ms": 150, "duration_api_ms": 120, "is_error": false, "num_turns": 3, "session_id": "s1", "result": "Final result"}""");
         transport.CompleteMessages();
 
         // Act - simulate QueryToCompletionAsync behavior
@@ -1394,7 +1335,8 @@ public class QueryToCompletionTests
 
         await handler.StartAsync();
 
-        transport.EnqueueMessage("""{"type": "result", "subtype": "error", "duration_ms": 100, "duration_api_ms": 80, "is_error": true, "num_turns": 1, "session_id": "s1", "result": "An error occurred"}""");
+        transport.EnqueueMessage(
+            """{"type": "result", "subtype": "error", "duration_ms": 100, "duration_api_ms": 80, "is_error": true, "num_turns": 1, "session_id": "s1", "result": "An error occurred"}""");
         transport.CompleteMessages();
 
         // Act
@@ -1416,12 +1358,8 @@ public class QueryToCompletionTests
     }
 }
 
-#endregion
-
-#region Bidirectional Mode Tests
-
 /// <summary>
-/// Tests for bidirectional mode flow (ConnectAsync -> SendAsync -> ReceiveAsync).
+///     Tests for bidirectional mode flow (ConnectAsync -> SendAsync -> ReceiveAsync).
 /// </summary>
 public class BidirectionalModeTests
 {
@@ -1451,7 +1389,7 @@ public class BidirectionalModeTests
         Assert.NotEmpty(writtenMessages);
 
         // Verify the message was written
-        var sentElement = (JsonElement)writtenMessages.First();
+        var sentElement = writtenMessages.First();
         var sentJson = sentElement.GetRawText();
         Assert.Contains("Hello from bidirectional mode", sentJson);
 
@@ -1481,7 +1419,7 @@ public class BidirectionalModeTests
         // Verify initialize request was sent
         var hasInitialize = writtenMessages.Any(m =>
         {
-            var json = ((JsonElement)m).GetRawText();
+            var json = m.GetRawText();
             return json.Contains("control_request") && json.Contains("initialize");
         });
         Assert.True(hasInitialize);
@@ -1511,7 +1449,7 @@ public class BidirectionalModeTests
         var writtenMessages = transport.WrittenMessages;
         var initializeCount = writtenMessages.Count(m =>
         {
-            var json = ((JsonElement)m).GetRawText();
+            var json = m.GetRawText();
             return json.Contains("initialize");
         });
         Assert.True(initializeCount >= 1, "At least one initialize request should be sent");
@@ -1540,7 +1478,7 @@ public class BidirectionalModeTests
         var writtenMessages = transport.WrittenMessages;
         var hasSetPermission = writtenMessages.Any(m =>
         {
-            var json = ((JsonElement)m).GetRawText();
+            var json = m.GetRawText();
             return json.Contains("set_permission_mode") && json.Contains("acceptEdits");
         });
         Assert.True(hasSetPermission);
@@ -1567,7 +1505,7 @@ public class BidirectionalModeTests
         var writtenMessages = transport.WrittenMessages;
         var hasSetModel = writtenMessages.Any(m =>
         {
-            var json = ((JsonElement)m).GetRawText();
+            var json = m.GetRawText();
             return json.Contains("set_model") && json.Contains("opus");
         });
         Assert.True(hasSetModel);
@@ -1594,7 +1532,7 @@ public class BidirectionalModeTests
         var writtenMessages = transport.WrittenMessages;
         var hasInterrupt = writtenMessages.Any(m =>
         {
-            var json = ((JsonElement)m).GetRawText();
+            var json = m.GetRawText();
             return json.Contains("interrupt");
         });
         Assert.True(hasInterrupt);
@@ -1603,12 +1541,8 @@ public class BidirectionalModeTests
     }
 }
 
-#endregion
-
-#region Error Propagation Tests
-
 /// <summary>
-/// Tests for error propagation through the system.
+///     Tests for error propagation through the system.
 /// </summary>
 public class ErrorPropagationTests
 {
@@ -1628,8 +1562,9 @@ public class ErrorPropagationTests
         // Act & Assert
         // SetPermissionModeAsync sends a control request and waits for response
         // Without a response, it should timeout after 2 seconds
-        var exception = await Assert.ThrowsAsync<ControlTimeoutException>(
-            () => handler.SetPermissionModeAsync(PermissionMode.AcceptEdits));
+        var exception =
+            await Assert.ThrowsAsync<ControlTimeoutException>(() =>
+                handler.SetPermissionModeAsync(PermissionMode.AcceptEdits));
 
         Assert.Contains("timed out", exception.Message);
         Assert.NotNull(exception.RequestId);
@@ -1654,16 +1589,16 @@ public class ErrorPropagationTests
         await handler.StartAsync();
 
         transport.EnqueueMessage("""
-        {
-            "type": "control_request",
-            "request_id": "req-error",
-            "request": {
-                "subtype": "can_use_tool",
-                "tool_name": "Test",
-                "input": {}
-            }
-        }
-        """);
+                                 {
+                                     "type": "control_request",
+                                     "request_id": "req-error",
+                                     "request": {
+                                         "subtype": "can_use_tool",
+                                         "tool_name": "Test",
+                                         "input": {}
+                                     }
+                                 }
+                                 """);
 
         await Task.Delay(100);
         transport.CompleteMessages();
@@ -1676,7 +1611,7 @@ public class ErrorPropagationTests
         var writtenMessages = transport.WrittenMessages;
         var hasErrorResponse = writtenMessages.Any(m =>
         {
-            var json = ((JsonElement)m).GetRawText();
+            var json = m.GetRawText();
             return json.Contains("error") && json.Contains("Callback error");
         });
         Assert.True(hasErrorResponse);
@@ -1694,7 +1629,7 @@ public class ErrorPropagationTests
             {
                 [HookEvent.PreToolUse] = new List<HookMatcher>
                 {
-                    new HookMatcher
+                    new()
                     {
                         Matcher = "Test",
                         Hooks = new List<HookCallback>
@@ -1706,8 +1641,7 @@ public class ErrorPropagationTests
                         }
                     }
                 }
-            }
-            ,
+            },
             ControlRequestTimeout = TimeSpan.FromSeconds(2) // Use short timeout for testing
         };
 
@@ -1718,23 +1652,23 @@ public class ErrorPropagationTests
         // Skip InitializeAsync to avoid timeout - hook callback handling is tested separately
 
         transport.EnqueueMessage("""
-        {
-            "type": "control_request",
-            "request_id": "hook-error",
-            "request": {
-                "subtype": "hook_callback",
-                "callback_id": "hook_0",
-                "input": {
-                    "hook_event_name": "PreToolUse",
-                    "session_id": "s1",
-                    "transcript_path": "/tmp/t.json",
-                    "cwd": "/tmp",
-                    "tool_name": "Test",
-                    "tool_input": {}
-                }
-            }
-        }
-        """);
+                                 {
+                                     "type": "control_request",
+                                     "request_id": "hook-error",
+                                     "request": {
+                                         "subtype": "hook_callback",
+                                         "callback_id": "hook_0",
+                                         "input": {
+                                             "hook_event_name": "PreToolUse",
+                                             "session_id": "s1",
+                                             "transcript_path": "/tmp/t.json",
+                                             "cwd": "/tmp",
+                                             "tool_name": "Test",
+                                             "tool_input": {}
+                                         }
+                                     }
+                                 }
+                                 """);
 
         await Task.Delay(100);
         transport.CompleteMessages();
@@ -1748,7 +1682,7 @@ public class ErrorPropagationTests
         var writtenMessages = transport.WrittenMessages;
         var hasResponse = writtenMessages.Any(m =>
         {
-            var json = ((JsonElement)m).GetRawText();
+            var json = m.GetRawText();
             return json.Contains("continue");
         });
         Assert.True(hasResponse, "Handler should send a continue response for unregistered hook callbacks");
@@ -1757,12 +1691,8 @@ public class ErrorPropagationTests
     }
 }
 
-#endregion
-
-#region Hook Output Conversion Tests
-
 /// <summary>
-/// Tests for hook output conversion to wire format.
+///     Tests for hook output conversion to wire format.
 /// </summary>
 public class HookOutputConversionTests
 {
@@ -1776,7 +1706,7 @@ public class HookOutputConversionTests
             {
                 [HookEvent.PreToolUse] = new List<HookMatcher>
                 {
-                    new HookMatcher
+                    new()
                     {
                         Matcher = "Test",
                         Hooks = new List<HookCallback>
@@ -1803,23 +1733,23 @@ public class HookOutputConversionTests
         // Skip InitializeAsync to avoid timeout - hook output serialization is tested separately
 
         transport.EnqueueMessage("""
-        {
-            "type": "control_request",
-            "request_id": "hook-sync",
-            "request": {
-                "subtype": "hook_callback",
-                "callback_id": "hook_0",
-                "input": {
-                    "hook_event_name": "PreToolUse",
-                    "session_id": "s1",
-                    "transcript_path": "/tmp/t.json",
-                    "cwd": "/tmp",
-                    "tool_name": "Test",
-                    "tool_input": {}
-                }
-            }
-        }
-        """);
+                                 {
+                                     "type": "control_request",
+                                     "request_id": "hook-sync",
+                                     "request": {
+                                         "subtype": "hook_callback",
+                                         "callback_id": "hook_0",
+                                         "input": {
+                                             "hook_event_name": "PreToolUse",
+                                             "session_id": "s1",
+                                             "transcript_path": "/tmp/t.json",
+                                             "cwd": "/tmp",
+                                             "tool_name": "Test",
+                                             "tool_input": {}
+                                         }
+                                     }
+                                 }
+                                 """);
 
         await Task.Delay(100);
         transport.CompleteMessages();
@@ -1833,7 +1763,7 @@ public class HookOutputConversionTests
         var writtenMessages = transport.WrittenMessages;
         var hasResponse = writtenMessages.Any(m =>
         {
-            var json = ((JsonElement)m).GetRawText();
+            var json = m.GetRawText();
             return json.Contains("continue");
         });
         Assert.True(hasResponse);
@@ -1851,7 +1781,7 @@ public class HookOutputConversionTests
             {
                 [HookEvent.PreToolUse] = new List<HookMatcher>
                 {
-                    new HookMatcher
+                    new()
                     {
                         Matcher = "DangerousTool",
                         Hooks = new List<HookCallback>
@@ -1879,23 +1809,23 @@ public class HookOutputConversionTests
         // Skip InitializeAsync to avoid timeout - hook output serialization is tested separately
 
         transport.EnqueueMessage("""
-        {
-            "type": "control_request",
-            "request_id": "hook-block",
-            "request": {
-                "subtype": "hook_callback",
-                "callback_id": "hook_0",
-                "input": {
-                    "hook_event_name": "PreToolUse",
-                    "session_id": "s1",
-                    "transcript_path": "/tmp/t.json",
-                    "cwd": "/tmp",
-                    "tool_name": "DangerousTool",
-                    "tool_input": {}
-                }
-            }
-        }
-        """);
+                                 {
+                                     "type": "control_request",
+                                     "request_id": "hook-block",
+                                     "request": {
+                                         "subtype": "hook_callback",
+                                         "callback_id": "hook_0",
+                                         "input": {
+                                             "hook_event_name": "PreToolUse",
+                                             "session_id": "s1",
+                                             "transcript_path": "/tmp/t.json",
+                                             "cwd": "/tmp",
+                                             "tool_name": "DangerousTool",
+                                             "tool_input": {}
+                                         }
+                                     }
+                                 }
+                                 """);
 
         await Task.Delay(100);
         transport.CompleteMessages();
@@ -1909,7 +1839,7 @@ public class HookOutputConversionTests
         var writtenMessages = transport.WrittenMessages;
         var hasResponse = writtenMessages.Any(m =>
         {
-            var json = ((JsonElement)m).GetRawText();
+            var json = m.GetRawText();
             return json.Contains("continue");
         });
         Assert.True(hasResponse, "Handler should send a response for hook callbacks");
@@ -1918,12 +1848,8 @@ public class HookOutputConversionTests
     }
 }
 
-#endregion
-
-#region Message Type Parsing Tests
-
 /// <summary>
-/// Tests for parsing different message types and edge cases.
+///     Tests for parsing different message types and edge cases.
 /// </summary>
 public class MessageTypeParsingTests
 {
@@ -1938,18 +1864,18 @@ public class MessageTypeParsingTests
         await handler.StartAsync();
 
         transport.EnqueueMessage("""
-        {
-            "type": "assistant",
-            "message": {
-                "content": [
-                    {"type": "text", "text": "I'll help you with that."},
-                    {"type": "tool_use", "id": "tool-123", "name": "Bash", "input": {"command": "ls"}}
-                ],
-                "model": "claude-sonnet-4-20250514",
-                "parent_tool_use_id": null
-            }
-        }
-        """);
+                                 {
+                                     "type": "assistant",
+                                     "message": {
+                                         "content": [
+                                             {"type": "text", "text": "I'll help you with that."},
+                                             {"type": "tool_use", "id": "tool-123", "name": "Bash", "input": {"command": "ls"}}
+                                         ],
+                                         "model": "claude-sonnet-4-20250514",
+                                         "parent_tool_use_id": null
+                                     }
+                                 }
+                                 """);
         transport.CompleteMessages();
 
         var messages = new List<Message>();
@@ -1978,15 +1904,15 @@ public class MessageTypeParsingTests
         await handler.StartAsync();
 
         transport.EnqueueMessage("""
-        {
-            "type": "assistant",
-            "message": {
-                "content": [],
-                "model": "claude-sonnet-4-20250514",
-                "error": "Rate limit exceeded"
-            }
-        }
-        """);
+                                 {
+                                     "type": "assistant",
+                                     "message": {
+                                         "content": [],
+                                         "model": "claude-sonnet-4-20250514",
+                                         "error": "Rate limit exceeded"
+                                     }
+                                 }
+                                 """);
         transport.CompleteMessages();
 
         var messages = new List<Message>();
@@ -2015,16 +1941,16 @@ public class MessageTypeParsingTests
         await handler.StartAsync();
 
         transport.EnqueueMessage("""
-        {
-            "type": "system",
-            "subtype": "compact_boundary",
-            "compact_metadata": {
-                "pre_tokens": 10000,
-                "post_tokens": 5000,
-                "trigger": "token_limit"
-            }
-        }
-        """);
+                                 {
+                                     "type": "system",
+                                     "subtype": "compact_boundary",
+                                     "compact_metadata": {
+                                         "pre_tokens": 10000,
+                                         "post_tokens": 5000,
+                                         "trigger": "token_limit"
+                                     }
+                                 }
+                                 """);
         transport.CompleteMessages();
 
         var messages = new List<Message>();
@@ -2056,17 +1982,17 @@ public class MessageTypeParsingTests
         await handler.StartAsync();
 
         transport.EnqueueMessage("""
-        {
-            "type": "result",
-            "subtype": "success",
-            "duration_ms": 500,
-            "duration_api_ms": 400,
-            "is_error": false,
-            "num_turns": 2,
-            "session_id": "s1",
-            "structured_output": {"analysis": {"score": 95, "issues": []}}
-        }
-        """);
+                                 {
+                                     "type": "result",
+                                     "subtype": "success",
+                                     "duration_ms": 500,
+                                     "duration_api_ms": 400,
+                                     "is_error": false,
+                                     "num_turns": 2,
+                                     "session_id": "s1",
+                                     "structured_output": {"analysis": {"score": 95, "issues": []}}
+                                 }
+                                 """);
         transport.CompleteMessages();
 
         var messages = new List<Message>();
@@ -2096,14 +2022,14 @@ public class MessageTypeParsingTests
         await handler.StartAsync();
 
         transport.EnqueueMessage("""
-        {
-            "type": "stream_event",
-            "uuid": "stream-uuid",
-            "session_id": "s1",
-            "event": {"type": "content_block_start"},
-            "parent_tool_use_id": "parent-tool-123"
-        }
-        """);
+                                 {
+                                     "type": "stream_event",
+                                     "uuid": "stream-uuid",
+                                     "session_id": "s1",
+                                     "event": {"type": "content_block_start"},
+                                     "parent_tool_use_id": "parent-tool-123"
+                                 }
+                                 """);
         transport.CompleteMessages();
 
         var messages = new List<Message>();
@@ -2122,12 +2048,8 @@ public class MessageTypeParsingTests
     }
 }
 
-#endregion
-
-#region Transport Interface Contract Tests
-
 /// <summary>
-/// Tests verifying the ITransport interface contract.
+///     Tests verifying the ITransport interface contract.
 /// </summary>
 public class TransportContractTests
 {
@@ -2222,5 +2144,3 @@ public class TransportContractTests
         await transport.DisposeAsync();
     }
 }
-
-#endregion

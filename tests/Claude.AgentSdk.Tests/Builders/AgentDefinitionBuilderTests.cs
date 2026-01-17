@@ -1,4 +1,4 @@
-using Claude.AgentSdk.Builders;
+﻿using Claude.AgentSdk.Builders;
 using Claude.AgentSdk.Types;
 
 namespace Claude.AgentSdk.Tests.Builders;
@@ -9,8 +9,6 @@ namespace Claude.AgentSdk.Tests.Builders;
 [UnitTest]
 public class AgentDefinitionBuilderTests
 {
-    #region Basic Building Tests
-
     [Fact]
     public void Build_WithRequiredProperties_CreatesAgentDefinition()
     {
@@ -64,10 +62,6 @@ public class AgentDefinitionBuilderTests
         Assert.Throws<ArgumentNullException>(() =>
             new AgentDefinitionBuilder().WithPrompt(null!));
     }
-
-    #endregion
-
-    #region Tools Configuration Tests
 
     [Fact]
     public void WithTools_StringArray_SetsTools()
@@ -155,10 +149,6 @@ public class AgentDefinitionBuilderTests
         Assert.Null(agent.Tools);
     }
 
-    #endregion
-
-    #region Model Configuration Tests
-
     [Fact]
     public void WithModel_String_SetsModel()
     {
@@ -200,10 +190,6 @@ public class AgentDefinitionBuilderTests
         Assert.Null(agent.Model);
     }
 
-    #endregion
-
-    #region Preset Configuration Tests
-
     [Fact]
     public void AsReadOnlyAnalyzer_SetsReadOnlyTools()
     {
@@ -231,10 +217,6 @@ public class AgentDefinitionBuilderTests
         // Assert
         Assert.Equal(["Read", "Write", "Edit", "Grep", "Glob"], agent.Tools);
     }
-
-    #endregion
-
-    #region Chaining Tests
 
     [Fact]
     public void MethodChaining_ReturnsBuilder()
@@ -268,6 +250,4 @@ public class AgentDefinitionBuilderTests
         Assert.Equal(["Read", "Grep", "Glob"], agent.Tools);
         Assert.Equal("sonnet", agent.Model);
     }
-
-    #endregion
 }

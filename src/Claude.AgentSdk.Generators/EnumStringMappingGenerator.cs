@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -20,17 +20,19 @@ public sealed class EnumStringMappingGenerator : IIncrementalGenerator
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         // Find all enums with [GenerateEnumStrings]
-        var enumDeclarations = context.SyntaxProvider
+        IncrementalValuesProvider<EnumDeclarationSyntax?> enumDeclarations = context.SyntaxProvider
             .CreateSyntaxProvider(
-                predicate: static (s, _) => IsCandidateEnum(s),
-                transform: static (ctx, _) => GetSemanticTargetForGeneration(ctx))
+                static (s, _) => IsCandidateEnum(s),
+                static (ctx, _) => GetSemanticTargetForGeneration(ctx))
             .Where(static m => m is not null);
 
         // Combine with compilation
-        var compilationAndEnums = context.CompilationProvider.Combine(enumDeclarations.Collect());
+        IncrementalValueProvider<(Compilation Left, ImmutableArray<EnumDeclarationSyntax?> Right)> compilationAndEnums =
+            context.CompilationProvider.Combine(enumDeclarations.Collect());
 
         // Generate source
-        context.RegisterSourceOutput(compilationAndEnums, static (spc, source) => Execute(source.Left, source.Right!, spc));
+        context.RegisterSourceOutput(compilationAndEnums,
+            static (spc, source) => Execute(source.Left, source.Right!, spc));
     }
 
     private static bool IsCandidateEnum(SyntaxNode node)
@@ -40,16 +42,16 @@ public sealed class EnumStringMappingGenerator : IIncrementalGenerator
 
     private static EnumDeclarationSyntax? GetSemanticTargetForGeneration(GeneratorSyntaxContext context)
     {
-        var enumDeclaration = (EnumDeclarationSyntax)context.Node;
+        EnumDeclarationSyntax enumDeclaration = (EnumDeclarationSyntax)context.Node;
 
-        foreach (var attributeList in enumDeclaration.AttributeLists)
+        foreach (AttributeListSyntax attributeList in enumDeclaration.AttributeLists)
         {
-            foreach (var attribute in attributeList.Attributes)
+            foreach (AttributeSyntax attribute in attributeList.Attributes)
             {
-                var symbol = context.SemanticModel.GetSymbolInfo(attribute).Symbol;
+                ISymbol? symbol = context.SemanticModel.GetSymbolInfo(attribute).Symbol;
                 if (symbol is IMethodSymbol methodSymbol)
                 {
-                    var attributeType = methodSymbol.ContainingType.ToDisplayString();
+                    string attributeType = methodSymbol.ContainingType.ToDisplayString();
                     if (attributeType == GenerateEnumStringsAttribute)
                     {
                         return enumDeclaration;
@@ -61,31 +63,32 @@ public sealed class EnumStringMappingGenerator : IIncrementalGenerator
         return null;
     }
 
-    private static void Execute(Compilation compilation, ImmutableArray<EnumDeclarationSyntax?> enums, SourceProductionContext context)
+    private static void Execute(Compilation compilation, ImmutableArray<EnumDeclarationSyntax?> enums,
+        SourceProductionContext context)
     {
         if (enums.IsDefaultOrEmpty)
         {
             return;
         }
 
-        var enumInfos = new List<EnumInfo>();
+        List<EnumInfo> enumInfos = [];
 
-        foreach (var enumDeclaration in enums.Distinct())
+        foreach (EnumDeclarationSyntax? enumDeclaration in enums.Distinct())
         {
             if (enumDeclaration is null)
             {
                 continue;
             }
 
-            var semanticModel = compilation.GetSemanticModel(enumDeclaration.SyntaxTree);
-            var enumSymbol = semanticModel.GetDeclaredSymbol(enumDeclaration);
+            SemanticModel semanticModel = compilation.GetSemanticModel(enumDeclaration.SyntaxTree);
+            INamedTypeSymbol? enumSymbol = semanticModel.GetDeclaredSymbol(enumDeclaration);
 
             if (enumSymbol is null)
             {
                 continue;
             }
 
-            var enumInfo = GetEnumInfo(enumSymbol, compilation);
+            EnumInfo? enumInfo = GetEnumInfo(enumSymbol, compilation);
             if (enumInfo is not null)
             {
                 enumInfos.Add(enumInfo);
@@ -94,22 +97,22 @@ public sealed class EnumStringMappingGenerator : IIncrementalGenerator
 
         if (enumInfos.Count > 0)
         {
-            var source = GenerateEnumStringMappings(enumInfos);
+            string source = GenerateEnumStringMappings(enumInfos);
             context.AddSource("EnumStringMappings.g.cs", SourceText.From(source, Encoding.UTF8));
         }
     }
 
     private static EnumInfo? GetEnumInfo(INamedTypeSymbol enumSymbol, Compilation compilation)
     {
-        var generateAttrSymbol = compilation.GetTypeByMetadataName(GenerateEnumStringsAttribute);
-        var enumMemberAttrSymbol = compilation.GetTypeByMetadataName(EnumMemberAttribute);
+        INamedTypeSymbol? generateAttrSymbol = compilation.GetTypeByMetadataName(GenerateEnumStringsAttribute);
+        INamedTypeSymbol? enumMemberAttrSymbol = compilation.GetTypeByMetadataName(EnumMemberAttribute);
 
         if (generateAttrSymbol is null)
         {
             return null;
         }
 
-        var generateAttr = enumSymbol.GetAttributes()
+        AttributeData? generateAttr = enumSymbol.GetAttributes()
             .FirstOrDefault(a => SymbolEqualityComparer.Default.Equals(a.AttributeClass, generateAttrSymbol));
 
         if (generateAttr is null)
@@ -118,18 +121,18 @@ public sealed class EnumStringMappingGenerator : IIncrementalGenerator
         }
 
         // Get the default naming strategy from the attribute
-        var namingStrategy = NamingStrategy.SnakeCase;
-        foreach (var namedArg in generateAttr.NamedArguments)
+        NamingStrategy namingStrategy = NamingStrategy.SnakeCase;
+        foreach (KeyValuePair<string, TypedConstant> namedArg in generateAttr.NamedArguments)
         {
-            if (namedArg.Key == "DefaultNaming" && namedArg.Value.Value is int strategyValue)
+            if (namedArg is { Key: "DefaultNaming", Value.Value: int strategyValue })
             {
                 namingStrategy = (NamingStrategy)strategyValue;
             }
         }
 
-        var members = new List<EnumMemberInfo>();
+        List<EnumMemberInfo> members = [];
 
-        foreach (var member in enumSymbol.GetMembers())
+        foreach (ISymbol? member in enumSymbol.GetMembers())
         {
             if (member is not IFieldSymbol { IsConst: true } fieldSymbol)
             {
@@ -140,14 +143,14 @@ public sealed class EnumStringMappingGenerator : IIncrementalGenerator
             string? explicitValue = null;
             if (enumMemberAttrSymbol is not null)
             {
-                var enumMemberAttr = fieldSymbol.GetAttributes()
+                AttributeData? enumMemberAttr = fieldSymbol.GetAttributes()
                     .FirstOrDefault(a => SymbolEqualityComparer.Default.Equals(a.AttributeClass, enumMemberAttrSymbol));
 
                 if (enumMemberAttr is not null)
                 {
-                    foreach (var namedArg in enumMemberAttr.NamedArguments)
+                    foreach (KeyValuePair<string, TypedConstant> namedArg in enumMemberAttr.NamedArguments)
                     {
-                        if (namedArg.Key == "Value" && namedArg.Value.Value is string strValue)
+                        if (namedArg is { Key: "Value", Value.Value: string strValue })
                         {
                             explicitValue = strValue;
                             break;
@@ -156,7 +159,7 @@ public sealed class EnumStringMappingGenerator : IIncrementalGenerator
                 }
             }
 
-            var stringValue = explicitValue ?? ApplyNamingStrategy(fieldSymbol.Name, namingStrategy);
+            string stringValue = explicitValue ?? ApplyNamingStrategy(fieldSymbol.Name, namingStrategy);
 
             members.Add(new EnumMemberInfo
             {
@@ -193,16 +196,18 @@ public sealed class EnumStringMappingGenerator : IIncrementalGenerator
             return name;
         }
 
-        var sb = new StringBuilder();
-        for (var i = 0; i < name.Length; i++)
+        StringBuilder sb = new();
+        for (int i = 0; i < name.Length; i++)
         {
-            var c = name[i];
+            char c = name[i];
             if (char.IsUpper(c) && i > 0)
             {
                 sb.Append('_');
             }
+
             sb.Append(char.ToLowerInvariant(c));
         }
+
         return sb.ToString();
     }
 
@@ -213,22 +218,24 @@ public sealed class EnumStringMappingGenerator : IIncrementalGenerator
             return name;
         }
 
-        var sb = new StringBuilder();
-        for (var i = 0; i < name.Length; i++)
+        StringBuilder sb = new();
+        for (int i = 0; i < name.Length; i++)
         {
-            var c = name[i];
+            char c = name[i];
             if (char.IsUpper(c) && i > 0)
             {
                 sb.Append('-');
             }
+
             sb.Append(char.ToLowerInvariant(c));
         }
+
         return sb.ToString();
     }
 
     private static string GenerateEnumStringMappings(List<EnumInfo> enums)
     {
-        var sb = new StringBuilder();
+        StringBuilder sb = new();
         sb.AppendLine("// <auto-generated />");
         sb.AppendLine("#nullable enable");
         sb.AppendLine();
@@ -236,8 +243,8 @@ public sealed class EnumStringMappingGenerator : IIncrementalGenerator
         sb.AppendLine();
 
         // Collect all unique namespaces
-        var namespaces = enums.Select(e => e.Namespace).Distinct().ToList();
-        foreach (var ns in namespaces)
+        List<string> namespaces = enums.Select(e => e.Namespace).Distinct().ToList();
+        foreach (string? ns in namespaces)
         {
             sb.AppendLine($"using {ns};");
         }
@@ -251,7 +258,7 @@ public sealed class EnumStringMappingGenerator : IIncrementalGenerator
         sb.AppendLine("public static partial class EnumStringMappings");
         sb.AppendLine("{");
 
-        foreach (var enumInfo in enums)
+        foreach (EnumInfo? enumInfo in enums)
         {
             GenerateEnumMethods(sb, enumInfo);
         }
@@ -263,8 +270,8 @@ public sealed class EnumStringMappingGenerator : IIncrementalGenerator
 
     private static void GenerateEnumMethods(StringBuilder sb, EnumInfo enumInfo)
     {
-        var enumName = enumInfo.Name;
-        var fullEnumName = enumInfo.FullName;
+        string enumName = enumInfo.Name;
+        string fullEnumName = enumInfo.FullName;
 
         // Generate ToJsonString extension method
         sb.AppendLine();
@@ -273,11 +280,13 @@ public sealed class EnumStringMappingGenerator : IIncrementalGenerator
         sb.AppendLine("    /// </summary>");
         sb.AppendLine($"    public static string ToJsonString(this {fullEnumName} value) => value switch");
         sb.AppendLine("    {");
-        foreach (var member in enumInfo.Members)
+        foreach (EnumMemberInfo? member in enumInfo.Members)
         {
             sb.AppendLine($"        {fullEnumName}.{member.Name} => \"{EscapeString(member.StringValue)}\",");
         }
-        sb.AppendLine($"        _ => throw new ArgumentOutOfRangeException(nameof(value), value, $\"Unknown {enumName} value: {{value}}\")");
+
+        sb.AppendLine(
+            $"        _ => throw new ArgumentOutOfRangeException(nameof(value), value, $\"Unknown {enumName} value: {{value}}\")");
         sb.AppendLine("    };");
 
         // Generate Parse method
@@ -285,14 +294,17 @@ public sealed class EnumStringMappingGenerator : IIncrementalGenerator
         sb.AppendLine("    /// <summary>");
         sb.AppendLine($"    ///     Parses a JSON string to a {enumName} enum value.");
         sb.AppendLine("    /// </summary>");
-        sb.AppendLine($"    /// <exception cref=\"ArgumentOutOfRangeException\">Thrown when the value is not a valid {enumName} string.</exception>");
+        sb.AppendLine(
+            $"    /// <exception cref=\"ArgumentOutOfRangeException\">Thrown when the value is not a valid {enumName} string.</exception>");
         sb.AppendLine($"    public static {fullEnumName} Parse{enumName}(string value) => value switch");
         sb.AppendLine("    {");
-        foreach (var member in enumInfo.Members)
+        foreach (EnumMemberInfo? member in enumInfo.Members)
         {
             sb.AppendLine($"        \"{EscapeString(member.StringValue)}\" => {fullEnumName}.{member.Name},");
         }
-        sb.AppendLine($"        _ => throw new ArgumentOutOfRangeException(nameof(value), value, $\"Unknown {enumName} string: {{value}}\")");
+
+        sb.AppendLine(
+            $"        _ => throw new ArgumentOutOfRangeException(nameof(value), value, $\"Unknown {enumName} string: {{value}}\")");
         sb.AppendLine("    };");
 
         // Generate TryParse method
@@ -305,12 +317,13 @@ public sealed class EnumStringMappingGenerator : IIncrementalGenerator
         sb.AppendLine("    {");
         sb.AppendLine("        switch (value)");
         sb.AppendLine("        {");
-        foreach (var member in enumInfo.Members)
+        foreach (EnumMemberInfo? member in enumInfo.Members)
         {
             sb.AppendLine($"            case \"{EscapeString(member.StringValue)}\":");
             sb.AppendLine($"                result = {fullEnumName}.{member.Name};");
             sb.AppendLine("                return true;");
         }
+
         sb.AppendLine("            default:");
         sb.AppendLine("                result = default;");
         sb.AppendLine("                return false;");

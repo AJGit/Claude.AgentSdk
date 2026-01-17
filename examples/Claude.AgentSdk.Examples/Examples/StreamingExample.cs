@@ -1,9 +1,9 @@
-using Claude.AgentSdk.Messages;
+﻿using Claude.AgentSdk.Messages;
 
 namespace Claude.AgentSdk.Examples.Examples;
 
 /// <summary>
-/// Demonstrates streaming with partial messages and different message types.
+///     Demonstrates streaming with partial messages and different message types.
 /// </summary>
 public class StreamingExample : IExample
 {
@@ -37,7 +37,7 @@ public class StreamingExample : IExample
         {
             switch (message)
             {
-                case SystemMessage system when system.IsInit:
+                case SystemMessage { IsInit: true } system:
                     Console.WriteLine($"[Session initialized - Model: {system.Model}]");
                     break;
 
@@ -55,10 +55,11 @@ public class StreamingExample : IExample
                             }
                         }
                     }
+
                     break;
 
                 case ResultMessage result:
-                    Console.WriteLine($"\n\n[Completed]");
+                    Console.WriteLine("\n\n[Completed]");
                     Console.WriteLine($"  Total cost: ${result.TotalCostUsd:F4}");
                     Console.WriteLine($"  Duration: {result.DurationMs}ms");
                     Console.WriteLine($"  Turns: {result.NumTurns}");

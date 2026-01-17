@@ -1,16 +1,16 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using Claude.AgentSdk.Messages;
 using Claude.AgentSdk.SignalR.Hubs;
 
 namespace Claude.AgentSdk.SignalR.Services;
 
 /// <summary>
-/// Manages active Claude Agent sessions for SignalR connections.
+///     Manages active Claude Agent sessions for SignalR connections.
 /// </summary>
 public interface ISessionManager
 {
     /// <summary>
-    /// Create a new session for a connection.
+    ///     Create a new session for a connection.
     /// </summary>
     Task<string> CreateSessionAsync(
         string connectionId,
@@ -18,18 +18,18 @@ public interface ISessionManager
         Func<string, Message, Task> messageCallback);
 
     /// <summary>
-    /// Get an existing session by connection ID.
+    ///     Get an existing session by connection ID.
     /// </summary>
     AgentSession? GetSession(string connectionId);
 
     /// <summary>
-    /// Remove a session.
+    ///     Remove a session.
     /// </summary>
     Task RemoveSessionAsync(string connectionId);
 }
 
 /// <summary>
-/// Represents an active agent session.
+///     Represents an active agent session.
 /// </summary>
 public class AgentSession : IAsyncDisposable
 {
@@ -41,7 +41,7 @@ public class AgentSession : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        CancellationTokenSource.Cancel();
+        await CancellationTokenSource.CancelAsync();
         await Session.DisposeAsync();
         await Client.DisposeAsync();
         CancellationTokenSource.Dispose();
@@ -49,17 +49,12 @@ public class AgentSession : IAsyncDisposable
 }
 
 /// <summary>
-/// Default implementation of session manager using in-memory storage.
+///     Default implementation of session manager using in-memory storage.
 /// </summary>
-public class SessionManager : ISessionManager
+public class SessionManager(ILogger<SessionManager> logger) : ISessionManager
 {
+    private readonly ILogger<SessionManager> _logger = logger;
     private readonly ConcurrentDictionary<string, AgentSession> _sessions = new();
-    private readonly ILogger<SessionManager> _logger;
-
-    public SessionManager(ILogger<SessionManager> logger)
-    {
-        _logger = logger;
-    }
 
     public async Task<string> CreateSessionAsync(
         string connectionId,
@@ -69,9 +64,9 @@ public class SessionManager : ISessionManager
         // Remove existing session if any
         await RemoveSessionAsync(connectionId);
 
-        var sessionId = Guid.NewGuid().ToString("N")[..12];
+        string sessionId = Guid.NewGuid().ToString("N")[..12];
 
-        var agentOptions = new ClaudeAgentOptions
+        ClaudeAgentOptions agentOptions = new()
         {
             SystemPrompt = options?.SystemPrompt ?? string.Empty,
             MaxTurns = options?.MaxTurns ?? 10,
@@ -80,12 +75,12 @@ public class SessionManager : ISessionManager
             PermissionMode = PermissionMode.AcceptEdits
         };
 
-        var client = new ClaudeAgentClient(agentOptions);
+        ClaudeAgentClient client = new(agentOptions);
 
         // Create the session for bidirectional communication
-        var claudeSession = await client.CreateSessionAsync();
+        ClaudeAgentSession claudeSession = await client.CreateSessionAsync();
 
-        var session = new AgentSession
+        AgentSession session = new()
         {
             SessionId = sessionId,
             ConnectionId = connectionId,
@@ -108,13 +103,13 @@ public class SessionManager : ISessionManager
 
     public AgentSession? GetSession(string connectionId)
     {
-        _sessions.TryGetValue(connectionId, out var session);
+        _sessions.TryGetValue(connectionId, out AgentSession? session);
         return session;
     }
 
     public async Task RemoveSessionAsync(string connectionId)
     {
-        if (_sessions.TryRemove(connectionId, out var session))
+        if (_sessions.TryRemove(connectionId, out AgentSession? session))
         {
             _logger.LogInformation(
                 "Removing session {SessionId} for connection {ConnectionId}",
@@ -131,7 +126,7 @@ public class SessionManager : ISessionManager
     {
         try
         {
-            await foreach (var message in session.Session.ReceiveAsync(session.CancellationTokenSource.Token))
+            await foreach (Message message in session.Session.ReceiveAsync(session.CancellationTokenSource.Token))
             {
                 try
                 {

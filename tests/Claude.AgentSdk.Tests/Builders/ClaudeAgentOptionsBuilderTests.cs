@@ -1,4 +1,4 @@
-using Claude.AgentSdk.Builders;
+﻿using Claude.AgentSdk.Builders;
 using Claude.AgentSdk.Protocol;
 using Claude.AgentSdk.Types;
 
@@ -10,8 +10,6 @@ namespace Claude.AgentSdk.Tests.Builders;
 [UnitTest]
 public class ClaudeAgentOptionsBuilderTests
 {
-    #region Model Configuration Tests
-
     [Fact]
     public void WithModel_SetsModelId()
     {
@@ -35,10 +33,6 @@ public class ClaudeAgentOptionsBuilderTests
         // Assert
         Assert.Equal("haiku", options.FallbackModelId?.Value);
     }
-
-    #endregion
-
-    #region System Prompt Tests
 
     [Fact]
     public void WithSystemPrompt_SetsCustomSystemPrompt()
@@ -72,7 +66,7 @@ public class ClaudeAgentOptionsBuilderTests
     {
         // Act
         var options = new ClaudeAgentOptionsBuilder()
-            .UseClaudeCodePreset(append: "Focus on C# development.")
+            .UseClaudeCodePreset("Focus on C# development.")
             .Build();
 
         // Assert
@@ -81,10 +75,6 @@ public class ClaudeAgentOptionsBuilderTests
         var preset = (PresetSystemPrompt)options.SystemPrompt;
         Assert.Equal("Focus on C# development.", preset.Append);
     }
-
-    #endregion
-
-    #region Tools Configuration Tests
 
     [Fact]
     public void UseClaudeCodeTools_SetsClaudeCodeToolsPreset()
@@ -178,10 +168,6 @@ public class ClaudeAgentOptionsBuilderTests
         Assert.Equal(["Bash", "Write"], options.DisallowedTools);
     }
 
-    #endregion
-
-    #region Permission Configuration Tests
-
     [Fact]
     public void WithPermissionMode_SetsPermissionMode()
     {
@@ -221,10 +207,6 @@ public class ClaudeAgentOptionsBuilderTests
         // Assert
         Assert.NotNull(options.CanUseTool);
     }
-
-    #endregion
-
-    #region Session Configuration Tests
 
     [Fact]
     public void ContinueConversation_SetsContinueConversation()
@@ -275,10 +257,6 @@ public class ClaudeAgentOptionsBuilderTests
         Assert.True(options.ForkSession);
     }
 
-    #endregion
-
-    #region Limits and Budget Tests
-
     [Fact]
     public void WithMaxTurns_SetsMaxTurns()
     {
@@ -315,10 +293,6 @@ public class ClaudeAgentOptionsBuilderTests
         Assert.Equal(1000, options.MaxThinkingTokens);
     }
 
-    #endregion
-
-    #region Path Configuration Tests
-
     [Fact]
     public void WithWorkingDirectory_SetsWorkingDirectory()
     {
@@ -354,10 +328,6 @@ public class ClaudeAgentOptionsBuilderTests
         // Assert
         Assert.Equal(["/home/user/lib", "/home/user/includes"], options.AddDirectories);
     }
-
-    #endregion
-
-    #region Environment and Extra Args Tests
 
     [Fact]
     public void WithEnvironment_SingleVar_AddsEnvironmentVariable()
@@ -404,10 +374,6 @@ public class ClaudeAgentOptionsBuilderTests
         Assert.Contains(new KeyValuePair<string, string?>("--verbose", null), options.ExtraArgs);
         Assert.Contains(new KeyValuePair<string, string?>("--config", "/path/to/config"), options.ExtraArgs);
     }
-
-    #endregion
-
-    #region Features Tests
 
     [Fact]
     public void IncludePartialMessages_SetsIncludePartialMessages()
@@ -493,10 +459,6 @@ public class ClaudeAgentOptionsBuilderTests
         Assert.Equal(512, options.MessageChannelCapacity);
     }
 
-    #endregion
-
-    #region Chaining Tests
-
     [Fact]
     public void Build_WithMultipleConfigurations_CreatesCorrectOptions()
     {
@@ -534,6 +496,4 @@ public class ClaudeAgentOptionsBuilderTests
         Assert.Empty(options.AllowedTools);
         Assert.Empty(options.DisallowedTools);
     }
-
-    #endregion
 }

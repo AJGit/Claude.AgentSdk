@@ -1,12 +1,13 @@
 ﻿using System.Collections.Concurrent;
 using System.Text.Json;
 using Claude.AgentSdk.Protocol;
+
 #pragma warning disable CA1063
 
 namespace Claude.AgentSdk.ResearchAgent;
 
 /// <summary>
-/// Record of a single tool call made by an agent.
+///     Record of a single tool call made by an agent.
 /// </summary>
 public record ToolCallRecord
 {
@@ -21,7 +22,7 @@ public record ToolCallRecord
 }
 
 /// <summary>
-/// Information about a subagent execution session.
+///     Information about a subagent execution session.
 /// </summary>
 public record SubagentSession
 {
@@ -34,35 +35,36 @@ public record SubagentSession
 }
 
 /// <summary>
-/// Tracks all tool calls made by subagents using hooks.
-///
-/// This tracker:
-/// 1. Monitors Task tool usage to detect subagent spawns
-/// 2. Uses hooks (PreToolUse/PostToolUse) to capture all tool invocations
-/// 3. Associates tool calls with their originating subagent
-/// 4. Logs tool usage to console and JSONL files
+///     Tracks all tool calls made by subagents using hooks.
+///     This tracker:
+///     1. Monitors Task tool usage to detect subagent spawns
+///     2. Uses hooks (PreToolUse/PostToolUse) to capture all tool invocations
+///     3. Associates tool calls with their originating subagent
+///     4. Logs tool usage to console and JSONL files
 /// </summary>
 public class SubagentTracker : IDisposable
 {
-    private readonly ConcurrentDictionary<string, SubagentSession> _sessions = new();
-    private readonly ConcurrentDictionary<string, ToolCallRecord> _toolCallRecords = new();
-    private readonly ConcurrentDictionary<string, int> _subagentCounters = new();
-    private readonly StreamWriter? _toolLogWriter;
-    private readonly Lock _consoleLock = new();
+    /// <summary>
+    ///     Tools that the main agent is NOT allowed to use directly.
+    ///     These must be delegated to subagents.
+    /// </summary>
+    private static readonly HashSet<string> _forbiddenMainAgentTools = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "WebSearch", "WebFetch", "Write", "Read", "Glob", "Grep", "Edit", "Bash"
+    };
 
     /// <summary>
-    /// Set of currently active subagent tool_use_ids (from SubagentStart to SubagentStop).
+    ///     Set of currently active subagent tool_use_ids (from SubagentStart to SubagentStop).
     /// </summary>
     private readonly ConcurrentDictionary<string, bool> _activeSubagents = new();
 
+    private readonly Lock _consoleLock = new();
+    private readonly ConcurrentDictionary<string, SubagentSession> _sessions = new();
+    private readonly ConcurrentDictionary<string, int> _subagentCounters = new();
+    private readonly ConcurrentDictionary<string, ToolCallRecord> _toolCallRecords = new();
+    private readonly StreamWriter? _toolLogWriter;
+
     private string? _currentParentId;
-
-    public string SessionDir { get; }
-
-    /// <summary>
-    /// Returns true if any subagent is currently running.
-    /// </summary>
-    public bool HasActiveSubagents => !_activeSubagents.IsEmpty;
 
     public SubagentTracker(string sessionDir)
     {
@@ -72,12 +74,29 @@ public class SubagentTracker : IDisposable
         Directory.CreateDirectory(sessionDir);
 
         // Open tool call log file
-        var toolLogPath = Path.Combine(sessionDir, "tool_calls.jsonl");
-        _toolLogWriter = new StreamWriter(toolLogPath, append: false) { AutoFlush = true };
+        string toolLogPath = Path.Combine(sessionDir, "tool_calls.jsonl");
+        _toolLogWriter = new StreamWriter(toolLogPath, false) { AutoFlush = true };
+    }
+
+    public string SessionDir { get; }
+
+    /// <summary>
+    ///     Returns true if any subagent is currently running.
+    /// </summary>
+    public bool HasActiveSubagents => !_activeSubagents.IsEmpty;
+
+    /// <summary>
+    ///     Whether to enforce tool restrictions (block main agent from using subagent tools).
+    /// </summary>
+    public bool EnforceToolRestrictions { get; set; } = true;
+
+    public void Dispose()
+    {
+        _toolLogWriter?.Dispose();
     }
 
     /// <summary>
-    /// Registers a new subagent spawn detected from a Task tool call.
+    ///     Registers a new subagent spawn detected from a Task tool call.
     /// </summary>
     public string RegisterSubagentSpawn(
         string toolUseId,
@@ -86,10 +105,10 @@ public class SubagentTracker : IDisposable
         string? prompt = null)
     {
         // Increment counter for this subagent type
-        var count = _subagentCounters.AddOrUpdate(subagentType, 1, (_, c) => c + 1);
-        var subagentId = $"{subagentType.ToUpperInvariant()}-{count}";
+        int count = _subagentCounters.AddOrUpdate(subagentType, 1, (_, c) => c + 1);
+        string subagentId = $"{subagentType.ToUpperInvariant()}-{count}";
 
-        var session = new SubagentSession
+        SubagentSession session = new()
         {
             SubagentType = subagentType,
             ParentToolUseId = toolUseId,
@@ -116,7 +135,7 @@ public class SubagentTracker : IDisposable
     }
 
     /// <summary>
-    /// Updates the current execution context from message stream.
+    ///     Updates the current execution context from message stream.
     /// </summary>
     public void SetCurrentContext(string? parentToolUseId)
     {
@@ -124,7 +143,7 @@ public class SubagentTracker : IDisposable
     }
 
     /// <summary>
-    /// Marks a subagent as active (called when SubagentStart hook fires).
+    ///     Marks a subagent as active (called when SubagentStart hook fires).
     /// </summary>
     public void MarkSubagentActive(string toolUseId)
     {
@@ -138,7 +157,7 @@ public class SubagentTracker : IDisposable
     }
 
     /// <summary>
-    /// Marks a subagent as inactive (called when SubagentStop hook fires).
+    ///     Marks a subagent as inactive (called when SubagentStop hook fires).
     /// </summary>
     public void MarkSubagentInactive(string toolUseId)
     {
@@ -152,7 +171,7 @@ public class SubagentTracker : IDisposable
     }
 
     /// <summary>
-    /// SubagentStart hook callback.
+    ///     SubagentStart hook callback.
     /// </summary>
     public async Task<HookOutput> SubagentStartHookAsync(
         HookInput input,
@@ -164,11 +183,12 @@ public class SubagentTracker : IDisposable
         {
             MarkSubagentActive(toolUseId);
         }
+
         return new SyncHookOutput { Continue = true };
     }
 
     /// <summary>
-    /// SubagentStop hook callback.
+    ///     SubagentStop hook callback.
     /// </summary>
     public async Task<HookOutput> SubagentStopHookAsync(
         HookInput input,
@@ -180,25 +200,12 @@ public class SubagentTracker : IDisposable
         {
             MarkSubagentInactive(toolUseId);
         }
+
         return new SyncHookOutput { Continue = true };
     }
 
     /// <summary>
-    /// Tools that the main agent is NOT allowed to use directly.
-    /// These must be delegated to subagents.
-    /// </summary>
-    private static readonly HashSet<string> ForbiddenMainAgentTools = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "WebSearch", "WebFetch", "Write", "Read", "Glob", "Grep", "Edit", "Bash"
-    };
-
-    /// <summary>
-    /// Whether to enforce tool restrictions (block main agent from using subagent tools).
-    /// </summary>
-    public bool EnforceToolRestrictions { get; set; } = true;
-
-    /// <summary>
-    /// PreToolUse hook callback - captures tool calls and optionally blocks main agent tool abuse.
+    ///     PreToolUse hook callback - captures tool calls and optionally blocks main agent tool abuse.
     /// </summary>
     public async Task<HookOutput> PreToolUseHookAsync(
         HookInput input,
@@ -207,23 +214,25 @@ public class SubagentTracker : IDisposable
         CancellationToken cancellationToken)
     {
         if (input is not PreToolUseHookInput preInput || toolUseId is null)
+        {
             return new SyncHookOutput { Continue = true };
+        }
 
-        var toolName = preInput.ToolName;
-        var toolInput = preInput.ToolInput;
-        var timestamp = DateTime.Now.ToString("o");
+        string toolName = preInput.ToolName;
+        JsonElement toolInput = preInput.ToolInput;
+        string timestamp = DateTime.Now.ToString("o");
 
         // Determine agent context using multiple signals:
         // 1. Message-based context (ParentToolUseId from AssistantMessage)
         // 2. Hook-based context (between SubagentStart and SubagentStop)
-        var hasMessageContext = _currentParentId is not null && _sessions.ContainsKey(_currentParentId);
-        var hasActiveSubagentContext = HasActiveSubagents;
-        var isSubagent = hasMessageContext || hasActiveSubagentContext;
+        bool hasMessageContext = _currentParentId is not null && _sessions.ContainsKey(_currentParentId);
+        bool hasActiveSubagentContext = HasActiveSubagents;
+        bool isSubagent = hasMessageContext || hasActiveSubagentContext;
 
         // If we have message context with a known session, log with full details
-        if (hasMessageContext && _sessions.TryGetValue(_currentParentId!, out var session))
+        if (hasMessageContext && _sessions.TryGetValue(_currentParentId!, out SubagentSession? session))
         {
-            var record = new ToolCallRecord
+            ToolCallRecord record = new()
             {
                 Timestamp = timestamp,
                 ToolName = toolName,
@@ -281,14 +290,14 @@ public class SubagentTracker : IDisposable
             });
 
             // ENFORCEMENT: Block main agent from using forbidden tools
-            if (EnforceToolRestrictions && ForbiddenMainAgentTools.Contains(toolName))
+            if (EnforceToolRestrictions && _forbiddenMainAgentTools.Contains(toolName))
             {
                 lock (_consoleLock)
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine();
                     Console.WriteLine($"[BLOCKED] Main agent attempted to use {toolName} directly!");
-                    Console.WriteLine($"          Main agent must delegate to subagents for this tool.");
+                    Console.WriteLine("          Main agent must delegate to subagents for this tool.");
                     Console.ResetColor();
                 }
 
@@ -306,8 +315,9 @@ public class SubagentTracker : IDisposable
                 {
                     Continue = false,
                     Decision = "block",
-                    Reason = $"DENIED: You cannot use {toolName} directly. You MUST spawn a subagent using the Task tool. " +
-                             $"Use 'researcher' subagent for WebSearch/Write or 'report-writer' for Read/Write/Glob."
+                    Reason =
+                        $"DENIED: You cannot use {toolName} directly. You MUST spawn a subagent using the Task tool. " +
+                        $"Use 'researcher' subagent for WebSearch/Write or 'report-writer' for Read/Write/Glob."
                 };
             }
         }
@@ -316,7 +326,7 @@ public class SubagentTracker : IDisposable
     }
 
     /// <summary>
-    /// PostToolUse hook callback - captures tool results.
+    ///     PostToolUse hook callback - captures tool results.
     /// </summary>
     public async Task<HookOutput> PostToolUseHookAsync(
         HookInput input,
@@ -325,10 +335,14 @@ public class SubagentTracker : IDisposable
         CancellationToken cancellationToken)
     {
         if (input is not PostToolUseHookInput postInput || toolUseId is null)
+        {
             return new SyncHookOutput { Continue = true };
+        }
 
-        if (!_toolCallRecords.TryGetValue(toolUseId, out var record))
+        if (!_toolCallRecords.TryGetValue(toolUseId, out ToolCallRecord? record))
+        {
             return new SyncHookOutput { Continue = true };
+        }
 
         // Update record with output
         record.ToolOutput = postInput.ToolResponse;
@@ -336,12 +350,12 @@ public class SubagentTracker : IDisposable
         // Check for errors
         string? error = null;
         if (postInput.ToolResponse?.ValueKind == JsonValueKind.Object &&
-            postInput.ToolResponse.Value.TryGetProperty("error", out var errorElement))
+            postInput.ToolResponse.Value.TryGetProperty("error", out JsonElement errorElement))
         {
             error = errorElement.GetString();
             record.Error = error;
 
-            if (_currentParentId is not null && _sessions.TryGetValue(_currentParentId, out var session))
+            if (_currentParentId is not null && _sessions.TryGetValue(_currentParentId, out SubagentSession? session))
             {
                 lock (_consoleLock)
                 {
@@ -353,12 +367,13 @@ public class SubagentTracker : IDisposable
         }
 
         // Get agent info for logging
-        var agentId = "MAIN_AGENT";
-        var agentType = "lead";
-        if (record.ParentToolUseId is not null && _sessions.TryGetValue(record.ParentToolUseId, out var sess))
+        string agentId = "MAIN_AGENT";
+        string agentType = "lead";
+        if (record.ParentToolUseId is not null &&
+            _sessions.TryGetValue(record.ParentToolUseId, out SubagentSession? subSession))
         {
-            agentId = sess.SubagentId;
-            agentType = sess.SubagentType;
+            agentId = subSession.SubagentId;
+            agentType = subSession.SubagentType;
         }
 
         LogToJsonl(new
@@ -379,7 +394,7 @@ public class SubagentTracker : IDisposable
 
     private void LogToolUse(string agentLabel, string toolName, JsonElement? toolInput)
     {
-        var inputSummary = FormatToolInput(toolInput);
+        string inputSummary = FormatToolInput(toolInput);
 
         lock (_consoleLock)
         {
@@ -394,6 +409,7 @@ public class SubagentTracker : IDisposable
                 Console.ForegroundColor = ConsoleColor.DarkGray;
                 Console.Write($" ({inputSummary})");
             }
+
             Console.ResetColor();
             Console.WriteLine();
         }
@@ -402,45 +418,51 @@ public class SubagentTracker : IDisposable
     private static string FormatToolInput(JsonElement? toolInput, int maxLength = 60)
     {
         if (toolInput is null)
+        {
             return "";
+        }
 
         try
         {
-            var element = toolInput.Value;
+            JsonElement element = toolInput.Value;
 
             // WebSearch: show query
-            if (element.TryGetProperty("query", out var queryElement))
+            if (element.TryGetProperty("query", out JsonElement queryElement))
             {
-                var query = queryElement.GetString() ?? "";
+                string query = queryElement.GetString() ?? "";
                 return query.Length <= maxLength ? $"query=\"{query}\"" : $"query=\"{query[..maxLength]}...\"";
             }
 
             // Write: show file path
-            if (element.TryGetProperty("file_path", out var pathElement))
+            if (element.TryGetProperty("file_path", out JsonElement pathElement))
             {
-                var path = pathElement.GetString() ?? "";
-                var fileName = Path.GetFileName(path);
-                if (element.TryGetProperty("content", out var contentElement))
+                string path = pathElement.GetString() ?? "";
+                string fileName = Path.GetFileName(path);
+                if (element.TryGetProperty("content", out JsonElement contentElement))
                 {
-                    var content = contentElement.GetString() ?? "";
+                    string content = contentElement.GetString() ?? "";
                     return $"file=\"{fileName}\" ({content.Length} chars)";
                 }
+
                 return $"path=\"{fileName}\"";
             }
 
             // Pattern for Glob
-            if (element.TryGetProperty("pattern", out var patternElement))
+            if (element.TryGetProperty("pattern", out JsonElement patternElement))
             {
                 return $"pattern=\"{patternElement.GetString()}\"";
             }
 
             // Task: show subagent spawn
-            if (element.TryGetProperty("subagent_type", out var subagentTypeElement))
+            if (element.TryGetProperty("subagent_type", out JsonElement subagentTypeElement))
             {
-                var subagentType = subagentTypeElement.GetString() ?? "";
-                var desc = "";
-                if (element.TryGetProperty("description", out var descElement))
+                string subagentType = subagentTypeElement.GetString() ?? "";
+                string desc = "";
+                if (element.TryGetProperty("description", out JsonElement descElement))
+                {
                     desc = descElement.GetString() ?? "";
+                }
+
                 return $"spawn={subagentType} ({desc})";
             }
         }
@@ -456,17 +478,12 @@ public class SubagentTracker : IDisposable
     {
         try
         {
-            var json = JsonSerializer.Serialize(entry);
+            string json = JsonSerializer.Serialize(entry);
             _toolLogWriter?.WriteLine(json);
         }
         catch
         {
             // Ignore logging errors
         }
-    }
-        
-    public void Dispose()
-    {
-        _toolLogWriter?.Dispose();
     }
 }

@@ -1,26 +1,23 @@
 ﻿using System.Collections.Concurrent;
+using System.Reflection;
 using System.Text.Json;
-using Claude.AgentSdk.Exceptions;
 using Claude.AgentSdk.Protocol;
-using Claude.AgentSdk.Transport;
 
 namespace Claude.AgentSdk.Tests.Protocol;
 
-#region ControlMockTransport Implementation
-
 /// <summary>
-/// Extended mock transport for testing QueryHandler control protocol functionality.
-/// Supports configuring control responses, simulating timeouts, and auto-responding.
+///     Extended mock transport for testing QueryHandler control protocol functionality.
+///     Supports configuring control responses, simulating timeouts, and auto-responding.
 /// </summary>
 internal sealed class ControlMockTransport : MockTransport
 {
     private readonly ConcurrentDictionary<string, JsonElement> _configuredResponses = new();
-    private bool _simulateTimeout;
-    private TimeSpan _responseDelay = TimeSpan.Zero;
     private bool _autoRespond = true;
+    private TimeSpan _responseDelay = TimeSpan.Zero;
+    private bool _simulateTimeout;
 
     /// <summary>
-    /// Configure the transport to simulate timeout (no response sent).
+    ///     Configure the transport to simulate timeout (no response sent).
     /// </summary>
     public void SimulateTimeout(bool simulate = true)
     {
@@ -29,7 +26,7 @@ internal sealed class ControlMockTransport : MockTransport
     }
 
     /// <summary>
-    /// Configure a response delay before auto-responding.
+    ///     Configure a response delay before auto-responding.
     /// </summary>
     public void SetResponseDelay(TimeSpan delay)
     {
@@ -37,7 +34,7 @@ internal sealed class ControlMockTransport : MockTransport
     }
 
     /// <summary>
-    /// Configure a specific control response for a request ID.
+    ///     Configure a specific control response for a request ID.
     /// </summary>
     public void ConfigureControlResponse(string requestId, JsonElement response)
     {
@@ -45,7 +42,7 @@ internal sealed class ControlMockTransport : MockTransport
     }
 
     /// <summary>
-    /// Disable auto-response to control_requests.
+    ///     Disable auto-response to control_requests.
     /// </summary>
     public void DisableAutoResponse()
     {
@@ -53,90 +50,89 @@ internal sealed class ControlMockTransport : MockTransport
     }
 
     /// <summary>
-    /// Inject a control response for a specific request.
+    ///     Inject a control response for a specific request.
     /// </summary>
     public void InjectControlResponse(string requestId, object? responseData = null)
     {
-        var responseJson = $$"""
-            {
-                "type": "control_response",
-                "response": {
-                    "subtype": "success",
-                    "request_id": "{{requestId}}",
-                    "response": {{(responseData != null ? JsonSerializer.Serialize(responseData) : "null")}}
-                }
-            }
-            """;
+        string responseJson = $$"""
+                                {
+                                    "type": "control_response",
+                                    "response": {
+                                        "subtype": "success",
+                                        "request_id": "{{requestId}}",
+                                        "response": {{(responseData != null ? JsonSerializer.Serialize(responseData) : "null")}}
+                                    }
+                                }
+                                """;
         EnqueueMessage(responseJson);
     }
 
     /// <summary>
-    /// Override WriteAsync to intercept control_requests and auto-respond.
+    ///     Override WriteAsync to intercept control_requests and auto-respond.
     /// </summary>
     public override async Task WriteAsync<T>(T message, CancellationToken cancellationToken = default)
     {
         await base.WriteAsync(message, cancellationToken);
 
-        if (_simulateTimeout || !_autoRespond) return;
+        if (_simulateTimeout || !_autoRespond)
+        {
+            return;
+        }
 
         // Serialize to check if it's a control_request
-        var json = JsonSerializer.Serialize(message, new JsonSerializerOptions
+        string json = JsonSerializer.Serialize(message, new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
         });
 
-        using var doc = JsonDocument.Parse(json);
-        if (doc.RootElement.TryGetProperty("type", out var typeElem) &&
+        using JsonDocument doc = JsonDocument.Parse(json);
+        if (doc.RootElement.TryGetProperty("type", out JsonElement typeElem) &&
             typeElem.GetString() == "control_request" &&
-            doc.RootElement.TryGetProperty("request_id", out var requestIdElem))
+            doc.RootElement.TryGetProperty("request_id", out JsonElement requestIdElem))
         {
-            var requestId = requestIdElem.GetString()!;
+            string requestId = requestIdElem.GetString()!;
 
             // Schedule response (async to simulate real behavior)
             _ = Task.Run(async () =>
             {
                 if (_responseDelay > TimeSpan.Zero)
                 {
-                    await Task.Delay(_responseDelay);
+                    await Task.Delay(_responseDelay, cancellationToken);
                 }
 
-                if (_configuredResponses.TryRemove(requestId, out var configuredResponse))
+                if (_configuredResponses.TryRemove(requestId, out JsonElement configuredResponse))
                 {
-                    var responseJson = $$"""
-                        {
-                            "type": "control_response",
-                            "response": {
-                                "subtype": "success",
-                                "request_id": "{{requestId}}",
-                                "response": {{configuredResponse.GetRawText()}}
-                            }
-                        }
-                        """;
+                    string responseJson = $$"""
+                                            {
+                                                "type": "control_response",
+                                                "response": {
+                                                    "subtype": "success",
+                                                    "request_id": "{{requestId}}",
+                                                    "response": {{configuredResponse.GetRawText()}}
+                                                }
+                                            }
+                                            """;
                     EnqueueMessage(responseJson);
                 }
                 else
                 {
                     InjectControlResponse(requestId);
                 }
-            });
+            }, cancellationToken);
         }
     }
 
     /// <summary>
-    /// Get all written messages as JsonElements.
+    ///     Get all written messages as JsonElements.
     /// </summary>
     public new IReadOnlyList<JsonElement> GetAllWrittenMessagesAsJson()
     {
-        return WrittenMessages.Cast<JsonElement>().ToList();
+        return WrittenMessages.ToList();
     }
 }
 
-#endregion
-
-#region QueryHandler Control Response Tests
-
 /// <summary>
-/// Tests for QueryHandler's control response handling functionality.
+///     Tests for QueryHandler's control response handling functionality.
 /// </summary>
 public class QueryHandlerControlResponseTests
 {
@@ -144,22 +140,22 @@ public class QueryHandlerControlResponseTests
     public async Task HandleControlResponse_ExtractsResponseAndRequestId()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
         // Send a control request to get a request ID
-        var initTask = handler.InitializeAsync();
+        dynamic? initTask = handler.InitializeAsync();
 
         // The mock transport will auto-respond, complete initialization
         await initTask;
 
         // Assert - verify the request was sent correctly
-        var messages = transport.GetAllWrittenMessagesAsJson();
+        IReadOnlyList<JsonElement> messages = transport.GetAllWrittenMessagesAsJson();
         Assert.Contains(messages, m =>
-            m.TryGetProperty("type", out var t) &&
+            m.TryGetProperty("type", out JsonElement t) &&
             t.GetString() == "control_request");
     }
 
@@ -167,17 +163,17 @@ public class QueryHandlerControlResponseTests
     public async Task HandleControlResponse_CompletesTaskCompletionSourceWithResponse()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
         // Act - call GetSupportedModelsAsync which uses control requests
-        var responseTask = handler.GetSupportedModelsAsync();
+        dynamic? responseTask = handler.GetSupportedModelsAsync();
 
         // The mock will auto-respond with default response
-        var result = await responseTask;
+        dynamic? result = await responseTask;
 
         // Assert - response was received (default null from mock)
         Assert.True(result.ValueKind == JsonValueKind.Null || result.ValueKind != JsonValueKind.Undefined);
@@ -187,10 +183,10 @@ public class QueryHandlerControlResponseTests
     public async Task HandleControlResponse_MissingResponseProperty_HandlesGracefully()
     {
         // Arrange
-        var transport = new ControlMockTransport();
+        ControlMockTransport transport = new();
         transport.DisableAutoResponse();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
@@ -208,10 +204,10 @@ public class QueryHandlerControlResponseTests
     public async Task HandleControlResponse_MissingRequestId_LogsWarning()
     {
         // Arrange
-        var transport = new ControlMockTransport();
+        ControlMockTransport transport = new();
         transport.DisableAutoResponse();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
@@ -235,10 +231,10 @@ public class QueryHandlerControlResponseTests
     public async Task HandleControlResponse_UnknownRequestId_LogsWarning()
     {
         // Arrange
-        var transport = new ControlMockTransport();
+        ControlMockTransport transport = new();
         transport.DisableAutoResponse();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
@@ -262,18 +258,14 @@ public class QueryHandlerControlResponseTests
     private static dynamic CreateQueryHandler(ControlMockTransport transport, ClaudeAgentOptions options)
     {
         // Use reflection to create QueryHandler since it's internal
-        var assembly = typeof(ClaudeAgentOptions).Assembly;
-        var handlerType = assembly.GetType("Claude.AgentSdk.Protocol.QueryHandler")!;
+        Assembly assembly = typeof(ClaudeAgentOptions).Assembly;
+        Type handlerType = assembly.GetType("Claude.AgentSdk.Protocol.QueryHandler")!;
         return Activator.CreateInstance(handlerType, transport, options, null)!;
     }
 }
 
-#endregion
-
-#region QueryHandler Control Request Tests
-
 /// <summary>
-/// Tests for QueryHandler's control request sending functionality.
+///     Tests for QueryHandler's control request sending functionality.
 /// </summary>
 public class QueryHandlerControlRequestTests
 {
@@ -281,23 +273,23 @@ public class QueryHandlerControlRequestTests
     public async Task SendControlRequest_GeneratesUniqueRequestIds()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
         // Act - send multiple control requests
-        var task1 = handler.GetSupportedModelsAsync();
-        var task2 = handler.GetSupportedCommandsAsync();
-        var task3 = handler.GetAccountInfoAsync();
+        dynamic? task1 = handler.GetSupportedModelsAsync();
+        dynamic? task2 = handler.GetSupportedCommandsAsync();
+        dynamic? task3 = handler.GetAccountInfoAsync();
 
         await Task.WhenAll(task1, task2, task3);
 
         // Assert - verify different request IDs
-        var messages = transport.GetAllWrittenMessagesAsJson();
-        var requestIds = messages
-            .Where(m => m.TryGetProperty("type", out var t) && t.GetString() == "control_request")
+        IReadOnlyList<JsonElement> messages = transport.GetAllWrittenMessagesAsJson();
+        List<string?> requestIds = messages
+            .Where(m => m.TryGetProperty("type", out JsonElement t) && t.GetString() == "control_request")
             .Select(m => m.GetProperty("request_id").GetString())
             .ToList();
 
@@ -309,9 +301,9 @@ public class QueryHandlerControlRequestTests
     public async Task SendControlRequest_SendsCorrectStructure()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
@@ -319,15 +311,15 @@ public class QueryHandlerControlRequestTests
         await handler.InterruptAsync();
 
         // Assert
-        var messages = transport.GetAllWrittenMessagesAsJson();
-        var controlRequest = messages.First(m =>
-            m.TryGetProperty("type", out var t) && t.GetString() == "control_request");
+        IReadOnlyList<JsonElement> messages = transport.GetAllWrittenMessagesAsJson();
+        JsonElement controlRequest = messages.First(m =>
+            m.TryGetProperty("type", out JsonElement t) && t.GetString() == "control_request");
 
         // Verify structure
         Assert.Equal("control_request", controlRequest.GetProperty("type").GetString());
-        Assert.True(controlRequest.TryGetProperty("request_id", out var reqId));
+        Assert.True(controlRequest.TryGetProperty("request_id", out JsonElement reqId));
         Assert.False(string.IsNullOrEmpty(reqId.GetString()));
-        Assert.True(controlRequest.TryGetProperty("request", out var request));
+        Assert.True(controlRequest.TryGetProperty("request", out JsonElement request));
         Assert.Equal("interrupt", request.GetProperty("subtype").GetString());
     }
 
@@ -335,17 +327,17 @@ public class QueryHandlerControlRequestTests
     public async Task SendControlRequest_CancellationToken_Respected()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        transport.SimulateTimeout(true);
+        ControlMockTransport transport = new();
+        transport.SimulateTimeout();
 
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
         // Create pre-cancelled token
-        using var cts = new CancellationTokenSource();
-        cts.Cancel();
+        using CancellationTokenSource cts = new();
+        await cts.CancelAsync();
 
         // Act & Assert - TaskCanceledException is a subclass of OperationCanceledException
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
@@ -358,9 +350,9 @@ public class QueryHandlerControlRequestTests
     public async Task SendControlRequest_CleansUpPendingResponses()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
@@ -373,27 +365,23 @@ public class QueryHandlerControlRequestTests
         await handler.InterruptAsync();
 
         // All three requests should complete without issues
-        var messages = transport.GetAllWrittenMessagesAsJson();
-        var controlRequests = messages.Count(m =>
-            m.TryGetProperty("type", out var t) && t.GetString() == "control_request");
+        IReadOnlyList<JsonElement> messages = transport.GetAllWrittenMessagesAsJson();
+        int controlRequests = messages.Count(m =>
+            m.TryGetProperty("type", out JsonElement t) && t.GetString() == "control_request");
 
         Assert.Equal(3, controlRequests);
     }
 
     private static dynamic CreateQueryHandler(ControlMockTransport transport, ClaudeAgentOptions options)
     {
-        var assembly = typeof(ClaudeAgentOptions).Assembly;
-        var handlerType = assembly.GetType("Claude.AgentSdk.Protocol.QueryHandler")!;
+        Assembly assembly = typeof(ClaudeAgentOptions).Assembly;
+        Type handlerType = assembly.GetType("Claude.AgentSdk.Protocol.QueryHandler")!;
         return Activator.CreateInstance(handlerType, transport, options, null)!;
     }
 }
 
-#endregion
-
-#region Specific Control Command Tests
-
 /// <summary>
-/// Tests for specific control commands in QueryHandler.
+///     Tests for specific control commands in QueryHandler.
 /// </summary>
 public class QueryHandlerControlCommandTests
 {
@@ -401,9 +389,9 @@ public class QueryHandlerControlCommandTests
     public async Task InitializeAsync_SendsInitializeSubtype()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
@@ -411,7 +399,7 @@ public class QueryHandlerControlCommandTests
         await handler.InitializeAsync();
 
         // Assert
-        var request = GetLastControlRequest(transport);
+        JsonElement request = GetLastControlRequest(transport);
         Assert.Equal("initialize", request.GetProperty("request").GetProperty("subtype").GetString());
     }
 
@@ -419,8 +407,8 @@ public class QueryHandlerControlCommandTests
     public async Task InitializeAsync_WithHooks_IncludesHooksConfig()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new()
         {
             Hooks = new Dictionary<HookEvent, IReadOnlyList<HookMatcher>>
             {
@@ -438,7 +426,7 @@ public class QueryHandlerControlCommandTests
                 }
             }
         };
-        await using var handler = CreateQueryHandler(transport, options);
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
@@ -446,10 +434,10 @@ public class QueryHandlerControlCommandTests
         await handler.InitializeAsync();
 
         // Assert
-        var request = GetLastControlRequest(transport);
-        var innerRequest = request.GetProperty("request");
+        JsonElement request = GetLastControlRequest(transport);
+        JsonElement innerRequest = request.GetProperty("request");
         Assert.Equal("initialize", innerRequest.GetProperty("subtype").GetString());
-        Assert.True(innerRequest.TryGetProperty("hooks", out var hooks));
+        Assert.True(innerRequest.TryGetProperty("hooks", out JsonElement hooks));
         Assert.NotEqual(JsonValueKind.Null, hooks.ValueKind);
     }
 
@@ -457,9 +445,9 @@ public class QueryHandlerControlCommandTests
     public async Task InitializeAsync_CalledTwice_OnlyInitializesOnce()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
@@ -468,10 +456,10 @@ public class QueryHandlerControlCommandTests
         await handler.InitializeAsync();
 
         // Assert - should only have one initialize request
-        var messages = transport.GetAllWrittenMessagesAsJson();
-        var initRequests = messages.Count(m =>
-            m.TryGetProperty("type", out var t) && t.GetString() == "control_request" &&
-            m.TryGetProperty("request", out var r) && r.GetProperty("subtype").GetString() == "initialize");
+        IReadOnlyList<JsonElement> messages = transport.GetAllWrittenMessagesAsJson();
+        int initRequests = messages.Count(m =>
+            m.TryGetProperty("type", out JsonElement t) && t.GetString() == "control_request" &&
+            m.TryGetProperty("request", out JsonElement r) && r.GetProperty("subtype").GetString() == "initialize");
 
         Assert.Equal(1, initRequests);
     }
@@ -480,9 +468,9 @@ public class QueryHandlerControlCommandTests
     public async Task InterruptAsync_SendsInterruptSubtype()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
@@ -490,7 +478,7 @@ public class QueryHandlerControlCommandTests
         await handler.InterruptAsync();
 
         // Assert
-        var request = GetLastControlRequest(transport);
+        JsonElement request = GetLastControlRequest(transport);
         Assert.Equal("interrupt", request.GetProperty("request").GetProperty("subtype").GetString());
     }
 
@@ -502,9 +490,9 @@ public class QueryHandlerControlCommandTests
     public async Task SetPermissionModeAsync_MapsEnumToString(PermissionMode mode, string expectedString)
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
@@ -512,8 +500,8 @@ public class QueryHandlerControlCommandTests
         await handler.SetPermissionModeAsync(mode);
 
         // Assert
-        var request = GetLastControlRequest(transport);
-        var innerRequest = request.GetProperty("request");
+        JsonElement request = GetLastControlRequest(transport);
+        JsonElement innerRequest = request.GetProperty("request");
         Assert.Equal("set_permission_mode", innerRequest.GetProperty("subtype").GetString());
         Assert.Equal(expectedString, innerRequest.GetProperty("mode").GetString());
     }
@@ -522,9 +510,9 @@ public class QueryHandlerControlCommandTests
     public async Task SetModelAsync_SendsModelName()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
@@ -532,8 +520,8 @@ public class QueryHandlerControlCommandTests
         await handler.SetModelAsync("claude-3-opus");
 
         // Assert
-        var request = GetLastControlRequest(transport);
-        var innerRequest = request.GetProperty("request");
+        JsonElement request = GetLastControlRequest(transport);
+        JsonElement innerRequest = request.GetProperty("request");
         Assert.Equal("set_model", innerRequest.GetProperty("subtype").GetString());
         Assert.Equal("claude-3-opus", innerRequest.GetProperty("model").GetString());
     }
@@ -542,19 +530,19 @@ public class QueryHandlerControlCommandTests
     public async Task GetSupportedCommandsAsync_ReturnJsonElement()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
         // Act
-        var result = await handler.GetSupportedCommandsAsync();
+        dynamic? result = await handler.GetSupportedCommandsAsync();
 
         // Assert
         Assert.True(result.ValueKind == JsonValueKind.Null || result.ValueKind != JsonValueKind.Undefined);
 
-        var request = GetLastControlRequest(transport);
+        JsonElement request = GetLastControlRequest(transport);
         Assert.Equal("supported_commands", request.GetProperty("request").GetProperty("subtype").GetString());
     }
 
@@ -562,19 +550,19 @@ public class QueryHandlerControlCommandTests
     public async Task GetSupportedModelsAsync_ReturnsJsonElement()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
         // Act
-        var result = await handler.GetSupportedModelsAsync();
+        dynamic? result = await handler.GetSupportedModelsAsync();
 
         // Assert
         Assert.True(result.ValueKind == JsonValueKind.Null || result.ValueKind != JsonValueKind.Undefined);
 
-        var request = GetLastControlRequest(transport);
+        JsonElement request = GetLastControlRequest(transport);
         Assert.Equal("supported_models", request.GetProperty("request").GetProperty("subtype").GetString());
     }
 
@@ -582,19 +570,19 @@ public class QueryHandlerControlCommandTests
     public async Task GetMcpServerStatusAsync_ReturnsJsonElement()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
         // Act
-        var result = await handler.GetMcpServerStatusAsync();
+        dynamic? result = await handler.GetMcpServerStatusAsync();
 
         // Assert
         Assert.True(result.ValueKind == JsonValueKind.Null || result.ValueKind != JsonValueKind.Undefined);
 
-        var request = GetLastControlRequest(transport);
+        JsonElement request = GetLastControlRequest(transport);
         Assert.Equal("mcp_server_status", request.GetProperty("request").GetProperty("subtype").GetString());
     }
 
@@ -602,19 +590,19 @@ public class QueryHandlerControlCommandTests
     public async Task GetAccountInfoAsync_ReturnsJsonElement()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
         // Act
-        var result = await handler.GetAccountInfoAsync();
+        dynamic? result = await handler.GetAccountInfoAsync();
 
         // Assert
         Assert.True(result.ValueKind == JsonValueKind.Null || result.ValueKind != JsonValueKind.Undefined);
 
-        var request = GetLastControlRequest(transport);
+        JsonElement request = GetLastControlRequest(transport);
         Assert.Equal("account_info", request.GetProperty("request").GetProperty("subtype").GetString());
     }
 
@@ -622,9 +610,9 @@ public class QueryHandlerControlCommandTests
     public async Task RewindFilesAsync_SendsUserMessageId()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
@@ -632,8 +620,8 @@ public class QueryHandlerControlCommandTests
         await handler.RewindFilesAsync("msg_12345");
 
         // Assert
-        var request = GetLastControlRequest(transport);
-        var innerRequest = request.GetProperty("request");
+        JsonElement request = GetLastControlRequest(transport);
+        JsonElement innerRequest = request.GetProperty("request");
         Assert.Equal("rewind_files", innerRequest.GetProperty("subtype").GetString());
         Assert.Equal("msg_12345", innerRequest.GetProperty("user_message_id").GetString());
     }
@@ -642,9 +630,9 @@ public class QueryHandlerControlCommandTests
     public async Task SetMaxThinkingTokensAsync_SendsMaxTokens()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
@@ -652,33 +640,29 @@ public class QueryHandlerControlCommandTests
         await handler.SetMaxThinkingTokensAsync(8192);
 
         // Assert
-        var request = GetLastControlRequest(transport);
-        var innerRequest = request.GetProperty("request");
+        JsonElement request = GetLastControlRequest(transport);
+        JsonElement innerRequest = request.GetProperty("request");
         Assert.Equal("set_max_thinking_tokens", innerRequest.GetProperty("subtype").GetString());
         Assert.Equal(8192, innerRequest.GetProperty("max_thinking_tokens").GetInt32());
     }
 
     private static JsonElement GetLastControlRequest(ControlMockTransport transport)
     {
-        var messages = transport.GetAllWrittenMessagesAsJson();
+        IReadOnlyList<JsonElement> messages = transport.GetAllWrittenMessagesAsJson();
         return messages.Last(m =>
-            m.TryGetProperty("type", out var t) && t.GetString() == "control_request");
+            m.TryGetProperty("type", out JsonElement t) && t.GetString() == "control_request");
     }
 
     private static dynamic CreateQueryHandler(ControlMockTransport transport, ClaudeAgentOptions options)
     {
-        var assembly = typeof(ClaudeAgentOptions).Assembly;
-        var handlerType = assembly.GetType("Claude.AgentSdk.Protocol.QueryHandler")!;
+        Assembly assembly = typeof(ClaudeAgentOptions).Assembly;
+        Type handlerType = assembly.GetType("Claude.AgentSdk.Protocol.QueryHandler")!;
         return Activator.CreateInstance(handlerType, transport, options, null)!;
     }
 }
 
-#endregion
-
-#region Concurrent Control Request Tests
-
 /// <summary>
-/// Tests for concurrent control request handling in QueryHandler.
+///     Tests for concurrent control request handling in QueryHandler.
 /// </summary>
 public class QueryHandlerConcurrentRequestTests
 {
@@ -686,14 +670,14 @@ public class QueryHandlerConcurrentRequestTests
     public async Task ConcurrentRequests_GetDifferentIds()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
         // Act - send many requests concurrently
-        var tasks = new List<Task>();
+        List<Task> tasks = new();
         for (int i = 0; i < 10; i++)
         {
             tasks.Add(handler.InterruptAsync());
@@ -702,9 +686,9 @@ public class QueryHandlerConcurrentRequestTests
         await Task.WhenAll(tasks);
 
         // Assert - all request IDs should be unique
-        var messages = transport.GetAllWrittenMessagesAsJson();
-        var requestIds = messages
-            .Where(m => m.TryGetProperty("type", out var t) && t.GetString() == "control_request")
+        IReadOnlyList<JsonElement> messages = transport.GetAllWrittenMessagesAsJson();
+        List<string> requestIds = messages
+            .Where(m => m.TryGetProperty("type", out JsonElement t) && t.GetString() == "control_request")
             .Select(m => m.GetProperty("request_id").GetString()!)
             .ToList();
 
@@ -716,40 +700,44 @@ public class QueryHandlerConcurrentRequestTests
     public async Task ConcurrentRequests_EachGetsOwnResponse()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
         // Act - send different types of requests concurrently
-        var modelTask = handler.GetSupportedModelsAsync();
-        var commandsTask = handler.GetSupportedCommandsAsync();
-        var accountTask = handler.GetAccountInfoAsync();
-        var mcpTask = handler.GetMcpServerStatusAsync();
+        dynamic? modelTask = handler.GetSupportedModelsAsync();
+        dynamic? commandsTask = handler.GetSupportedCommandsAsync();
+        dynamic? accountTask = handler.GetAccountInfoAsync();
+        dynamic? mcpTask = handler.GetMcpServerStatusAsync();
 
         // All should complete successfully
         await Task.WhenAll(modelTask, commandsTask, accountTask, mcpTask);
 
         // Assert - all completed
-        Assert.True(modelTask.Result.ValueKind == JsonValueKind.Null || modelTask.Result.ValueKind != JsonValueKind.Undefined);
-        Assert.True(commandsTask.Result.ValueKind == JsonValueKind.Null || commandsTask.Result.ValueKind != JsonValueKind.Undefined);
-        Assert.True(accountTask.Result.ValueKind == JsonValueKind.Null || accountTask.Result.ValueKind != JsonValueKind.Undefined);
-        Assert.True(mcpTask.Result.ValueKind == JsonValueKind.Null || mcpTask.Result.ValueKind != JsonValueKind.Undefined);
+        Assert.True(modelTask.Result.ValueKind == JsonValueKind.Null ||
+                    modelTask.Result.ValueKind != JsonValueKind.Undefined);
+        Assert.True(commandsTask.Result.ValueKind == JsonValueKind.Null ||
+                    commandsTask.Result.ValueKind != JsonValueKind.Undefined);
+        Assert.True(accountTask.Result.ValueKind == JsonValueKind.Null ||
+                    accountTask.Result.ValueKind != JsonValueKind.Undefined);
+        Assert.True(mcpTask.Result.ValueKind == JsonValueKind.Null ||
+                    mcpTask.Result.ValueKind != JsonValueKind.Undefined);
     }
 
     [Fact]
     public async Task MixedRequestTypes_AllComplete()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
         // Act - mix of void and result-returning requests
-        var tasks = new List<Task>
+        List<Task> tasks = new()
         {
             handler.InterruptAsync(),
             handler.SetModelAsync("sonnet"),
@@ -768,9 +756,9 @@ public class QueryHandlerConcurrentRequestTests
     public async Task RequestIdFormat_ContainsCounterAndGuid()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
@@ -778,9 +766,9 @@ public class QueryHandlerConcurrentRequestTests
         await handler.InterruptAsync();
 
         // Assert - request ID should follow "req_{counter}_{guid}" format
-        var messages = transport.GetAllWrittenMessagesAsJson();
-        var requestId = messages
-            .First(m => m.TryGetProperty("type", out var t) && t.GetString() == "control_request")
+        IReadOnlyList<JsonElement> messages = transport.GetAllWrittenMessagesAsJson();
+        string requestId = messages
+            .First(m => m.TryGetProperty("type", out JsonElement t) && t.GetString() == "control_request")
             .GetProperty("request_id")
             .GetString()!;
 
@@ -790,18 +778,14 @@ public class QueryHandlerConcurrentRequestTests
 
     private static dynamic CreateQueryHandler(ControlMockTransport transport, ClaudeAgentOptions options)
     {
-        var assembly = typeof(ClaudeAgentOptions).Assembly;
-        var handlerType = assembly.GetType("Claude.AgentSdk.Protocol.QueryHandler")!;
+        Assembly assembly = typeof(ClaudeAgentOptions).Assembly;
+        Type handlerType = assembly.GetType("Claude.AgentSdk.Protocol.QueryHandler")!;
         return Activator.CreateInstance(handlerType, transport, options, null)!;
     }
 }
 
-#endregion
-
-#region QueryHandler Control Lifecycle Tests
-
 /// <summary>
-/// Tests for QueryHandler lifecycle management related to control protocol.
+///     Tests for QueryHandler lifecycle management related to control protocol.
 /// </summary>
 public class QueryHandlerControlLifecycleTests
 {
@@ -809,16 +793,16 @@ public class QueryHandlerControlLifecycleTests
     public async Task DisposeAsync_CancelsPendingResponses()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        transport.SimulateTimeout(true); // Don't send responses
+        ControlMockTransport transport = new();
+        transport.SimulateTimeout(); // Don't send responses
 
-        var options = new ClaudeAgentOptions();
-        var handler = CreateQueryHandler(transport, options);
+        ClaudeAgentOptions options = new();
+        dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
         // Start a request but don't await it yet
-        var requestTask = handler.InterruptAsync();
+        dynamic? requestTask = handler.InterruptAsync();
 
         // Act - dispose while request is pending
         await handler.DisposeAsync();
@@ -831,9 +815,9 @@ public class QueryHandlerControlLifecycleTests
     public async Task DisposeAsync_MultipleCalls_Safe()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
@@ -847,9 +831,9 @@ public class QueryHandlerControlLifecycleTests
     public async Task StartAsync_ConnectsTransport()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         // Assert - not connected before start
         // Note: We can't directly check _isConnected, but we can verify behavior
@@ -865,9 +849,9 @@ public class QueryHandlerControlLifecycleTests
     public async Task AfterDispose_RequestsThrowOrCancel()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
         await handler.DisposeAsync();
@@ -881,18 +865,14 @@ public class QueryHandlerControlLifecycleTests
 
     private static dynamic CreateQueryHandler(ControlMockTransport transport, ClaudeAgentOptions options)
     {
-        var assembly = typeof(ClaudeAgentOptions).Assembly;
-        var handlerType = assembly.GetType("Claude.AgentSdk.Protocol.QueryHandler")!;
+        Assembly assembly = typeof(ClaudeAgentOptions).Assembly;
+        Type handlerType = assembly.GetType("Claude.AgentSdk.Protocol.QueryHandler")!;
         return Activator.CreateInstance(handlerType, transport, options, null)!;
     }
 }
 
-#endregion
-
-#region Control Response Edge Cases
-
 /// <summary>
-/// Tests for edge cases in control response handling.
+///     Tests for edge cases in control response handling.
 /// </summary>
 public class QueryHandlerControlEdgeCaseTests
 {
@@ -900,9 +880,9 @@ public class QueryHandlerControlEdgeCaseTests
     public async Task ResponseWithExtraFields_Handled()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
@@ -917,9 +897,9 @@ public class QueryHandlerControlEdgeCaseTests
     public async Task MultipleInitializeCalls_Idempotent()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
@@ -929,10 +909,10 @@ public class QueryHandlerControlEdgeCaseTests
         await handler.InitializeAsync();
 
         // Assert - only one initialize request sent
-        var messages = transport.GetAllWrittenMessagesAsJson();
-        var initCount = messages.Count(m =>
-            m.TryGetProperty("type", out var t) && t.GetString() == "control_request" &&
-            m.TryGetProperty("request", out var r) && r.GetProperty("subtype").GetString() == "initialize");
+        IReadOnlyList<JsonElement> messages = transport.GetAllWrittenMessagesAsJson();
+        int initCount = messages.Count(m =>
+            m.TryGetProperty("type", out JsonElement t) && t.GetString() == "control_request" &&
+            m.TryGetProperty("request", out JsonElement r) && r.GetProperty("subtype").GetString() == "initialize");
 
         Assert.Equal(1, initCount);
     }
@@ -941,10 +921,10 @@ public class QueryHandlerControlEdgeCaseTests
     public async Task EmptySubtype_HandlesGracefully()
     {
         // Arrange
-        var transport = new ControlMockTransport();
+        ControlMockTransport transport = new();
         transport.DisableAutoResponse();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
@@ -968,9 +948,9 @@ public class QueryHandlerControlEdgeCaseTests
     public async Task SetModelAsync_VariousModelNames(string modelName)
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
@@ -978,9 +958,9 @@ public class QueryHandlerControlEdgeCaseTests
         await handler.SetModelAsync(modelName);
 
         // Assert
-        var messages = transport.GetAllWrittenMessagesAsJson();
-        var request = messages.Last(m =>
-            m.TryGetProperty("type", out var t) && t.GetString() == "control_request");
+        IReadOnlyList<JsonElement> messages = transport.GetAllWrittenMessagesAsJson();
+        JsonElement request = messages.Last(m =>
+            m.TryGetProperty("type", out JsonElement t) && t.GetString() == "control_request");
 
         Assert.Equal(modelName, request.GetProperty("request").GetProperty("model").GetString());
     }
@@ -995,9 +975,9 @@ public class QueryHandlerControlEdgeCaseTests
     public async Task SetMaxThinkingTokensAsync_VariousValues(int maxTokens)
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
@@ -1005,9 +985,9 @@ public class QueryHandlerControlEdgeCaseTests
         await handler.SetMaxThinkingTokensAsync(maxTokens);
 
         // Assert
-        var messages = transport.GetAllWrittenMessagesAsJson();
-        var request = messages.Last(m =>
-            m.TryGetProperty("type", out var t) && t.GetString() == "control_request");
+        IReadOnlyList<JsonElement> messages = transport.GetAllWrittenMessagesAsJson();
+        JsonElement request = messages.Last(m =>
+            m.TryGetProperty("type", out JsonElement t) && t.GetString() == "control_request");
 
         Assert.Equal(maxTokens, request.GetProperty("request").GetProperty("max_thinking_tokens").GetInt32());
     }
@@ -1020,9 +1000,9 @@ public class QueryHandlerControlEdgeCaseTests
     public async Task RewindFilesAsync_VariousMessageIds(string messageId)
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
@@ -1030,27 +1010,23 @@ public class QueryHandlerControlEdgeCaseTests
         await handler.RewindFilesAsync(messageId);
 
         // Assert
-        var messages = transport.GetAllWrittenMessagesAsJson();
-        var request = messages.Last(m =>
-            m.TryGetProperty("type", out var t) && t.GetString() == "control_request");
+        IReadOnlyList<JsonElement> messages = transport.GetAllWrittenMessagesAsJson();
+        JsonElement request = messages.Last(m =>
+            m.TryGetProperty("type", out JsonElement t) && t.GetString() == "control_request");
 
         Assert.Equal(messageId, request.GetProperty("request").GetProperty("user_message_id").GetString());
     }
 
     private static dynamic CreateQueryHandler(ControlMockTransport transport, ClaudeAgentOptions options)
     {
-        var assembly = typeof(ClaudeAgentOptions).Assembly;
-        var handlerType = assembly.GetType("Claude.AgentSdk.Protocol.QueryHandler")!;
+        Assembly assembly = typeof(ClaudeAgentOptions).Assembly;
+        Type handlerType = assembly.GetType("Claude.AgentSdk.Protocol.QueryHandler")!;
         return Activator.CreateInstance(handlerType, transport, options, null)!;
     }
 }
 
-#endregion
-
-#region Control Message Processing Tests
-
 /// <summary>
-/// Tests for QueryHandler message processing behavior related to control protocol.
+///     Tests for QueryHandler message processing behavior related to control protocol.
 /// </summary>
 public class QueryHandlerControlMessageProcessingTests
 {
@@ -1058,10 +1034,10 @@ public class QueryHandlerControlMessageProcessingTests
     public async Task RegularMessages_QueuedToChannel()
     {
         // Arrange
-        var transport = new ControlMockTransport();
+        ControlMockTransport transport = new();
         transport.DisableAutoResponse();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
@@ -1083,14 +1059,14 @@ public class QueryHandlerControlMessageProcessingTests
     public async Task ControlResponse_NotQueuedAsRegularMessage()
     {
         // Arrange
-        var transport = new ControlMockTransport();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ControlMockTransport transport = new();
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
         // Start a request
-        var task = handler.GetSupportedModelsAsync();
+        dynamic? task = handler.GetSupportedModelsAsync();
 
         // Let it complete
         await task;
@@ -1104,10 +1080,10 @@ public class QueryHandlerControlMessageProcessingTests
     public async Task UnknownMessageType_IgnoredGracefully()
     {
         // Arrange
-        var transport = new ControlMockTransport();
+        ControlMockTransport transport = new();
         transport.DisableAutoResponse();
-        var options = new ClaudeAgentOptions();
-        await using var handler = CreateQueryHandler(transport, options);
+        ClaudeAgentOptions options = new();
+        await using dynamic handler = CreateQueryHandler(transport, options);
 
         await handler.StartAsync();
 
@@ -1126,10 +1102,8 @@ public class QueryHandlerControlMessageProcessingTests
 
     private static dynamic CreateQueryHandler(ControlMockTransport transport, ClaudeAgentOptions options)
     {
-        var assembly = typeof(ClaudeAgentOptions).Assembly;
-        var handlerType = assembly.GetType("Claude.AgentSdk.Protocol.QueryHandler")!;
+        Assembly assembly = typeof(ClaudeAgentOptions).Assembly;
+        Type handlerType = assembly.GetType("Claude.AgentSdk.Protocol.QueryHandler")!;
         return Activator.CreateInstance(handlerType, transport, options, null)!;
     }
 }
-
-#endregion

@@ -1,15 +1,12 @@
-using System.Diagnostics;
+﻿using System.Text;
 using System.Text.Json;
-using Claude.AgentSdk;
 using Claude.AgentSdk.Exceptions;
 using Claude.AgentSdk.Transport;
 
 namespace Claude.AgentSdk.Tests.Transport;
 
-#region CliArgumentsBuilder Tests
-
 /// <summary>
-/// Tests for CliArgumentsBuilder which constructs command-line arguments from ClaudeAgentOptions.
+///     Tests for CliArgumentsBuilder which constructs command-line arguments from ClaudeAgentOptions.
 /// </summary>
 public class CliArgumentsBuilderTests
 {
@@ -334,9 +331,11 @@ public class CliArgumentsBuilderTests
         var doc = JsonDocument.Parse(configJson);
 
         // Dictionary keys are preserved as camelCase from ConfigSerializerExtensions
-        Assert.True(doc.RootElement.TryGetProperty("enabled", out var enabledProp), $"JSON missing 'enabled'. Actual JSON: {configJson}");
+        Assert.True(doc.RootElement.TryGetProperty("enabled", out var enabledProp),
+            $"JSON missing 'enabled'. Actual JSON: {configJson}");
         Assert.True(enabledProp.GetBoolean());
-        Assert.True(doc.RootElement.TryGetProperty("autoAllowBashIfSandboxed", out var autoAllowProp), $"JSON missing 'autoAllowBashIfSandboxed'. Actual JSON: {configJson}");
+        Assert.True(doc.RootElement.TryGetProperty("autoAllowBashIfSandboxed", out var autoAllowProp),
+            $"JSON missing 'autoAllowBashIfSandboxed'. Actual JSON: {configJson}");
         Assert.True(autoAllowProp.GetBoolean());
     }
 
@@ -451,7 +450,7 @@ public class CliArgumentsBuilderTests
         {
             Agents = new Dictionary<string, AgentDefinition>
             {
-                ["code-reviewer"] = new AgentDefinition
+                ["code-reviewer"] = new()
                 {
                     Description = "Code review specialist",
                     Prompt = "You are a code reviewer",
@@ -482,7 +481,8 @@ public class CliArgumentsBuilderTests
         // Arrange
         var options = new ClaudeAgentOptions
         {
-            Plugins = [
+            Plugins =
+            [
                 new PluginConfig { Type = "local", Path = "./my-plugin" }
             ]
         };
@@ -572,12 +572,8 @@ public class CliArgumentsBuilderTests
     }
 }
 
-#endregion
-
-#region ProcessStartInfoBuilder Tests
-
 /// <summary>
-/// Tests for ProcessStartInfoBuilder which creates ProcessStartInfo for the Claude CLI.
+///     Tests for ProcessStartInfoBuilder which creates ProcessStartInfo for the Claude CLI.
 /// </summary>
 public class ProcessStartInfoBuilderTests
 {
@@ -619,9 +615,9 @@ public class ProcessStartInfoBuilderTests
         Assert.NotNull(startInfo.StandardInputEncoding);
         Assert.NotNull(startInfo.StandardOutputEncoding);
         Assert.NotNull(startInfo.StandardErrorEncoding);
-        Assert.Equal(System.Text.Encoding.UTF8.EncodingName, startInfo.StandardInputEncoding!.EncodingName);
-        Assert.Equal(System.Text.Encoding.UTF8.EncodingName, startInfo.StandardOutputEncoding!.EncodingName);
-        Assert.Equal(System.Text.Encoding.UTF8.EncodingName, startInfo.StandardErrorEncoding!.EncodingName);
+        Assert.Equal(Encoding.UTF8.EncodingName, startInfo.StandardInputEncoding!.EncodingName);
+        Assert.Equal(Encoding.UTF8.EncodingName, startInfo.StandardOutputEncoding!.EncodingName);
+        Assert.Equal(Encoding.UTF8.EncodingName, startInfo.StandardErrorEncoding!.EncodingName);
     }
 
     [Fact]
@@ -727,12 +723,8 @@ public class ProcessStartInfoBuilderTests
     }
 }
 
-#endregion
-
-#region ConfigSerializerExtensions Tests
-
 /// <summary>
-/// Tests for ConfigSerializerExtensions which convert configuration objects to CLI-compatible dictionaries.
+///     Tests for ConfigSerializerExtensions which convert configuration objects to CLI-compatible dictionaries.
 /// </summary>
 public class ConfigSerializerExtensionsTests
 {
@@ -1066,13 +1058,9 @@ public class ConfigSerializerExtensionsTests
     private sealed record UnknownMcpServerConfig : McpServerConfig;
 }
 
-#endregion
-
-#region CliPathResolver Tests
-
 /// <summary>
-/// Tests for CliPathResolver which finds the Claude CLI executable.
-/// Note: These tests may need to be adjusted based on the actual file system state.
+///     Tests for CliPathResolver which finds the Claude CLI executable.
+///     Note: These tests may need to be adjusted based on the actual file system state.
 /// </summary>
 public class CliPathResolverTests
 {
@@ -1125,7 +1113,7 @@ public class CliPathResolverTests
         // or return a path if Claude is installed
 
         // Arrange
-        var resolver = CliPathResolver.Create(null);
+        var resolver = CliPathResolver.Create();
 
         // Act & Assert
         try
@@ -1155,13 +1143,9 @@ public class CliPathResolverTests
     }
 }
 
-#endregion
-
-#region ITransport Interface Contract Tests
-
 /// <summary>
-/// Tests that verify the expected contract of ITransport implementations.
-/// These use Moq to create mock implementations.
+///     Tests that verify the expected contract of ITransport implementations.
+///     These use Moq to create mock implementations.
 /// </summary>
 public class ITransportContractTests
 {
@@ -1196,13 +1180,9 @@ public class ITransportContractTests
     }
 }
 
-#endregion
-
-#region SubprocessTransport Tests (Initialization & State)
-
 /// <summary>
-/// Tests for SubprocessTransport focusing on initialization and state management.
-/// Full integration tests require the actual Claude CLI to be installed.
+///     Tests for SubprocessTransport focusing on initialization and state management.
+///     Full integration tests require the actual Claude CLI to be installed.
 /// </summary>
 public class SubprocessTransportTests
 {
@@ -1372,12 +1352,8 @@ public class SubprocessTransportTests
     }
 }
 
-#endregion
-
-#region Additional Edge Case Tests
-
 /// <summary>
-/// Additional edge case tests for transport-related functionality.
+///     Additional edge case tests for transport-related functionality.
 /// </summary>
 public class TransportEdgeCaseTests
 {
@@ -1482,7 +1458,7 @@ public class TransportEdgeCaseTests
         {
             Agents = new Dictionary<string, AgentDefinition>
             {
-                ["simple-agent"] = new AgentDefinition
+                ["simple-agent"] = new()
                 {
                     Description = "A simple agent",
                     Prompt = "You are a simple agent"
@@ -1579,5 +1555,3 @@ public class TransportEdgeCaseTests
         Assert.DoesNotContain("--append-system-prompt", args);
     }
 }
-
-#endregion

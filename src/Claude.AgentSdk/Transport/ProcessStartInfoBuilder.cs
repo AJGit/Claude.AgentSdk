@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -171,13 +171,13 @@ internal sealed partial class ProcessStartInfoBuilder
         return arg;
     }
 
-    [LoggerMessage(LogLevel.Debug, "Executing: {FileName} {Args}")]
-    partial void LogExecutingFilenameArgs(string FileName, string Args);
+    [LoggerMessage(LogLevel.Debug, "Executing: {fileName} {args}")]
+    partial void LogExecutingFilenameArgs(string fileName, string args);
 
-    [LoggerMessage(LogLevel.Debug, "Using Node.js directly with cli.js: {Path}")]
-    partial void LogUsingNodeJsDirectlyWithCliJsPath(string Path);
+    [LoggerMessage(LogLevel.Debug, "Using Node.js directly with cli.js: {path}")]
+    partial void LogUsingNodeJsDirectlyWithCliJsPath(string path);
 
     [LoggerMessage(LogLevel.Information,
-        "cli.js not found at {Path}, falling back to cmd.exe. Max command line length of 8191 characters")]
-    partial void LogCliJsNotFoundAtPathFallingBackToCmdExe(string Path);
+        "cli.js not found at {path}, falling back to cmd.exe. Max command line length of 8191 characters")]
+    partial void LogCliJsNotFoundAtPathFallingBackToCmdExe(string path);
 }

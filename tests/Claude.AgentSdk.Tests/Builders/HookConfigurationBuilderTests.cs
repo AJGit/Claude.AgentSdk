@@ -1,4 +1,4 @@
-using Claude.AgentSdk.Builders;
+﻿using Claude.AgentSdk.Builders;
 using Claude.AgentSdk.Protocol;
 
 namespace Claude.AgentSdk.Tests.Builders;
@@ -9,15 +9,33 @@ namespace Claude.AgentSdk.Tests.Builders;
 [UnitTest]
 public class HookConfigurationBuilderTests
 {
-    #region Helper Methods
-
-    private static HookCallback CreateMockHandler() =>
-        (input, toolUseId, context, ct) => Task.FromResult<HookOutput>(
+    private static HookCallback CreateMockHandler()
+    {
+        return (input, toolUseId, context, ct) => Task.FromResult<HookOutput>(
             new SyncHookOutput { Continue = true });
+    }
 
-    #endregion
+    [Fact]
+    public void AddHook_AddsCustomHookMatcher()
+    {
+        // Arrange
+        var handler = CreateMockHandler();
+        var matcher = new HookMatcher
+        {
+            Matcher = "CustomTool",
+            Hooks = new[] { handler },
+            Timeout = 60.0
+        };
 
-    #region PreToolUse Hook Tests
+        // Act
+        var hooks = new HookConfigurationBuilder()
+            .AddHook(HookEvent.PreToolUse, matcher)
+            .Build();
+
+        // Assert
+        Assert.Equal("CustomTool", hooks[HookEvent.PreToolUse][0].Matcher);
+        Assert.Equal(60.0, hooks[HookEvent.PreToolUse][0].Timeout);
+    }
 
     [Fact]
     public void OnPreToolUse_AddsPreToolUseHook()
@@ -44,7 +62,7 @@ public class HookConfigurationBuilderTests
 
         // Act
         var hooks = new HookConfigurationBuilder()
-            .OnPreToolUse(handler, matcher: "Bash|Write")
+            .OnPreToolUse(handler, "Bash|Write")
             .Build();
 
         // Assert
@@ -76,16 +94,12 @@ public class HookConfigurationBuilderTests
 
         // Act
         var hooks = new HookConfigurationBuilder()
-            .OnPreToolUse(handlers, matcher: "Bash")
+            .OnPreToolUse(handlers, "Bash")
             .Build();
 
         // Assert
         Assert.Equal(2, hooks[HookEvent.PreToolUse][0].Hooks.Count);
     }
-
-    #endregion
-
-    #region PostToolUse Hook Tests
 
     [Fact]
     public void OnPostToolUse_AddsPostToolUseHook()
@@ -111,7 +125,7 @@ public class HookConfigurationBuilderTests
 
         // Act
         var hooks = new HookConfigurationBuilder()
-            .OnPostToolUse(handler, matcher: "Edit")
+            .OnPostToolUse(handler, "Edit")
             .Build();
 
         // Assert
@@ -132,10 +146,6 @@ public class HookConfigurationBuilderTests
         // Assert
         Assert.True(hooks.ContainsKey(HookEvent.PostToolUseFailure));
     }
-
-    #endregion
-
-    #region Other Hook Event Tests
 
     [Fact]
     public void OnUserPromptSubmit_AddsUserPromptSubmitHook()
@@ -220,7 +230,7 @@ public class HookConfigurationBuilderTests
 
         // Act
         var hooks = new HookConfigurationBuilder()
-            .OnPermissionRequest(handler, matcher: "Bash")
+            .OnPermissionRequest(handler, "Bash")
             .Build();
 
         // Assert
@@ -273,36 +283,6 @@ public class HookConfigurationBuilderTests
         Assert.True(hooks.ContainsKey(HookEvent.Notification));
     }
 
-    #endregion
-
-    #region AddHook Tests
-
-    [Fact]
-    public void AddHook_AddsCustomHookMatcher()
-    {
-        // Arrange
-        var handler = CreateMockHandler();
-        var matcher = new HookMatcher
-        {
-            Matcher = "CustomTool",
-            Hooks = new[] { handler },
-            Timeout = 60.0
-        };
-
-        // Act
-        var hooks = new HookConfigurationBuilder()
-            .AddHook(HookEvent.PreToolUse, matcher)
-            .Build();
-
-        // Assert
-        Assert.Equal("CustomTool", hooks[HookEvent.PreToolUse][0].Matcher);
-        Assert.Equal(60.0, hooks[HookEvent.PreToolUse][0].Timeout);
-    }
-
-    #endregion
-
-    #region Multiple Hooks Tests
-
     [Fact]
     public void MultipleHooksForSameEvent_AccumulatesHooks()
     {
@@ -312,8 +292,8 @@ public class HookConfigurationBuilderTests
 
         // Act
         var hooks = new HookConfigurationBuilder()
-            .OnPreToolUse(handler1, matcher: "Bash")
-            .OnPreToolUse(handler2, matcher: "Write")
+            .OnPreToolUse(handler1, "Bash")
+            .OnPreToolUse(handler2, "Write")
             .Build();
 
         // Assert
@@ -344,10 +324,6 @@ public class HookConfigurationBuilderTests
         Assert.True(hooks.ContainsKey(HookEvent.Stop));
     }
 
-    #endregion
-
-    #region Build Tests
-
     [Fact]
     public void Build_WithNoHooks_ReturnsEmptyDictionary()
     {
@@ -372,6 +348,4 @@ public class HookConfigurationBuilderTests
         // Assert
         Assert.IsAssignableFrom<IReadOnlyDictionary<HookEvent, IReadOnlyList<HookMatcher>>>(hooks);
     }
-
-    #endregion
 }

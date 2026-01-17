@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Claude.AgentSdk.Attributes;
 using Claude.AgentSdk.Tools;
 using ClosedXML.Excel;
@@ -6,8 +6,8 @@ using ClosedXML.Excel;
 namespace Claude.AgentSdk.ExcelAgent;
 
 /// <summary>
-/// Custom MCP tools for Excel file operations using ClosedXML.
-/// Uses [GenerateToolRegistration] for compile-time tool registration.
+///     Custom MCP tools for Excel file operations using ClosedXML.
+///     Uses [GenerateToolRegistration] for compile-time tool registration.
 /// </summary>
 [GenerateToolRegistration]
 public class ExcelTools
@@ -21,27 +21,31 @@ public class ExcelTools
     }
 
     /// <summary>
-    /// Create a new Excel workbook with specified sheets.
+    ///     Create a new Excel workbook with specified sheets.
     /// </summary>
     [ClaudeTool("create_workbook",
         "Create a new Excel workbook with specified sheets. Returns the file path.",
         Categories = ["excel", "file"],
         TimeoutSeconds = 10)]
     public string CreateWorkbook(
-        [ToolParameter(Description = "Name of the Excel file to create")] string fileName,
-        [ToolParameter(Description = "Optional array of sheet names to create")] string[]? sheets = null)
+        [ToolParameter(Description = "Name of the Excel file to create")]
+        string fileName,
+        [ToolParameter(Description = "Optional array of sheet names to create")]
+        string[]? sheets = null)
     {
         try
         {
-            var filePath = Path.Combine(_outputDir, fileName);
+            string filePath = Path.Combine(_outputDir, fileName);
             if (!filePath.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+            {
                 filePath += ".xlsx";
+            }
 
-            using var workbook = new XLWorkbook();
+            using XLWorkbook workbook = new();
 
             if (sheets?.Length > 0)
             {
-                foreach (var sheetName in sheets)
+                foreach (string sheetName in sheets)
                 {
                     workbook.Worksheets.Add(sheetName);
                 }
@@ -62,42 +66,51 @@ public class ExcelTools
     }
 
     /// <summary>
-    /// Add data to a specific range in an Excel workbook.
+    ///     Add data to a specific range in an Excel workbook.
     /// </summary>
     [ClaudeTool("add_data",
         "Add data to a specific range in an Excel workbook. Supports headers, rows, and formulas.",
         Categories = ["excel", "file"],
         TimeoutSeconds = 10)]
     public string AddData(
-        [ToolParameter(Description = "Name of the Excel file")] string fileName,
-        [ToolParameter(Description = "Name of the sheet (optional, defaults to first sheet)")] string? sheetName = null,
-        [ToolParameter(Description = "Starting row number (1-based)")] int? startRow = null,
-        [ToolParameter(Description = "Starting column number (1-based)")] int? startColumn = null,
-        [ToolParameter(Description = "Column headers")] string[]? headers = null,
-        [ToolParameter(Description = "Data rows as 2D array")] object[][]? rows = null)
+        [ToolParameter(Description = "Name of the Excel file")]
+        string fileName,
+        [ToolParameter(Description = "Name of the sheet (optional, defaults to first sheet)")]
+        string? sheetName = null,
+        [ToolParameter(Description = "Starting row number (1-based)")]
+        int? startRow = null,
+        [ToolParameter(Description = "Starting column number (1-based)")]
+        int? startColumn = null,
+        [ToolParameter(Description = "Column headers")]
+        string[]? headers = null,
+        [ToolParameter(Description = "Data rows as 2D array")]
+        object[][]? rows = null)
     {
         try
         {
-            var filePath = ResolveFilePath(fileName);
+            string filePath = ResolveFilePath(fileName);
             if (!File.Exists(filePath))
+            {
                 return $"Workbook not found: {filePath}";
+            }
 
-            using var workbook = new XLWorkbook(filePath);
-            var worksheet = GetWorksheet(workbook, sheetName);
+            using XLWorkbook workbook = new(filePath);
+            IXLWorksheet worksheet = GetWorksheet(workbook, sheetName);
 
-            var actualStartRow = startRow ?? 1;
-            var actualStartCol = startColumn ?? 1;
+            int actualStartRow = startRow ?? 1;
+            int actualStartCol = startColumn ?? 1;
 
             // Add headers if provided
             if (headers?.Length > 0)
             {
                 for (int i = 0; i < headers.Length; i++)
                 {
-                    var cell = worksheet.Cell(actualStartRow, actualStartCol + i);
+                    IXLCell cell = worksheet.Cell(actualStartRow, actualStartCol + i);
                     cell.Value = headers[i];
                     cell.Style.Font.Bold = true;
                     cell.Style.Fill.BackgroundColor = XLColor.LightGray;
                 }
+
                 actualStartRow++;
             }
 
@@ -106,17 +119,17 @@ public class ExcelTools
             {
                 for (int rowIdx = 0; rowIdx < rows.Length; rowIdx++)
                 {
-                    var row = rows[rowIdx];
+                    object[] row = rows[rowIdx];
                     for (int colIdx = 0; colIdx < row.Length; colIdx++)
                     {
-                        var cell = worksheet.Cell(actualStartRow + rowIdx, actualStartCol + colIdx);
-                        var value = row[colIdx];
+                        IXLCell cell = worksheet.Cell(actualStartRow + rowIdx, actualStartCol + colIdx);
+                        object? value = row[colIdx];
 
                         if (value is JsonElement jsonElement)
                         {
                             SetCellValue(cell, jsonElement);
                         }
-                        else if (value != null)
+                        else
                         {
                             cell.Value = value.ToString();
                         }
@@ -129,7 +142,7 @@ public class ExcelTools
 
             workbook.Save();
 
-            var rowCount = rows?.Length ?? 0;
+            int rowCount = rows?.Length ?? 0;
             return $"Added {rowCount} rows to {sheetName ?? "Sheet1"}";
         }
         catch (Exception ex)
@@ -139,48 +152,70 @@ public class ExcelTools
     }
 
     /// <summary>
-    /// Apply formatting to a range of cells.
+    ///     Apply formatting to a range of cells.
     /// </summary>
     [ClaudeTool("format_range",
         "Apply formatting to a range of cells (bold, colors, alignment, number format).",
         Categories = ["excel", "file"],
         TimeoutSeconds = 10)]
     public string FormatRange(
-        [ToolParameter(Description = "Name of the Excel file")] string fileName,
-        [ToolParameter(Description = "Range to format (e.g., 'A1:D10')")] string range,
-        [ToolParameter(Description = "Name of the sheet")] string? sheetName = null,
-        [ToolParameter(Description = "Apply bold formatting")] bool? bold = null,
-        [ToolParameter(Description = "Apply italic formatting")] bool? italic = null,
-        [ToolParameter(Description = "Font color as HTML color code (e.g., '#FF0000')")] string? fontColor = null,
-        [ToolParameter(Description = "Background color as HTML color code")] string? backgroundColor = null,
-        [ToolParameter(Description = "Number format string (e.g., '#,##0.00')")] string? numberFormat = null,
-        [ToolParameter(Description = "Horizontal alignment ('left', 'center', 'right')")] string? horizontalAlignment = null,
-        [ToolParameter(Description = "Add borders to the range")] bool? addBorder = null)
+        [ToolParameter(Description = "Name of the Excel file")]
+        string fileName,
+        [ToolParameter(Description = "Range to format (e.g., 'A1:D10')")]
+        string range,
+        [ToolParameter(Description = "Name of the sheet")]
+        string? sheetName = null,
+        [ToolParameter(Description = "Apply bold formatting")]
+        bool? bold = null,
+        [ToolParameter(Description = "Apply italic formatting")]
+        bool? italic = null,
+        [ToolParameter(Description = "Font color as HTML color code (e.g., '#FF0000')")]
+        string? fontColor = null,
+        [ToolParameter(Description = "Background color as HTML color code")]
+        string? backgroundColor = null,
+        [ToolParameter(Description = "Number format string (e.g., '#,##0.00')")]
+        string? numberFormat = null,
+        [ToolParameter(Description = "Horizontal alignment ('left', 'center', 'right')")]
+        string? horizontalAlignment = null,
+        [ToolParameter(Description = "Add borders to the range")]
+        bool? addBorder = null)
     {
         try
         {
-            var filePath = ResolveFilePath(fileName);
+            string filePath = ResolveFilePath(fileName);
             if (!File.Exists(filePath))
+            {
                 return $"Workbook not found: {filePath}";
+            }
 
-            using var workbook = new XLWorkbook(filePath);
-            var worksheet = GetWorksheet(workbook, sheetName);
-            var xlRange = worksheet.Range(range);
+            using XLWorkbook workbook = new(filePath);
+            IXLWorksheet worksheet = GetWorksheet(workbook, sheetName);
+            IXLRange xlRange = worksheet.Range(range);
 
             if (bold.HasValue)
+            {
                 xlRange.Style.Font.Bold = bold.Value;
+            }
 
             if (italic.HasValue)
+            {
                 xlRange.Style.Font.Italic = italic.Value;
+            }
 
             if (!string.IsNullOrEmpty(fontColor))
+            {
                 xlRange.Style.Font.FontColor = XLColor.FromHtml(fontColor);
+            }
 
             if (!string.IsNullOrEmpty(backgroundColor))
+            {
                 xlRange.Style.Fill.BackgroundColor = XLColor.FromHtml(backgroundColor);
+            }
 
             if (!string.IsNullOrEmpty(numberFormat))
+            {
                 xlRange.Style.NumberFormat.Format = numberFormat;
+            }
 
             if (!string.IsNullOrEmpty(horizontalAlignment))
             {
@@ -210,33 +245,42 @@ public class ExcelTools
     }
 
     /// <summary>
-    /// Add a formula to a specific cell.
+    ///     Add a formula to a specific cell.
     /// </summary>
     [ClaudeTool("add_formula",
         "Add a formula to a specific cell.",
         Categories = ["excel", "file"],
         TimeoutSeconds = 10)]
     public string AddFormula(
-        [ToolParameter(Description = "Name of the Excel file")] string fileName,
-        [ToolParameter(Description = "Cell address (e.g., 'A1')")] string cell,
-        [ToolParameter(Description = "Excel formula (e.g., '=SUM(A1:A10)')")] string formula,
-        [ToolParameter(Description = "Name of the sheet")] string? sheetName = null,
-        [ToolParameter(Description = "Number format for the result")] string? numberFormat = null)
+        [ToolParameter(Description = "Name of the Excel file")]
+        string fileName,
+        [ToolParameter(Description = "Cell address (e.g., 'A1')")]
+        string cell,
+        [ToolParameter(Description = "Excel formula (e.g., '=SUM(A1:A10)')")]
+        string formula,
+        [ToolParameter(Description = "Name of the sheet")]
+        string? sheetName = null,
+        [ToolParameter(Description = "Number format for the result")]
+        string? numberFormat = null)
     {
         try
         {
-            var filePath = ResolveFilePath(fileName);
+            string filePath = ResolveFilePath(fileName);
             if (!File.Exists(filePath))
+            {
                 return $"Workbook not found: {filePath}";
+            }
 
-            using var workbook = new XLWorkbook(filePath);
-            var worksheet = GetWorksheet(workbook, sheetName);
-            var xlCell = worksheet.Cell(cell);
+            using XLWorkbook workbook = new(filePath);
+            IXLWorksheet worksheet = GetWorksheet(workbook, sheetName);
+            IXLCell xlCell = worksheet.Cell(cell);
 
             xlCell.FormulaA1 = formula;
 
             if (!string.IsNullOrEmpty(numberFormat))
+            {
                 xlCell.Style.NumberFormat.Format = numberFormat;
+            }
 
             workbook.Save();
 
@@ -249,18 +293,23 @@ public class ExcelTools
     }
 
     /// <summary>
-    /// Create a chart from data in the workbook.
+    ///     Create a chart from data in the workbook.
     /// </summary>
     [ClaudeTool("create_chart",
         "Create a chart from data in the workbook.",
         Categories = ["excel", "file"],
         TimeoutSeconds = 10)]
     public string CreateChart(
-        [ToolParameter(Description = "Name of the Excel file")] string fileName,
-        [ToolParameter(Description = "Data range for the chart")] string dataRange,
-        [ToolParameter(Description = "Chart type (e.g., 'Bar', 'Line', 'Pie')")] string chartType,
-        [ToolParameter(Description = "Name of the sheet")] string? sheetName = null,
-        [ToolParameter(Description = "Chart title")] string? title = null)
+        [ToolParameter(Description = "Name of the Excel file")]
+        string fileName,
+        [ToolParameter(Description = "Data range for the chart")]
+        string dataRange,
+        [ToolParameter(Description = "Chart type (e.g., 'Bar', 'Line', 'Pie')")]
+        string chartType,
+        [ToolParameter(Description = "Name of the sheet")]
+        string? sheetName = null,
+        [ToolParameter(Description = "Chart title")]
+        string? title = null)
     {
         // Note: ClosedXML has limited chart support. For full chart support,
         // consider using EPPlus or copying an existing chart template.
@@ -270,7 +319,7 @@ public class ExcelTools
     }
 
     /// <summary>
-    /// List all Excel files in the output directory.
+    ///     List all Excel files in the output directory.
     /// </summary>
     [ClaudeTool("list_workbooks",
         "List all Excel files in the output directory.",
@@ -289,9 +338,11 @@ public class ExcelTools
                 .ToArray();
 
             if (files.Length == 0)
+            {
                 return "No Excel files found in output directory.";
+            }
 
-            var result = string.Join("\n", files.Select(f =>
+            string result = string.Join("\n", files.Select(f =>
                 $"- {f.name} ({f.size:N0} bytes, modified {f.modified:g})"));
 
             return $"Excel files:\n{result}";
@@ -303,58 +354,65 @@ public class ExcelTools
     }
 
     /// <summary>
-    /// Read the contents of an Excel workbook for inspection.
+    ///     Read the contents of an Excel workbook for inspection.
     /// </summary>
     [ClaudeTool("read_workbook",
         "Read the contents of an Excel workbook for inspection.",
         Categories = ["excel", "file"],
         TimeoutSeconds = 10)]
     public string ReadWorkbook(
-        [ToolParameter(Description = "Name of the Excel file")] string fileName,
-        [ToolParameter(Description = "Maximum number of rows to read")] int? maxRows = 20,
-        [ToolParameter(Description = "Maximum number of columns to read")] int? maxColumns = 10)
+        [ToolParameter(Description = "Name of the Excel file")]
+        string fileName,
+        [ToolParameter(Description = "Maximum number of rows to read")]
+        int? maxRows = 20,
+        [ToolParameter(Description = "Maximum number of columns to read")]
+        int? maxColumns = 10)
     {
         try
         {
-            var filePath = ResolveFilePath(fileName);
+            string filePath = ResolveFilePath(fileName);
             if (!File.Exists(filePath))
+            {
                 return $"Workbook not found: {filePath}";
+            }
 
-            using var workbook = new XLWorkbook(filePath);
-            var results = new List<string>();
+            using XLWorkbook workbook = new(filePath);
+            List<string> results = [];
 
-            foreach (var worksheet in workbook.Worksheets)
+            foreach (IXLWorksheet worksheet in workbook.Worksheets)
             {
                 results.Add($"\n## Sheet: {worksheet.Name}");
 
-                var usedRange = worksheet.RangeUsed();
+                IXLRange? usedRange = worksheet.RangeUsed();
                 if (usedRange == null)
                 {
                     results.Add("(empty sheet)");
                     continue;
                 }
 
-                var actualMaxRows = Math.Min(maxRows ?? 20, usedRange.RowCount());
-                var actualMaxCols = Math.Min(maxColumns ?? 10, usedRange.ColumnCount());
+                int actualMaxRows = Math.Min(maxRows ?? 20, usedRange.RowCount());
+                int actualMaxCols = Math.Min(maxColumns ?? 10, usedRange.ColumnCount());
 
                 // Build a simple table representation
                 for (int row = 1; row <= actualMaxRows; row++)
                 {
-                    var cells = new List<string>();
+                    List<string> cells = [];
                     for (int col = 1; col <= actualMaxCols; col++)
                     {
-                        var cell = usedRange.Cell(row, col);
-                        var value = cell.HasFormula
+                        IXLCell? cell = usedRange.Cell(row, col);
+                        string? value = cell.HasFormula
                             ? $"={cell.FormulaA1}"
                             : cell.GetString();
                         cells.Add(value.Length > 20 ? value[..17] + "..." : value);
                     }
+
                     results.Add($"| {string.Join(" | ", cells)} |");
                 }
 
                 if (usedRange.RowCount() > actualMaxRows || usedRange.ColumnCount() > actualMaxCols)
                 {
-                    results.Add($"... (showing {actualMaxRows}x{actualMaxCols} of {usedRange.RowCount()}x{usedRange.ColumnCount()})");
+                    results.Add(
+                        $"... (showing {actualMaxRows}x{actualMaxCols} of {usedRange.RowCount()}x{usedRange.ColumnCount()})");
                 }
             }
 
@@ -369,11 +427,15 @@ public class ExcelTools
     private string ResolveFilePath(string fileName)
     {
         if (Path.IsPathRooted(fileName))
+        {
             return fileName;
+        }
 
-        var path = Path.Combine(_outputDir, fileName);
+        string path = Path.Combine(_outputDir, fileName);
         if (!path.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+        {
             path += ".xlsx";
+        }
 
         return path;
     }
@@ -390,22 +452,27 @@ public class ExcelTools
                 cell.Value = element.GetBoolean();
                 break;
             case JsonValueKind.String:
-                var str = element.GetString() ?? "";
+                string str = element.GetString() ?? "";
                 if (str.StartsWith('='))
+                {
                     cell.FormulaA1 = str[1..];
+                }
                 else
+                {
                     cell.Value = str;
+                }
+
                 break;
             case JsonValueKind.Object:
                 // Handle objects with a "formula" property (e.g., {"formula":"=SUM(A1:A10)"})
-                if (element.TryGetProperty("formula", out var formulaElement))
+                if (element.TryGetProperty("formula", out JsonElement formulaElement))
                 {
-                    var formula = formulaElement.GetString() ?? "";
+                    string formula = formulaElement.GetString() ?? "";
                     // FormulaA1 expects formula without leading '='
                     cell.FormulaA1 = formula.StartsWith('=') ? formula[1..] : formula;
                 }
                 // Handle objects with a "value" property (common from Claude)
-                else if (element.TryGetProperty("value", out var valueElement))
+                else if (element.TryGetProperty("value", out JsonElement valueElement))
                 {
                     SetCellValue(cell, valueElement);
                 }
@@ -413,6 +480,7 @@ public class ExcelTools
                 {
                     cell.Value = element.ToString();
                 }
+
                 break;
             default:
                 cell.Value = element.ToString();
@@ -423,7 +491,9 @@ public class ExcelTools
     private static IXLWorksheet GetWorksheet(XLWorkbook workbook, string? sheetName)
     {
         if (!string.IsNullOrEmpty(sheetName))
+        {
             return workbook.Worksheet(sheetName);
+        }
 
         // Default to first worksheet
         return workbook.Worksheet(1);

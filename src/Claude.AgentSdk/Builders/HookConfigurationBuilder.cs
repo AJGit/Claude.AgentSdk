@@ -1,4 +1,4 @@
-using Claude.AgentSdk.Protocol;
+﻿using Claude.AgentSdk.Protocol;
 
 namespace Claude.AgentSdk.Builders;
 
@@ -7,12 +7,12 @@ namespace Claude.AgentSdk.Builders;
 /// </summary>
 /// <remarks>
 ///     <para>
-///     This builder provides a more ergonomic way to configure hooks
-///     compared to manually constructing dictionaries.
+///         This builder provides a more ergonomic way to configure hooks
+///         compared to manually constructing dictionaries.
 ///     </para>
 ///     <para>
-///     Example usage:
-///     <code>
+///         Example usage:
+///         <code>
 ///     var hooks = new HookConfigurationBuilder()
 ///         .OnPreToolUse(myHandler, matcher: "Bash|Write")
 ///         .OnPostToolUse(logHandler)
@@ -23,7 +23,7 @@ namespace Claude.AgentSdk.Builders;
 /// </remarks>
 public sealed class HookConfigurationBuilder
 {
-    private readonly Dictionary<Protocol.HookEvent, List<HookMatcher>> _hooks = new();
+    private readonly Dictionary<HookEvent, List<HookMatcher>> _hooks = new();
 
     /// <summary>
     ///     Adds a hook matcher for an event.
@@ -31,13 +31,14 @@ public sealed class HookConfigurationBuilder
     /// <param name="hookEvent">The hook event type.</param>
     /// <param name="matcher">The hook matcher.</param>
     /// <returns>This builder for chaining.</returns>
-    public HookConfigurationBuilder AddHook(Protocol.HookEvent hookEvent, HookMatcher matcher)
+    public HookConfigurationBuilder AddHook(HookEvent hookEvent, HookMatcher matcher)
     {
         if (!_hooks.TryGetValue(hookEvent, out var matchers))
         {
-            matchers = new List<HookMatcher>();
+            matchers = [];
             _hooks[hookEvent] = matchers;
         }
+
         matchers.Add(matcher);
         return this;
     }
@@ -54,10 +55,10 @@ public sealed class HookConfigurationBuilder
         string? matcher = null,
         double? timeout = null)
     {
-        return AddHook(Protocol.HookEvent.PreToolUse, new HookMatcher
+        return AddHook(HookEvent.PreToolUse, new HookMatcher
         {
             Matcher = matcher,
-            Hooks = new[] { handler },
+            Hooks = [handler],
             Timeout = timeout
         });
     }
@@ -74,7 +75,7 @@ public sealed class HookConfigurationBuilder
         string? matcher = null,
         double? timeout = null)
     {
-        return AddHook(Protocol.HookEvent.PreToolUse, new HookMatcher
+        return AddHook(HookEvent.PreToolUse, new HookMatcher
         {
             Matcher = matcher,
             Hooks = handlers,
@@ -94,10 +95,10 @@ public sealed class HookConfigurationBuilder
         string? matcher = null,
         double? timeout = null)
     {
-        return AddHook(Protocol.HookEvent.PostToolUse, new HookMatcher
+        return AddHook(HookEvent.PostToolUse, new HookMatcher
         {
             Matcher = matcher,
-            Hooks = new[] { handler },
+            Hooks = [handler],
             Timeout = timeout
         });
     }
@@ -114,10 +115,10 @@ public sealed class HookConfigurationBuilder
         string? matcher = null,
         double? timeout = null)
     {
-        return AddHook(Protocol.HookEvent.PostToolUseFailure, new HookMatcher
+        return AddHook(HookEvent.PostToolUseFailure, new HookMatcher
         {
             Matcher = matcher,
-            Hooks = new[] { handler },
+            Hooks = [handler],
             Timeout = timeout
         });
     }
@@ -130,9 +131,9 @@ public sealed class HookConfigurationBuilder
     /// <returns>This builder for chaining.</returns>
     public HookConfigurationBuilder OnUserPromptSubmit(HookCallback handler, double? timeout = null)
     {
-        return AddHook(Protocol.HookEvent.UserPromptSubmit, new HookMatcher
+        return AddHook(HookEvent.UserPromptSubmit, new HookMatcher
         {
-            Hooks = new[] { handler },
+            Hooks = [handler],
             Timeout = timeout
         });
     }
@@ -145,9 +146,9 @@ public sealed class HookConfigurationBuilder
     /// <returns>This builder for chaining.</returns>
     public HookConfigurationBuilder OnStop(HookCallback handler, double? timeout = null)
     {
-        return AddHook(Protocol.HookEvent.Stop, new HookMatcher
+        return AddHook(HookEvent.Stop, new HookMatcher
         {
-            Hooks = new[] { handler },
+            Hooks = [handler],
             Timeout = timeout
         });
     }
@@ -160,9 +161,9 @@ public sealed class HookConfigurationBuilder
     /// <returns>This builder for chaining.</returns>
     public HookConfigurationBuilder OnSubagentStart(HookCallback handler, double? timeout = null)
     {
-        return AddHook(Protocol.HookEvent.SubagentStart, new HookMatcher
+        return AddHook(HookEvent.SubagentStart, new HookMatcher
         {
-            Hooks = new[] { handler },
+            Hooks = [handler],
             Timeout = timeout
         });
     }
@@ -175,9 +176,9 @@ public sealed class HookConfigurationBuilder
     /// <returns>This builder for chaining.</returns>
     public HookConfigurationBuilder OnSubagentStop(HookCallback handler, double? timeout = null)
     {
-        return AddHook(Protocol.HookEvent.SubagentStop, new HookMatcher
+        return AddHook(HookEvent.SubagentStop, new HookMatcher
         {
-            Hooks = new[] { handler },
+            Hooks = [handler],
             Timeout = timeout
         });
     }
@@ -190,9 +191,9 @@ public sealed class HookConfigurationBuilder
     /// <returns>This builder for chaining.</returns>
     public HookConfigurationBuilder OnPreCompact(HookCallback handler, double? timeout = null)
     {
-        return AddHook(Protocol.HookEvent.PreCompact, new HookMatcher
+        return AddHook(HookEvent.PreCompact, new HookMatcher
         {
-            Hooks = new[] { handler },
+            Hooks = [handler],
             Timeout = timeout
         });
     }
@@ -209,10 +210,10 @@ public sealed class HookConfigurationBuilder
         string? matcher = null,
         double? timeout = null)
     {
-        return AddHook(Protocol.HookEvent.PermissionRequest, new HookMatcher
+        return AddHook(HookEvent.PermissionRequest, new HookMatcher
         {
             Matcher = matcher,
-            Hooks = new[] { handler },
+            Hooks = [handler],
             Timeout = timeout
         });
     }
@@ -225,9 +226,9 @@ public sealed class HookConfigurationBuilder
     /// <returns>This builder for chaining.</returns>
     public HookConfigurationBuilder OnSessionStart(HookCallback handler, double? timeout = null)
     {
-        return AddHook(Protocol.HookEvent.SessionStart, new HookMatcher
+        return AddHook(HookEvent.SessionStart, new HookMatcher
         {
-            Hooks = new[] { handler },
+            Hooks = [handler],
             Timeout = timeout
         });
     }
@@ -240,9 +241,9 @@ public sealed class HookConfigurationBuilder
     /// <returns>This builder for chaining.</returns>
     public HookConfigurationBuilder OnSessionEnd(HookCallback handler, double? timeout = null)
     {
-        return AddHook(Protocol.HookEvent.SessionEnd, new HookMatcher
+        return AddHook(HookEvent.SessionEnd, new HookMatcher
         {
-            Hooks = new[] { handler },
+            Hooks = [handler],
             Timeout = timeout
         });
     }
@@ -255,9 +256,9 @@ public sealed class HookConfigurationBuilder
     /// <returns>This builder for chaining.</returns>
     public HookConfigurationBuilder OnNotification(HookCallback handler, double? timeout = null)
     {
-        return AddHook(Protocol.HookEvent.Notification, new HookMatcher
+        return AddHook(HookEvent.Notification, new HookMatcher
         {
-            Hooks = new[] { handler },
+            Hooks = [handler],
             Timeout = timeout
         });
     }
@@ -266,7 +267,7 @@ public sealed class HookConfigurationBuilder
     ///     Builds the hook configuration dictionary.
     /// </summary>
     /// <returns>A dictionary of hook matchers keyed by event type.</returns>
-    public IReadOnlyDictionary<Protocol.HookEvent, IReadOnlyList<HookMatcher>> Build()
+    public IReadOnlyDictionary<HookEvent, IReadOnlyList<HookMatcher>> Build()
     {
         return _hooks.ToDictionary(
             kvp => kvp.Key,

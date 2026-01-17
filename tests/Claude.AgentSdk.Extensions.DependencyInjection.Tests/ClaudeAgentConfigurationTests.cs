@@ -1,5 +1,4 @@
-using Claude.AgentSdk.Extensions.DependencyInjection;
-using Xunit;
+﻿using Xunit;
 
 namespace Claude.AgentSdk.Extensions.DependencyInjection.Tests;
 
@@ -8,16 +7,31 @@ namespace Claude.AgentSdk.Extensions.DependencyInjection.Tests;
 /// </summary>
 public class ClaudeAgentConfigurationTests
 {
-    #region ToOptions Basic Tests
+    [Fact]
+    public void SectionName_IsClaudeAgentOptions()
+    {
+        // Assert
+        Assert.Equal("Claude", ClaudeAgentConfiguration.SectionName);
+    }
+
+    [Fact]
+    public void DefaultMessageChannelCapacity_Is256()
+    {
+        // Arrange
+        ClaudeAgentConfiguration config = new();
+
+        // Assert
+        Assert.Equal(256, config.MessageChannelCapacity);
+    }
 
     [Fact]
     public void ToOptions_WithDefaults_ReturnsValidOptions()
     {
         // Arrange
-        var config = new ClaudeAgentConfiguration();
+        ClaudeAgentConfiguration config = new();
 
         // Act
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Assert
         Assert.NotNull(options);
@@ -30,13 +44,13 @@ public class ClaudeAgentConfigurationTests
     public void ToOptions_WithModel_SetsModelId()
     {
         // Arrange
-        var config = new ClaudeAgentConfiguration
+        ClaudeAgentConfiguration config = new()
         {
             Model = "sonnet"
         };
 
         // Act
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Assert
         Assert.NotNull(options.ModelId);
@@ -47,14 +61,14 @@ public class ClaudeAgentConfigurationTests
     public void ToOptions_WithFallbackModel_SetsFallbackModelId()
     {
         // Arrange
-        var config = new ClaudeAgentConfiguration
+        ClaudeAgentConfiguration config = new()
         {
             Model = "sonnet",
             FallbackModel = "haiku"
         };
 
         // Act
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Assert
         Assert.NotNull(options.FallbackModelId);
@@ -65,13 +79,13 @@ public class ClaudeAgentConfigurationTests
     public void ToOptions_WithMaxTurns_SetsMaxTurns()
     {
         // Arrange
-        var config = new ClaudeAgentConfiguration
+        ClaudeAgentConfiguration config = new()
         {
             MaxTurns = 10
         };
 
         // Act
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Assert
         Assert.Equal(10, options.MaxTurns);
@@ -81,13 +95,13 @@ public class ClaudeAgentConfigurationTests
     public void ToOptions_WithMaxBudgetUsd_SetsMaxBudgetUsd()
     {
         // Arrange
-        var config = new ClaudeAgentConfiguration
+        ClaudeAgentConfiguration config = new()
         {
             MaxBudgetUsd = 5.50
         };
 
         // Act
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Assert
         Assert.Equal(5.50, options.MaxBudgetUsd);
@@ -97,13 +111,13 @@ public class ClaudeAgentConfigurationTests
     public void ToOptions_WithWorkingDirectory_SetsWorkingDirectory()
     {
         // Arrange
-        var config = new ClaudeAgentConfiguration
+        ClaudeAgentConfiguration config = new()
         {
             WorkingDirectory = "C:/Projects/Test"
         };
 
         // Act
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Assert
         Assert.Equal("C:/Projects/Test", options.WorkingDirectory);
@@ -113,33 +127,29 @@ public class ClaudeAgentConfigurationTests
     public void ToOptions_WithCliPath_SetsCliPath()
     {
         // Arrange
-        var config = new ClaudeAgentConfiguration
+        ClaudeAgentConfiguration config = new()
         {
             CliPath = "/usr/local/bin/claude"
         };
 
         // Act
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Assert
         Assert.Equal("/usr/local/bin/claude", options.CliPath);
     }
 
-    #endregion
-
-    #region Tools Configuration Tests
-
     [Fact]
     public void ToOptions_WithAllowedTools_SetsAllowedTools()
     {
         // Arrange
-        var config = new ClaudeAgentConfiguration
+        ClaudeAgentConfiguration config = new()
         {
             AllowedTools = ["Read", "Write", "Bash"]
         };
 
         // Act
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Assert
         Assert.Equal(3, options.AllowedTools.Count);
@@ -152,13 +162,13 @@ public class ClaudeAgentConfigurationTests
     public void ToOptions_WithDisallowedTools_SetsDisallowedTools()
     {
         // Arrange
-        var config = new ClaudeAgentConfiguration
+        ClaudeAgentConfiguration config = new()
         {
             DisallowedTools = ["WebSearch", "Bash"]
         };
 
         // Act
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Assert
         Assert.Equal(2, options.DisallowedTools.Count);
@@ -170,34 +180,30 @@ public class ClaudeAgentConfigurationTests
     public void ToOptions_WithNullAllowedTools_ReturnsEmptyList()
     {
         // Arrange
-        var config = new ClaudeAgentConfiguration
+        ClaudeAgentConfiguration config = new()
         {
             AllowedTools = null
         };
 
         // Act
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Assert
         Assert.NotNull(options.AllowedTools);
         Assert.Empty(options.AllowedTools);
     }
 
-    #endregion
-
-    #region System Prompt Tests
-
     [Fact]
     public void ToOptions_WithSystemPrompt_SetsCustomSystemPrompt()
     {
         // Arrange
-        var config = new ClaudeAgentConfiguration
+        ClaudeAgentConfiguration config = new()
         {
             SystemPrompt = "You are a helpful coding assistant."
         };
 
         // Act
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Assert
         Assert.NotNull(options.SystemPrompt);
@@ -207,13 +213,13 @@ public class ClaudeAgentConfigurationTests
     public void ToOptions_WithClaudeCodePreset_SetsClaudeCodePrompt()
     {
         // Arrange
-        var config = new ClaudeAgentConfiguration
+        ClaudeAgentConfiguration config = new()
         {
             UseClaudeCodePreset = true
         };
 
         // Act
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Assert
         Assert.NotNull(options.SystemPrompt);
@@ -223,14 +229,14 @@ public class ClaudeAgentConfigurationTests
     public void ToOptions_WithClaudeCodePresetAndAppend_SetsClaudeCodePromptWithAppend()
     {
         // Arrange
-        var config = new ClaudeAgentConfiguration
+        ClaudeAgentConfiguration config = new()
         {
             UseClaudeCodePreset = true,
             ClaudeCodePresetAppend = "Additional instructions here."
         };
 
         // Act
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Assert
         Assert.NotNull(options.SystemPrompt);
@@ -240,34 +246,30 @@ public class ClaudeAgentConfigurationTests
     public void ToOptions_CustomPromptTakesPrecedenceOverPreset()
     {
         // Arrange
-        var config = new ClaudeAgentConfiguration
+        ClaudeAgentConfiguration config = new()
         {
             SystemPrompt = "Custom prompt",
             UseClaudeCodePreset = true
         };
 
         // Act
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Assert
         Assert.NotNull(options.SystemPrompt);
     }
 
-    #endregion
-
-    #region Permission Mode Tests
-
     [Fact]
     public void ToOptions_WithPermissionMode_Default_SetsPermissionMode()
     {
         // Arrange
-        var config = new ClaudeAgentConfiguration
+        ClaudeAgentConfiguration config = new()
         {
             PermissionMode = "Default"
         };
 
         // Act
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Assert
         Assert.NotNull(options.PermissionMode);
@@ -278,13 +280,13 @@ public class ClaudeAgentConfigurationTests
     public void ToOptions_WithPermissionMode_AcceptEdits_SetsPermissionMode()
     {
         // Arrange
-        var config = new ClaudeAgentConfiguration
+        ClaudeAgentConfiguration config = new()
         {
             PermissionMode = "AcceptEdits"
         };
 
         // Act
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Assert
         Assert.NotNull(options.PermissionMode);
@@ -295,13 +297,13 @@ public class ClaudeAgentConfigurationTests
     public void ToOptions_WithPermissionMode_CaseInsensitive()
     {
         // Arrange
-        var config = new ClaudeAgentConfiguration
+        ClaudeAgentConfiguration config = new()
         {
             PermissionMode = "acceptedits"
         };
 
         // Act
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Assert
         Assert.NotNull(options.PermissionMode);
@@ -312,33 +314,29 @@ public class ClaudeAgentConfigurationTests
     public void ToOptions_WithInvalidPermissionMode_ReturnsNull()
     {
         // Arrange
-        var config = new ClaudeAgentConfiguration
+        ClaudeAgentConfiguration config = new()
         {
             PermissionMode = "InvalidMode"
         };
 
         // Act
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Assert
         Assert.Null(options.PermissionMode);
     }
 
-    #endregion
-
-    #region Advanced Configuration Tests
-
     [Fact]
     public void ToOptions_WithMaxThinkingTokens_SetsMaxThinkingTokens()
     {
         // Arrange
-        var config = new ClaudeAgentConfiguration
+        ClaudeAgentConfiguration config = new()
         {
             MaxThinkingTokens = 8192
         };
 
         // Act
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Assert
         Assert.Equal(8192, options.MaxThinkingTokens);
@@ -348,13 +346,13 @@ public class ClaudeAgentConfigurationTests
     public void ToOptions_WithEnableFileCheckpointing_SetsEnableFileCheckpointing()
     {
         // Arrange
-        var config = new ClaudeAgentConfiguration
+        ClaudeAgentConfiguration config = new()
         {
             EnableFileCheckpointing = true
         };
 
         // Act
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Assert
         Assert.True(options.EnableFileCheckpointing);
@@ -364,13 +362,13 @@ public class ClaudeAgentConfigurationTests
     public void ToOptions_WithBetas_SetsBetas()
     {
         // Arrange
-        var config = new ClaudeAgentConfiguration
+        ClaudeAgentConfiguration config = new()
         {
             Betas = ["interleaved_thinking", "new_feature"]
         };
 
         // Act
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Assert
         Assert.NotNull(options.Betas);
@@ -382,13 +380,13 @@ public class ClaudeAgentConfigurationTests
     public void ToOptions_WithAddDirectories_SetsAddDirectories()
     {
         // Arrange
-        var config = new ClaudeAgentConfiguration
+        ClaudeAgentConfiguration config = new()
         {
             AddDirectories = ["C:/Projects", "D:/Data"]
         };
 
         // Act
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Assert
         Assert.Equal(2, options.AddDirectories.Count);
@@ -400,7 +398,7 @@ public class ClaudeAgentConfigurationTests
     public void ToOptions_WithEnvironment_SetsEnvironment()
     {
         // Arrange
-        var config = new ClaudeAgentConfiguration
+        ClaudeAgentConfiguration config = new()
         {
             Environment = new Dictionary<string, string>
             {
@@ -410,7 +408,7 @@ public class ClaudeAgentConfigurationTests
         };
 
         // Act
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Assert
         Assert.Equal(2, options.Environment.Count);
@@ -422,13 +420,13 @@ public class ClaudeAgentConfigurationTests
     public void ToOptions_WithUser_SetsUser()
     {
         // Arrange
-        var config = new ClaudeAgentConfiguration
+        ClaudeAgentConfiguration config = new()
         {
             User = "test-user-123"
         };
 
         // Act
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Assert
         Assert.Equal("test-user-123", options.User);
@@ -438,42 +436,15 @@ public class ClaudeAgentConfigurationTests
     public void ToOptions_WithMessageChannelCapacity_SetsMessageChannelCapacity()
     {
         // Arrange
-        var config = new ClaudeAgentConfiguration
+        ClaudeAgentConfiguration config = new()
         {
             MessageChannelCapacity = 512
         };
 
         // Act
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Assert
         Assert.Equal(512, options.MessageChannelCapacity);
     }
-
-    #endregion
-
-    #region SectionName Tests
-
-    [Fact]
-    public void SectionName_IsClaudeAgentOptions()
-    {
-        // Assert
-        Assert.Equal("Claude", ClaudeAgentConfiguration.SectionName);
-    }
-
-    #endregion
-
-    #region Default Values Tests
-
-    [Fact]
-    public void DefaultMessageChannelCapacity_Is256()
-    {
-        // Arrange
-        var config = new ClaudeAgentConfiguration();
-
-        // Assert
-        Assert.Equal(256, config.MessageChannelCapacity);
-    }
-
-    #endregion
 }

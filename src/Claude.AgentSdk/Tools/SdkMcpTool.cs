@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace Claude.AgentSdk.Tools;
@@ -23,14 +22,14 @@ namespace Claude.AgentSdk.Tools;
 ///     "add",
 ///     "Add two numbers together",
 ///     async (args, ct) => ToolResult.Text($"Result: {args.A + args.B}"));
-///
+/// 
 /// // Create a tool with custom schema
 /// var echoTool = SdkMcpTool.Create(
 ///     "echo",
 ///     "Echo a message",
 ///     new JsonObject { ["type"] = "object", ["properties"] = new JsonObject { ["message"] = new JsonObject { ["type"] = "string" } } },
 ///     async (input, ct) => ToolResult.Text(input.GetProperty("message").GetString()!));
-///
+/// 
 /// // Register with a server
 /// var server = ToolHelpers.CreateSdkMcpServer("my-tools", tools: [addTool, echoTool]);
 /// </code>
@@ -48,7 +47,7 @@ public static class SdkMcpTool
     /// <example>
     ///     <code>
     /// public record WeatherArgs(string Location, string? Units);
-    ///
+    /// 
     /// var tool = SdkMcpTool.Create&lt;WeatherArgs&gt;(
     ///     "get-weather",
     ///     "Get the current weather for a location",
@@ -87,7 +86,7 @@ public static class SdkMcpTool
     ///     },
     ///     ["required"] = new JsonArray { "query" }
     /// };
-    ///
+    /// 
     /// var tool = SdkMcpTool.Create(
     ///     "search",
     ///     "Search for information",

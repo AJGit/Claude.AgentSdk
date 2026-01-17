@@ -1,5 +1,4 @@
-using Claude.AgentSdk;
-using Claude.AgentSdk.Types;
+﻿using Claude.AgentSdk.Types;
 
 namespace Claude.AgentSdk.Extensions.DependencyInjection;
 
@@ -8,8 +7,8 @@ namespace Claude.AgentSdk.Extensions.DependencyInjection;
 /// </summary>
 /// <remarks>
 ///     <para>
-///     Example appsettings.json:
-///     <code>
+///         Example appsettings.json:
+///         <code>
 ///     {
 ///       "Claude": {
 ///         "Model": "sonnet",
@@ -147,15 +146,21 @@ public class ClaudeAgentConfiguration
         // Build system prompt
         SystemPromptConfig? systemPrompt = null;
         if (!string.IsNullOrEmpty(SystemPrompt))
+        {
             systemPrompt = new CustomSystemPrompt(SystemPrompt);
+        }
         else if (UseClaudeCodePreset)
+        {
             systemPrompt = SystemPromptConfig.ClaudeCode(ClaudeCodePresetAppend);
+        }
 
         // Parse permission mode
         PermissionMode? permissionMode = null;
         if (!string.IsNullOrEmpty(PermissionMode) &&
-            Enum.TryParse<PermissionMode>(PermissionMode, ignoreCase: true, out var mode))
+            Enum.TryParse(PermissionMode, true, out PermissionMode mode))
+        {
             permissionMode = mode;
+        }
 
         // Build MCP servers dictionary
         IReadOnlyDictionary<string, McpServerConfig>? mcpServers = null;
@@ -182,8 +187,10 @@ public class ClaudeAgentConfiguration
             Environment = Environment ?? new Dictionary<string, string>(),
             User = User,
             MessageChannelCapacity = MessageChannelCapacity,
-            ModelId = !string.IsNullOrEmpty(Model) ? new ModelIdentifier(Model) : default(ModelIdentifier?),
-            FallbackModelId = !string.IsNullOrEmpty(FallbackModel) ? new ModelIdentifier(FallbackModel) : default(ModelIdentifier?),
+            ModelId = !string.IsNullOrEmpty(Model) ? new ModelIdentifier(Model) : null!,
+            FallbackModelId = !string.IsNullOrEmpty(FallbackModel)
+                ? new ModelIdentifier(FallbackModel)
+                : null!,
             SystemPrompt = systemPrompt,
             PermissionMode = permissionMode,
             McpServers = mcpServers

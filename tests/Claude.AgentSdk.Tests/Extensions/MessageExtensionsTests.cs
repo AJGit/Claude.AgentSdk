@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Claude.AgentSdk.Extensions;
 using Claude.AgentSdk.Messages;
 using Claude.AgentSdk.Types;
@@ -11,7 +11,17 @@ namespace Claude.AgentSdk.Tests.Extensions;
 [UnitTest]
 public class MessageExtensionsTests
 {
-    #region AssistantMessage.GetText Tests
+    private static AssistantMessage CreateAssistantMessage(params ContentBlock[] blocks)
+    {
+        return new AssistantMessage
+        {
+            MessageContent = new AssistantMessageContent
+            {
+                Content = blocks.ToList(),
+                Model = "test-model"
+            }
+        };
+    }
 
     [Fact]
     public void GetText_WithSingleTextBlock_ReturnsText()
@@ -84,10 +94,6 @@ public class MessageExtensionsTests
         Assert.Equal("Before tool\nAfter tool", text);
     }
 
-    #endregion
-
-    #region AssistantMessage.GetToolUses Tests
-
     [Fact]
     public void GetToolUses_WithToolUseBlocks_ReturnsToolUses()
     {
@@ -131,10 +137,6 @@ public class MessageExtensionsTests
         Assert.Empty(toolUses);
     }
 
-    #endregion
-
-    #region AssistantMessage.HasToolUse Tests
-
     [Fact]
     public void HasToolUse_WithMatchingTool_ReturnsTrue()
     {
@@ -168,10 +170,6 @@ public class MessageExtensionsTests
         Assert.True(message.HasToolUse(ToolName.Read));
         Assert.False(message.HasToolUse(ToolName.Write));
     }
-
-    #endregion
-
-    #region AssistantMessage.GetToolUse Tests
 
     [Fact]
     public void GetToolUse_WithMatchingTool_ReturnsToolUse()
@@ -216,10 +214,6 @@ public class MessageExtensionsTests
         // Assert
         Assert.NotNull(toolUse);
     }
-
-    #endregion
-
-    #region AssistantMessage.GetThinking Tests
 
     [Fact]
     public void GetThinking_WithThinkingBlocks_ReturnsThinkingBlocks()
@@ -272,10 +266,6 @@ public class MessageExtensionsTests
         Assert.False(message.HasThinking());
     }
 
-    #endregion
-
-    #region AssistantMessage.GetTextBlocks Tests
-
     [Fact]
     public void GetTextBlocks_WithTextBlocks_ReturnsTextBlocks()
     {
@@ -304,10 +294,6 @@ public class MessageExtensionsTests
         // Assert
         Assert.Empty(textBlocks);
     }
-
-    #endregion
-
-    #region AssistantMessage.Error Tests
 
     [Fact]
     public void HasError_WithError_ReturnsTrue()
@@ -371,10 +357,6 @@ public class MessageExtensionsTests
         Assert.Null(error);
     }
 
-    #endregion
-
-    #region AssistantMessage.GetModel Tests
-
     [Fact]
     public void GetModel_WithModel_ReturnsModelName()
     {
@@ -414,10 +396,6 @@ public class MessageExtensionsTests
         // Assert
         Assert.Equal(string.Empty, model);
     }
-
-    #endregion
-
-    #region ResultMessage Tests
 
     [Fact]
     public void IsSuccess_WithSuccessResult_ReturnsTrue()
@@ -472,10 +450,6 @@ public class MessageExtensionsTests
         // Act & Assert
         Assert.False(message.IsSuccess());
     }
-
-    #endregion
-
-    #region SystemMessage Tests
 
     [Fact]
     public void IsInitMessage_WithInitSubtype_ReturnsTrue()
@@ -541,7 +515,7 @@ public class MessageExtensionsTests
             Subtype = "init",
             McpServers = new List<McpServerStatus>
             {
-                new McpServerStatus { Name = "server1", Status = "connected" }
+                new() { Name = "server1", Status = "connected" }
             }
         };
 
@@ -565,22 +539,4 @@ public class MessageExtensionsTests
         // Assert
         Assert.Empty(servers);
     }
-
-    #endregion
-
-    #region Helper Methods
-
-    private static AssistantMessage CreateAssistantMessage(params ContentBlock[] blocks)
-    {
-        return new AssistantMessage
-        {
-            MessageContent = new AssistantMessageContent
-            {
-                Content = blocks.ToList(),
-                Model = "test-model"
-            }
-        };
-    }
-
-    #endregion
 }

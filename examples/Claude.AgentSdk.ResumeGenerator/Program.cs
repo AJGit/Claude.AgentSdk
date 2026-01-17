@@ -1,4 +1,4 @@
-/// <summary>
+﻿/// <summary>
 /// Resume Generator - Claude Agent SDK Example
 ///
 /// This example demonstrates:
@@ -12,7 +12,6 @@
 /// </summary>
 
 using System.Text.Json;
-using Claude.AgentSdk;
 using Claude.AgentSdk.Messages;
 
 namespace Claude.AgentSdk.ResumeGenerator;
@@ -20,33 +19,33 @@ namespace Claude.AgentSdk.ResumeGenerator;
 public static class Program
 {
     private const string SystemPrompt = """
-        You are a professional resume writer. Research a person and create a 1-page resume in markdown format.
+                                        You are a professional resume writer. Research a person and create a 1-page resume in markdown format.
 
-        WORKFLOW:
-        1. Use WebSearch to find the person's background (LinkedIn, GitHub, company pages, articles)
-        2. Gather information about their experience, education, skills, and achievements
-        3. Create a well-structured markdown resume file
+                                        WORKFLOW:
+                                        1. Use WebSearch to find the person's background (LinkedIn, GitHub, company pages, articles)
+                                        2. Gather information about their experience, education, skills, and achievements
+                                        3. Create a well-structured markdown resume file
 
-        OUTPUT:
-        - Save the resume to: output/resume.md
+                                        OUTPUT:
+                                        - Save the resume to: output/resume.md
 
-        RESUME FORMAT:
-        - Professional summary (2-3 sentences)
-        - Work Experience (3 most recent/relevant positions)
-        - Education
-        - Skills (technical and soft skills)
-        - Notable achievements or projects
+                                        RESUME FORMAT:
+                                        - Professional summary (2-3 sentences)
+                                        - Work Experience (3 most recent/relevant positions)
+                                        - Education
+                                        - Skills (technical and soft skills)
+                                        - Notable achievements or projects
 
-        STYLE GUIDELINES:
-        - Keep it concise - max 1 page worth of content
-        - 2-3 bullet points per job
-        - Focus on quantifiable achievements where possible
-        - Use professional, action-oriented language
-        - Include dates for positions and education
+                                        STYLE GUIDELINES:
+                                        - Keep it concise - max 1 page worth of content
+                                        - 2-3 bullet points per job
+                                        - Focus on quantifiable achievements where possible
+                                        - Use professional, action-oriented language
+                                        - Include dates for positions and education
 
-        If you cannot find enough information about the person, acknowledge this and create
-        a template resume that they can fill in with their own details.
-        """;
+                                        If you cannot find enough information about the person, acknowledge this and create
+                                        a template resume that they can fill in with their own details.
+                                        """;
 
     public static async Task Main(string[] args)
     {
@@ -78,10 +77,10 @@ public static class Program
         Console.WriteLine();
 
         // Setup output directory
-        var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "output");
+        string outputDir = Path.Combine(Directory.GetCurrentDirectory(), "output");
         Directory.CreateDirectory(outputDir);
 
-        var options = new ClaudeAgentOptions
+        ClaudeAgentOptions options = new()
         {
             SystemPrompt = SystemPrompt,
             Model = "sonnet",
@@ -90,28 +89,28 @@ public static class Program
             AllowedTools = ["WebSearch", "WebFetch", "Write", "Read", "Glob", "Bash"]
         };
 
-        var prompt = $"""
-            Research "{personName}" and create a professional 1-page resume as a markdown file.
+        string prompt = $"""
+                         Research "{personName}" and create a professional 1-page resume as a markdown file.
 
-            Search for their professional background, work experience, education, and skills.
-            Use multiple searches to gather comprehensive information.
+                         Search for their professional background, work experience, education, and skills.
+                         Use multiple searches to gather comprehensive information.
 
-            Save the final resume to: output/resume.md
-            """;
+                         Save the final resume to: output/resume.md
+                         """;
 
         Console.WriteLine("Researching and creating resume...");
         Console.WriteLine(new string('-', 50));
         Console.WriteLine();
 
-        await using var client = new ClaudeAgentClient(options);
+        await using ClaudeAgentClient client = new(options);
 
-        await foreach (var message in client.QueryAsync(prompt))
+        await foreach (Message message in client.QueryAsync(prompt))
         {
             ProcessMessage(message);
         }
 
         // Check if resume was created
-        var resumePath = Path.Combine(outputDir, "resume.md");
+        string resumePath = Path.Combine(outputDir, "resume.md");
         Console.WriteLine();
         Console.WriteLine(new string('=', 50));
 
@@ -125,10 +124,10 @@ public static class Program
             Console.WriteLine("Resume Preview:");
             Console.WriteLine(new string('-', 50));
 
-            var content = await File.ReadAllTextAsync(resumePath);
+            string content = await File.ReadAllTextAsync(resumePath);
             // Show first 30 lines
-            var lines = content.Split('\n').Take(30);
-            foreach (var line in lines)
+            IEnumerable<string> lines = content.Split('\n').Take(30);
+            foreach (string line in lines)
             {
                 Console.WriteLine(line);
             }
@@ -154,7 +153,7 @@ public static class Program
         switch (message)
         {
             case AssistantMessage assistant:
-                foreach (var block in assistant.MessageContent.Content)
+                foreach (ContentBlock block in assistant.MessageContent.Content)
                 {
                     switch (block)
                     {
@@ -165,14 +164,14 @@ public static class Program
                         case ToolUseBlock toolUse:
                             Console.ForegroundColor = ConsoleColor.Cyan;
 
-                            if (toolUse.Name == "WebSearch" && toolUse.Input is { } input)
+                            if (toolUse is { Name: "WebSearch", Input: { } input })
                             {
-                                var query = GetJsonProperty(input, "query");
+                                string? query = GetJsonProperty(input, "query");
                                 Console.WriteLine($"Searching: \"{query}\"");
                             }
-                            else if (toolUse.Name == "Write" && toolUse.Input is { } writeInput)
+                            else if (toolUse is { Name: "Write", Input: { } writeInput })
                             {
-                                var filePath = GetJsonProperty(writeInput, "file_path");
+                                string? filePath = GetJsonProperty(writeInput, "file_path");
                                 Console.WriteLine($"Writing: {Path.GetFileName(filePath ?? "file")}");
                             }
                             else
@@ -184,6 +183,7 @@ public static class Program
                             break;
                     }
                 }
+
                 break;
 
             case ResultMessage result:
@@ -199,7 +199,7 @@ public static class Program
     {
         try
         {
-            if (element.TryGetProperty(propertyName, out var value))
+            if (element.TryGetProperty(propertyName, out JsonElement value))
             {
                 return value.GetString();
             }
@@ -208,6 +208,7 @@ public static class Program
         {
             // Ignore
         }
+
         return null;
     }
 }

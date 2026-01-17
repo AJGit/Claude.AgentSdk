@@ -1,5 +1,5 @@
-using Claude.AgentSdk;
-using Claude.AgentSdk.Messages;
+﻿using Claude.AgentSdk.Messages;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -10,22 +10,22 @@ namespace Claude.AgentSdk.Extensions.DependencyInjection;
 /// </summary>
 /// <remarks>
 ///     <para>
-///     Extend this class to create background services that continuously process
-///     messages from a Claude agent session.
+///         Extend this class to create background services that continuously process
+///         messages from a Claude agent session.
 ///     </para>
 ///     <para>
-///     Example usage:
-///     <code>
+///         Example usage:
+///         <code>
 ///     public class LogMonitorService : ClaudeAgentBackgroundService
 ///     {
 ///         public LogMonitorService(
 ///             IClaudeAgentClientFactory factory,
 ///             ILogger&lt;LogMonitorService&gt; logger)
 ///             : base(factory, logger) { }
-///
+/// 
 ///         protected override string GetInitialPrompt() =>
 ///             "Monitor the system logs and alert on errors.";
-///
+/// 
 ///         protected override async Task OnMessageAsync(
 ///             Message message,
 ///             CancellationToken ct)
@@ -36,7 +36,7 @@ namespace Claude.AgentSdk.Extensions.DependencyInjection;
 ///             }
 ///         }
 ///     }
-///
+/// 
 ///     // Registration:
 ///     services.AddHostedService&lt;LogMonitorService&gt;();
 ///     </code>
@@ -47,6 +47,19 @@ public abstract class ClaudeAgentBackgroundService : BackgroundService
     private readonly IClaudeAgentClientFactory _factory;
     private ClaudeAgentClient? _client;
     private ClaudeAgentSession? _session;
+
+    /// <summary>
+    ///     Creates a new background service.
+    /// </summary>
+    /// <param name="factory">The client factory.</param>
+    /// <param name="logger">The logger.</param>
+    protected ClaudeAgentBackgroundService(
+        IClaudeAgentClientFactory factory,
+        ILogger logger)
+    {
+        _factory = factory ?? throw new ArgumentNullException(nameof(factory));
+        Logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
 
     /// <summary>
     ///     The logger instance.
@@ -64,22 +77,12 @@ public abstract class ClaudeAgentBackgroundService : BackgroundService
     protected ClaudeAgentSession Session => _session ?? throw new InvalidOperationException("Session not initialized.");
 
     /// <summary>
-    ///     Creates a new background service.
-    /// </summary>
-    /// <param name="factory">The client factory.</param>
-    /// <param name="logger">The logger.</param>
-    protected ClaudeAgentBackgroundService(
-        IClaudeAgentClientFactory factory,
-        ILogger logger)
-    {
-        _factory = factory ?? throw new ArgumentNullException(nameof(factory));
-        Logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    }
-
-    /// <summary>
     ///     Gets the name of the agent to use (for named agents). Return null for default.
     /// </summary>
-    protected virtual string? GetAgentName() => null;
+    protected virtual string? GetAgentName()
+    {
+        return null;
+    }
 
     /// <summary>
     ///     Gets the initial prompt to send to the agent.
@@ -100,7 +103,10 @@ public abstract class ClaudeAgentBackgroundService : BackgroundService
     /// <summary>
     ///     Called when the session completes normally.
     /// </summary>
-    protected virtual Task OnSessionCompletedAsync(CancellationToken ct) => Task.CompletedTask;
+    protected virtual Task OnSessionCompletedAsync(CancellationToken ct)
+    {
+        return Task.CompletedTask;
+    }
 
     /// <summary>
     ///     Called when an error occurs during processing.
@@ -115,19 +121,25 @@ public abstract class ClaudeAgentBackgroundService : BackgroundService
     ///     Determines whether the service should restart after an error.
     ///     Default is true with exponential backoff.
     /// </summary>
-    protected virtual bool ShouldRestartOnError(Exception exception, int attemptCount) =>
-        attemptCount < 5; // Max 5 restart attempts
+    protected virtual bool ShouldRestartOnError(Exception exception, int attemptCount)
+    {
+        return attemptCount < 5;
+        // Max 5 restart attempts
+    }
 
     /// <summary>
     ///     Gets the delay before restarting after an error.
     /// </summary>
-    protected virtual TimeSpan GetRestartDelay(int attemptCount) =>
-        TimeSpan.FromSeconds(Math.Pow(2, attemptCount)); // Exponential backoff
+    protected virtual TimeSpan GetRestartDelay(int attemptCount)
+    {
+        return TimeSpan.FromSeconds(Math.Pow(2, attemptCount));
+        // Exponential backoff
+    }
 
     /// <inheritdoc />
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var attemptCount = 0;
+        int attemptCount = 0;
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -154,7 +166,7 @@ public abstract class ClaudeAgentBackgroundService : BackgroundService
 
                 if (ShouldRestartOnError(ex, attemptCount))
                 {
-                    var delay = GetRestartDelay(attemptCount);
+                    TimeSpan delay = GetRestartDelay(attemptCount);
                     Logger.LogWarning(
                         "Restarting Claude agent background service in {Delay} (attempt {Attempt})",
                         delay, attemptCount);
@@ -173,7 +185,7 @@ public abstract class ClaudeAgentBackgroundService : BackgroundService
 
     private async Task RunAgentAsync(CancellationToken ct)
     {
-        var agentName = GetAgentName();
+        string? agentName = GetAgentName();
 
         _client = agentName is null
             ? _factory.CreateClient()
@@ -182,13 +194,13 @@ public abstract class ClaudeAgentBackgroundService : BackgroundService
         Logger.LogInformation("Starting Claude agent session");
 
         _session = await _client.CreateSessionAsync(ct).ConfigureAwait(false);
-        var prompt = GetInitialPrompt();
+        string prompt = GetInitialPrompt();
 
         // Send the initial prompt
         await _session.SendAsync(prompt, cancellationToken: ct).ConfigureAwait(false);
 
         // Receive responses until completion
-        await foreach (var message in _session.ReceiveResponseAsync(ct).ConfigureAwait(false))
+        await foreach (Message message in _session.ReceiveResponseAsync(ct).ConfigureAwait(false))
         {
             await OnMessageAsync(message, ct).ConfigureAwait(false);
         }
@@ -227,7 +239,7 @@ public static class BackgroundServiceExtensions
     public static IClaudeAgentBuilder AddClaudeAgentHostedService<TService>(this IClaudeAgentBuilder builder)
         where TService : ClaudeAgentBackgroundService
     {
-        Microsoft.Extensions.DependencyInjection.ServiceCollectionHostedServiceExtensions.AddHostedService<TService>(builder.Services);
+        builder.Services.AddHostedService<TService>();
         return builder;
     }
 }

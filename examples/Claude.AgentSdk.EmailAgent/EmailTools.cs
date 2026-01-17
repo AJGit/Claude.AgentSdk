@@ -1,25 +1,20 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Claude.AgentSdk.Attributes;
 using Claude.AgentSdk.Tools;
 
 namespace Claude.AgentSdk.EmailAgent;
 
 /// <summary>
-/// Custom MCP tools for email operations.
-/// Uses [GenerateToolRegistration] for compile-time tool registration.
+///     Custom MCP tools for email operations.
+///     Uses [GenerateToolRegistration] for compile-time tool registration.
 /// </summary>
 [GenerateToolRegistration]
-public class EmailTools
+public class EmailTools(MockEmailStore store)
 {
-    private readonly MockEmailStore _store;
-
-    public EmailTools(MockEmailStore store)
-    {
-        _store = store;
-    }
+    private readonly MockEmailStore _store = store;
 
     /// <summary>
-    /// Search emails using Gmail-like query syntax.
+    ///     Search emails using Gmail-like query syntax.
     /// </summary>
     [ClaudeTool("search_inbox",
         """
@@ -42,12 +37,14 @@ public class EmailTools
         """,
         Categories = ["email"])]
     public string SearchInbox(
-        [ToolParameter(Description = "Gmail-style search query")] string query,
-        [ToolParameter(Description = "Maximum number of results to return")] int? limit = 20)
+        [ToolParameter(Description = "Gmail-style search query")]
+        string query,
+        [ToolParameter(Description = "Maximum number of results to return")]
+        int? limit = 20)
     {
         try
         {
-            var results = _store.Search(query);
+            IReadOnlyList<Email> results = _store.Search(query);
 
             if (results.Count == 0)
             {
@@ -80,17 +77,18 @@ public class EmailTools
     }
 
     /// <summary>
-    /// Read full email content by IDs.
+    ///     Read full email content by IDs.
     /// </summary>
     [ClaudeTool("read_emails",
         "Read full email content by IDs. Returns complete email details including body.",
         Categories = ["email"])]
     public string ReadEmails(
-        [ToolParameter(Description = "Array of email IDs to read")] string[] ids)
+        [ToolParameter(Description = "Array of email IDs to read")]
+        string[] ids)
     {
         try
         {
-            var emails = _store.GetByIds(ids);
+            IReadOnlyList<Email> emails = _store.GetByIds(ids);
 
             if (emails.Count == 0)
             {
@@ -113,7 +111,7 @@ public class EmailTools
             });
 
             // Mark as read when reading
-            foreach (var email in emails)
+            foreach (Email email in emails)
             {
                 _store.MarkAsRead(email.Id);
             }
@@ -128,17 +126,18 @@ public class EmailTools
     }
 
     /// <summary>
-    /// Get recent emails from inbox.
+    ///     Get recent emails from inbox.
     /// </summary>
     [ClaudeTool("get_inbox",
         "Get recent emails from inbox. Returns up to 'limit' most recent non-archived emails.",
         Categories = ["email"])]
     public string GetInbox(
-        [ToolParameter(Description = "Maximum number of emails to return")] int? limit = 20)
+        [ToolParameter(Description = "Maximum number of emails to return")]
+        int? limit = 20)
     {
         try
         {
-            var emails = _store.GetInbox(limit ?? 20);
+            IReadOnlyList<Email> emails = _store.GetInbox(limit ?? 20);
 
             var summary = emails.Select(e => new
             {
@@ -152,7 +151,7 @@ public class EmailTools
                 snippet = e.Snippet
             });
 
-            var unreadCount = emails.Count(e => !e.IsRead);
+            int unreadCount = emails.Count(e => !e.IsRead);
 
             return JsonSerializer.Serialize(new
             {
@@ -168,20 +167,22 @@ public class EmailTools
     }
 
     /// <summary>
-    /// Mark one or more emails as read.
+    ///     Mark one or more emails as read.
     /// </summary>
     [ClaudeTool("mark_as_read",
         "Mark one or more emails as read.",
         Categories = ["email"])]
     public string MarkAsRead(
-        [ToolParameter(Description = "Array of email IDs to mark as read")] string[] ids)
+        [ToolParameter(Description = "Array of email IDs to mark as read")]
+        string[] ids)
     {
         try
         {
-            foreach (var id in ids)
+            foreach (string id in ids)
             {
                 _store.MarkAsRead(id);
             }
+
             return $"Marked {ids.Length} email(s) as read.";
         }
         catch (Exception ex)
@@ -191,20 +192,22 @@ public class EmailTools
     }
 
     /// <summary>
-    /// Mark one or more emails as unread.
+    ///     Mark one or more emails as unread.
     /// </summary>
     [ClaudeTool("mark_as_unread",
         "Mark one or more emails as unread.",
         Categories = ["email"])]
     public string MarkAsUnread(
-        [ToolParameter(Description = "Array of email IDs to mark as unread")] string[] ids)
+        [ToolParameter(Description = "Array of email IDs to mark as unread")]
+        string[] ids)
     {
         try
         {
-            foreach (var id in ids)
+            foreach (string id in ids)
             {
                 _store.MarkAsUnread(id);
             }
+
             return $"Marked {ids.Length} email(s) as unread.";
         }
         catch (Exception ex)
@@ -214,20 +217,22 @@ public class EmailTools
     }
 
     /// <summary>
-    /// Star one or more emails.
+    ///     Star one or more emails.
     /// </summary>
     [ClaudeTool("star_email",
         "Star one or more emails.",
         Categories = ["email"])]
     public string StarEmail(
-        [ToolParameter(Description = "Array of email IDs to star")] string[] ids)
+        [ToolParameter(Description = "Array of email IDs to star")]
+        string[] ids)
     {
         try
         {
-            foreach (var id in ids)
+            foreach (string id in ids)
             {
                 _store.Star(id);
             }
+
             return $"Starred {ids.Length} email(s).";
         }
         catch (Exception ex)
@@ -237,20 +242,22 @@ public class EmailTools
     }
 
     /// <summary>
-    /// Remove star from one or more emails.
+    ///     Remove star from one or more emails.
     /// </summary>
     [ClaudeTool("unstar_email",
         "Remove star from one or more emails.",
         Categories = ["email"])]
     public string UnstarEmail(
-        [ToolParameter(Description = "Array of email IDs to unstar")] string[] ids)
+        [ToolParameter(Description = "Array of email IDs to unstar")]
+        string[] ids)
     {
         try
         {
-            foreach (var id in ids)
+            foreach (string id in ids)
             {
                 _store.Unstar(id);
             }
+
             return $"Unstarred {ids.Length} email(s).";
         }
         catch (Exception ex)
@@ -260,20 +267,22 @@ public class EmailTools
     }
 
     /// <summary>
-    /// Archive one or more emails (remove from inbox).
+    ///     Archive one or more emails (remove from inbox).
     /// </summary>
     [ClaudeTool("archive_email",
         "Archive one or more emails (remove from inbox).",
         Categories = ["email"])]
     public string ArchiveEmail(
-        [ToolParameter(Description = "Array of email IDs to archive")] string[] ids)
+        [ToolParameter(Description = "Array of email IDs to archive")]
+        string[] ids)
     {
         try
         {
-            foreach (var id in ids)
+            foreach (string id in ids)
             {
                 _store.Archive(id);
             }
+
             return $"Archived {ids.Length} email(s).";
         }
         catch (Exception ex)
@@ -283,21 +292,24 @@ public class EmailTools
     }
 
     /// <summary>
-    /// Add a label to one or more emails.
+    ///     Add a label to one or more emails.
     /// </summary>
     [ClaudeTool("add_label",
         "Add a label to one or more emails.",
         Categories = ["email"])]
     public string AddLabel(
-        [ToolParameter(Description = "Array of email IDs to label")] string[] ids,
-        [ToolParameter(Description = "Label name to add")] string label)
+        [ToolParameter(Description = "Array of email IDs to label")]
+        string[] ids,
+        [ToolParameter(Description = "Label name to add")]
+        string label)
     {
         try
         {
-            foreach (var id in ids)
+            foreach (string id in ids)
             {
                 _store.AddLabel(id, label);
             }
+
             return $"Added label '{label}' to {ids.Length} email(s).";
         }
         catch (Exception ex)
@@ -307,21 +319,24 @@ public class EmailTools
     }
 
     /// <summary>
-    /// Remove a label from one or more emails.
+    ///     Remove a label from one or more emails.
     /// </summary>
     [ClaudeTool("remove_label",
         "Remove a label from one or more emails.",
         Categories = ["email"])]
     public string RemoveLabel(
-        [ToolParameter(Description = "Array of email IDs to unlabel")] string[] ids,
-        [ToolParameter(Description = "Label name to remove")] string label)
+        [ToolParameter(Description = "Array of email IDs to unlabel")]
+        string[] ids,
+        [ToolParameter(Description = "Label name to remove")]
+        string label)
     {
         try
         {
-            foreach (var id in ids)
+            foreach (string id in ids)
             {
                 _store.RemoveLabel(id, label);
             }
+
             return $"Removed label '{label}' from {ids.Length} email(s).";
         }
         catch (Exception ex)

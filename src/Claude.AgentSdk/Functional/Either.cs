@@ -1,4 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 
 // Suppress CA1000: Static members on generic types are the standard pattern for functional types
 #pragma warning disable CA1000
@@ -13,17 +13,17 @@ namespace Claude.AgentSdk.Functional;
 /// <typeparam name="TRight">The right (typically success) type.</typeparam>
 /// <remarks>
 ///     <para>
-///     Either is a discriminated union that forces explicit handling of both cases.
-///     It's more general than Result as both sides are "equal" (no implicit success/failure semantics).
+///         Either is a discriminated union that forces explicit handling of both cases.
+///         It's more general than Result as both sides are "equal" (no implicit success/failure semantics).
 ///     </para>
 ///     <para>
-///     Example usage:
-///     <code>
+///         Example usage:
+///         <code>
 ///     Either&lt;string, int&gt; ParseInt(string s) =>
 ///         int.TryParse(s, out var result)
 ///             ? Either.Right&lt;string, int&gt;(result)
 ///             : Either.Left&lt;string, int&gt;($"Cannot parse '{s}' as int");
-///
+/// 
 ///     var result = ParseInt("42").Match(
 ///         left: err => $"Error: {err}",
 ///         right: num => $"Number: {num}"
@@ -35,31 +35,30 @@ public readonly struct Either<TLeft, TRight> : IEquatable<Either<TLeft, TRight>>
 {
     private readonly TLeft _left;
     private readonly TRight _right;
-    private readonly bool _isRight;
 
     private Either(TLeft left)
     {
         _left = left;
         _right = default!;
-        _isRight = false;
+        IsRight = false;
     }
 
     private Either(TRight right, bool _)
     {
         _left = default!;
         _right = right;
-        _isRight = true;
+        IsRight = true;
     }
 
     /// <summary>
     ///     Gets whether this is a Left value.
     /// </summary>
-    public bool IsLeft => !_isRight;
+    public bool IsLeft => !IsRight;
 
     /// <summary>
     ///     Gets whether this is a Right value.
     /// </summary>
-    public bool IsRight => _isRight;
+    public bool IsRight { get; }
 
     /// <summary>
     ///     Creates a Left value.
@@ -74,14 +73,14 @@ public readonly struct Either<TLeft, TRight> : IEquatable<Either<TLeft, TRight>>
     /// <summary>
     ///     Gets the Left value, or throws if this is Right.
     /// </summary>
-    public TLeft LeftValue => !_isRight
+    public TLeft LeftValue => !IsRight
         ? _left
         : throw new InvalidOperationException("Either is Right, not Left.");
 
     /// <summary>
     ///     Gets the Right value, or throws if this is Left.
     /// </summary>
-    public TRight RightValue => _isRight
+    public TRight RightValue => IsRight
         ? _right
         : throw new InvalidOperationException("Either is Left, not Right.");
 
@@ -91,7 +90,7 @@ public readonly struct Either<TLeft, TRight> : IEquatable<Either<TLeft, TRight>>
     public bool TryGetLeft([MaybeNullWhen(false)] out TLeft value)
     {
         value = _left;
-        return !_isRight;
+        return !IsRight;
     }
 
     /// <summary>
@@ -100,7 +99,7 @@ public readonly struct Either<TLeft, TRight> : IEquatable<Either<TLeft, TRight>>
     public bool TryGetRight([MaybeNullWhen(false)] out TRight value)
     {
         value = _right;
-        return _isRight;
+        return IsRight;
     }
 
     /// <summary>
@@ -110,7 +109,7 @@ public readonly struct Either<TLeft, TRight> : IEquatable<Either<TLeft, TRight>>
     {
         ArgumentNullException.ThrowIfNull(left);
         ArgumentNullException.ThrowIfNull(right);
-        return _isRight ? right(_right) : left(_left);
+        return IsRight ? right(_right) : left(_left);
     }
 
     /// <summary>
@@ -121,10 +120,14 @@ public readonly struct Either<TLeft, TRight> : IEquatable<Either<TLeft, TRight>>
         ArgumentNullException.ThrowIfNull(left);
         ArgumentNullException.ThrowIfNull(right);
 
-        if (_isRight)
+        if (IsRight)
+        {
             right(_right);
+        }
         else
+        {
             left(_left);
+        }
     }
 
     /// <summary>
@@ -133,7 +136,7 @@ public readonly struct Either<TLeft, TRight> : IEquatable<Either<TLeft, TRight>>
     public Either<TLeft, TResult> Map<TResult>(Func<TRight, TResult> mapper)
     {
         ArgumentNullException.ThrowIfNull(mapper);
-        return _isRight
+        return IsRight
             ? Either<TLeft, TResult>.Right(mapper(_right))
             : Either<TLeft, TResult>.Left(_left);
     }
@@ -144,7 +147,7 @@ public readonly struct Either<TLeft, TRight> : IEquatable<Either<TLeft, TRight>>
     public async Task<Either<TLeft, TResult>> MapAsync<TResult>(Func<TRight, Task<TResult>> mapper)
     {
         ArgumentNullException.ThrowIfNull(mapper);
-        return _isRight
+        return IsRight
             ? Either<TLeft, TResult>.Right(await mapper(_right).ConfigureAwait(false))
             : Either<TLeft, TResult>.Left(_left);
     }
@@ -155,7 +158,7 @@ public readonly struct Either<TLeft, TRight> : IEquatable<Either<TLeft, TRight>>
     public Either<TNewLeft, TRight> MapLeft<TNewLeft>(Func<TLeft, TNewLeft> mapper)
     {
         ArgumentNullException.ThrowIfNull(mapper);
-        return _isRight
+        return IsRight
             ? Either<TNewLeft, TRight>.Right(_right)
             : Either<TNewLeft, TRight>.Left(mapper(_left));
     }
@@ -169,7 +172,7 @@ public readonly struct Either<TLeft, TRight> : IEquatable<Either<TLeft, TRight>>
     {
         ArgumentNullException.ThrowIfNull(leftMapper);
         ArgumentNullException.ThrowIfNull(rightMapper);
-        return _isRight
+        return IsRight
             ? Either<TNewLeft, TNewRight>.Right(rightMapper(_right))
             : Either<TNewLeft, TNewRight>.Left(leftMapper(_left));
     }
@@ -180,7 +183,7 @@ public readonly struct Either<TLeft, TRight> : IEquatable<Either<TLeft, TRight>>
     public Either<TLeft, TResult> Bind<TResult>(Func<TRight, Either<TLeft, TResult>> binder)
     {
         ArgumentNullException.ThrowIfNull(binder);
-        return _isRight ? binder(_right) : Either<TLeft, TResult>.Left(_left);
+        return IsRight ? binder(_right) : Either<TLeft, TResult>.Left(_left);
     }
 
     /// <summary>
@@ -190,7 +193,7 @@ public readonly struct Either<TLeft, TRight> : IEquatable<Either<TLeft, TRight>>
         Func<TRight, Task<Either<TLeft, TResult>>> binder)
     {
         ArgumentNullException.ThrowIfNull(binder);
-        return _isRight
+        return IsRight
             ? await binder(_right).ConfigureAwait(false)
             : Either<TLeft, TResult>.Left(_left);
     }
@@ -199,13 +202,13 @@ public readonly struct Either<TLeft, TRight> : IEquatable<Either<TLeft, TRight>>
     ///     Gets the Right value or a default if this is Left.
     /// </summary>
     public TRight GetRightOrDefault(TRight defaultValue = default!) =>
-        _isRight ? _right : defaultValue;
+        IsRight ? _right : defaultValue;
 
     /// <summary>
     ///     Gets the Left value or a default if this is Right.
     /// </summary>
     public TLeft GetLeftOrDefault(TLeft defaultValue = default!) =>
-        !_isRight ? _left : defaultValue;
+        !IsRight ? _left : defaultValue;
 
     /// <summary>
     ///     Gets the Right value or computes a default lazily.
@@ -213,7 +216,7 @@ public readonly struct Either<TLeft, TRight> : IEquatable<Either<TLeft, TRight>>
     public TRight GetRightOrElse(Func<TLeft, TRight> defaultFactory)
     {
         ArgumentNullException.ThrowIfNull(defaultFactory);
-        return _isRight ? _right : defaultFactory(_left);
+        return IsRight ? _right : defaultFactory(_left);
     }
 
     /// <summary>
@@ -222,8 +225,11 @@ public readonly struct Either<TLeft, TRight> : IEquatable<Either<TLeft, TRight>>
     public Either<TLeft, TRight> DoRight(Action<TRight> action)
     {
         ArgumentNullException.ThrowIfNull(action);
-        if (_isRight)
+        if (IsRight)
+        {
             action(_right);
+        }
+
         return this;
     }
 
@@ -233,8 +239,11 @@ public readonly struct Either<TLeft, TRight> : IEquatable<Either<TLeft, TRight>>
     public Either<TLeft, TRight> DoLeft(Action<TLeft> action)
     {
         ArgumentNullException.ThrowIfNull(action);
-        if (!_isRight)
+        if (!IsRight)
+        {
             action(_left);
+        }
+
         return this;
     }
 
@@ -242,25 +251,25 @@ public readonly struct Either<TLeft, TRight> : IEquatable<Either<TLeft, TRight>>
     ///     Swaps Left and Right.
     /// </summary>
     public Either<TRight, TLeft> Swap() =>
-        _isRight ? Either<TRight, TLeft>.Left(_right) : Either<TRight, TLeft>.Right(_left);
+        IsRight ? Either<TRight, TLeft>.Left(_right) : Either<TRight, TLeft>.Right(_left);
 
     /// <summary>
     ///     Converts to an Option of the Right value.
     /// </summary>
     public Option<TRight> ToOption() =>
-        _isRight ? Option.Some(_right) : Option.NoneOf<TRight>();
+        IsRight ? Option.Some(_right) : Option.NoneOf<TRight>();
 
     /// <summary>
     ///     Converts to an Option of the Left value.
     /// </summary>
     public Option<TLeft> ToLeftOption() =>
-        !_isRight ? Option.Some(_left) : Option.NoneOf<TLeft>();
+        !IsRight ? Option.Some(_left) : Option.NoneOf<TLeft>();
 
     /// <summary>
     ///     Converts to a Result (Left becomes failure, Right becomes success).
     /// </summary>
     public Result<TRight, TLeft> ToResult() =>
-        _isRight ? Result<TRight, TLeft>.Success(_right) : Result<TRight, TLeft>.Failure(_left);
+        IsRight ? Result<TRight, TLeft>.Success(_right) : Result<TRight, TLeft>.Failure(_left);
 
     /// <summary>
     ///     Merges Left and Right when they're the same type.
@@ -269,21 +278,23 @@ public readonly struct Either<TLeft, TRight> : IEquatable<Either<TLeft, TRight>>
     public TRight Merge()
     {
         if (!typeof(TLeft).IsAssignableTo(typeof(TRight)))
+        {
             throw new InvalidOperationException(
                 $"Cannot merge Either<{typeof(TLeft).Name}, {typeof(TRight).Name}> - types are not compatible.");
+        }
 
-        return _isRight ? _right : (TRight)(object)_left!;
+        return IsRight ? _right : (TRight)(object)_left!;
     }
-
-    #region Equality
 
     /// <inheritdoc />
     public bool Equals(Either<TLeft, TRight> other)
     {
-        if (_isRight != other._isRight)
+        if (IsRight != other.IsRight)
+        {
             return false;
+        }
 
-        return _isRight
+        return IsRight
             ? EqualityComparer<TRight>.Default.Equals(_right, other._right)
             : EqualityComparer<TLeft>.Default.Equals(_left, other._left);
     }
@@ -292,7 +303,7 @@ public readonly struct Either<TLeft, TRight> : IEquatable<Either<TLeft, TRight>>
     public override bool Equals(object? obj) => obj is Either<TLeft, TRight> other && Equals(other);
 
     /// <inheritdoc />
-    public override int GetHashCode() => _isRight
+    public override int GetHashCode() => IsRight
         ? HashCode.Combine(true, _right)
         : HashCode.Combine(false, _left);
 
@@ -308,10 +319,8 @@ public readonly struct Either<TLeft, TRight> : IEquatable<Either<TLeft, TRight>>
     public static bool operator !=(Either<TLeft, TRight> left, Either<TLeft, TRight> right) =>
         !left.Equals(right);
 
-    #endregion
-
     /// <inheritdoc />
-    public override string ToString() => _isRight
+    public override string ToString() => IsRight
         ? $"Right({_right})"
         : $"Left({_left})";
 
@@ -333,24 +342,6 @@ public readonly struct Either<TLeft, TRight> : IEquatable<Either<TLeft, TRight>>
 /// </summary>
 public static class Either
 {
-    /// <summary>
-    ///     Wrapper for Left values to enable implicit conversion.
-    /// </summary>
-    public readonly struct LeftValue<T>
-    {
-        internal T Value { get; }
-        internal LeftValue(T value) => Value = value;
-    }
-
-    /// <summary>
-    ///     Wrapper for Right values to enable implicit conversion.
-    /// </summary>
-    public readonly struct RightValue<T>
-    {
-        internal T Value { get; }
-        internal RightValue(T value) => Value = value;
-    }
-
     /// <summary>
     ///     Creates a Left value that can be implicitly converted to any Either.
     /// </summary>
@@ -378,15 +369,19 @@ public static class Either
     ///     Returns Left with the first Left value if any is Left.
     /// </summary>
     public static Either<TLeft, IReadOnlyList<TRight>> Sequence<TLeft, TRight>(
-        this IEnumerable<Either<TLeft, TRight>> eithers)
+        this IEnumerable<Either<TLeft, TRight>> eitherItems)
     {
         var list = new List<TRight>();
-        foreach (var either in eithers)
+        foreach (var either in eitherItems)
         {
             if (either.IsLeft)
+            {
                 return Left<TLeft, IReadOnlyList<TRight>>(either.LeftValue);
+            }
+
             list.Add(either.RightValue);
         }
+
         return Right<TLeft, IReadOnlyList<TRight>>(list);
     }
 
@@ -404,9 +399,13 @@ public static class Either
         {
             var result = mapper(item);
             if (result.IsLeft)
+            {
                 return Left<TLeft, IReadOnlyList<TResult>>(result.LeftValue);
+            }
+
             list.Add(result.RightValue);
         }
+
         return Right<TLeft, IReadOnlyList<TResult>>(list);
     }
 
@@ -414,19 +413,41 @@ public static class Either
     ///     Partitions an enumerable of Eithers into Lefts and Rights.
     /// </summary>
     public static (IReadOnlyList<TLeft> Lefts, IReadOnlyList<TRight> Rights) Partition<TLeft, TRight>(
-        this IEnumerable<Either<TLeft, TRight>> eithers)
+        this IEnumerable<Either<TLeft, TRight>> eitherItems)
     {
         var lefts = new List<TLeft>();
         var rights = new List<TRight>();
 
-        foreach (var either in eithers)
+        foreach (var either in eitherItems)
         {
             if (either.IsLeft)
+            {
                 lefts.Add(either.LeftValue);
+            }
             else
+            {
                 rights.Add(either.RightValue);
+            }
         }
 
         return (lefts, rights);
+    }
+
+    /// <summary>
+    ///     Wrapper for Left values to enable implicit conversion.
+    /// </summary>
+    public readonly struct LeftValue<T>
+    {
+        internal T Value { get; }
+        internal LeftValue(T value) => Value = value;
+    }
+
+    /// <summary>
+    ///     Wrapper for Right values to enable implicit conversion.
+    /// </summary>
+    public readonly struct RightValue<T>
+    {
+        internal T Value { get; }
+        internal RightValue(T value) => Value = value;
     }
 }

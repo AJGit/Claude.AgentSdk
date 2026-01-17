@@ -1,4 +1,4 @@
-namespace Claude.AgentSdk.Types;
+﻿namespace Claude.AgentSdk.Types;
 
 /// <summary>
 ///     Strongly-typed model identifier that replaces magic string model names.
@@ -6,15 +6,15 @@ namespace Claude.AgentSdk.Types;
 /// </summary>
 /// <remarks>
 ///     <para>
-///     Common aliases like "sonnet", "opus", "haiku" are supported alongside
-///     specific version identifiers like "claude-sonnet-4-20250514".
+///         Common aliases like "sonnet", "opus", "haiku" are supported alongside
+///         specific version identifiers like "claude-sonnet-4-20250514".
 ///     </para>
 ///     <para>
-///     Implicit conversions allow seamless migration from string-based model names:
-///     <code>
+///         Implicit conversions allow seamless migration from string-based model names:
+///         <code>
 ///     // Old way (still works)
 ///     options.Model = "sonnet";
-///
+/// 
 ///     // New strongly-typed way
 ///     options.ModelId = ModelIdentifier.Sonnet;
 ///     </code>
@@ -38,8 +38,6 @@ public readonly struct ModelIdentifier : IEquatable<ModelIdentifier>
     /// </summary>
     public string Value => _value ?? string.Empty;
 
-    #region Common Aliases
-
     /// <summary>
     ///     Claude Sonnet model (latest version).
     /// </summary>
@@ -54,10 +52,6 @@ public readonly struct ModelIdentifier : IEquatable<ModelIdentifier>
     ///     Claude Haiku model (latest version).
     /// </summary>
     public static ModelIdentifier Haiku => new("haiku");
-
-    #endregion
-
-    #region Specific Versions
 
     /// <summary>
     ///     Claude Sonnet 4 (May 2025).
@@ -89,10 +83,6 @@ public readonly struct ModelIdentifier : IEquatable<ModelIdentifier>
     /// </summary>
     public static ModelIdentifier ClaudeOpus3 => new("claude-3-opus-20240229");
 
-    #endregion
-
-    #region Factory Methods
-
     /// <summary>
     ///     Creates a model identifier for a custom model ID.
     /// </summary>
@@ -108,10 +98,6 @@ public readonly struct ModelIdentifier : IEquatable<ModelIdentifier>
     public static ModelIdentifier? FromNullable(string? modelId) =>
         modelId is null ? (ModelIdentifier?)null : new ModelIdentifier(modelId);
 
-    #endregion
-
-    #region Implicit Conversions
-
     /// <summary>
     ///     Implicitly converts a string to a ModelIdentifier for backward compatibility.
     /// </summary>
@@ -121,10 +107,6 @@ public readonly struct ModelIdentifier : IEquatable<ModelIdentifier>
     ///     Implicitly converts a ModelIdentifier to a string.
     /// </summary>
     public static implicit operator string(ModelIdentifier model) => model.Value;
-
-    #endregion
-
-    #region Equality
 
     /// <inheritdoc />
     public bool Equals(ModelIdentifier other) =>
@@ -149,8 +131,6 @@ public readonly struct ModelIdentifier : IEquatable<ModelIdentifier>
     /// </summary>
     public static bool operator !=(ModelIdentifier left, ModelIdentifier right) =>
         !left.Equals(right);
-
-    #endregion
 
     /// <inheritdoc />
     public override string ToString() => _value ?? string.Empty;

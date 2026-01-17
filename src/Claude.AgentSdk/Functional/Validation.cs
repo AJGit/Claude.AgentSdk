@@ -1,4 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 
 // Suppress CA1000: Static members on generic types are the standard pattern for functional types
 #pragma warning disable CA1000
@@ -13,16 +13,16 @@ namespace Claude.AgentSdk.Functional;
 /// <typeparam name="TError">The error type.</typeparam>
 /// <remarks>
 ///     <para>
-///     Validation is ideal for form validation, configuration validation, or any scenario
-///     where you want to report all errors at once rather than one at a time.
+///         Validation is ideal for form validation, configuration validation, or any scenario
+///         where you want to report all errors at once rather than one at a time.
 ///     </para>
 ///     <para>
-///     Example usage:
-///     <code>
+///         Example usage:
+///         <code>
 ///     var nameValidation = ValidateName(name);     // Validation&lt;string, string&gt;
 ///     var emailValidation = ValidateEmail(email);  // Validation&lt;string, string&gt;
 ///     var ageValidation = ValidateAge(age);        // Validation&lt;int, string&gt;
-///
+/// 
 ///     var result = Validation.Map3(
 ///         nameValidation, emailValidation, ageValidation,
 ///         (n, e, a) => new User(n, e, a)
@@ -35,31 +35,30 @@ public readonly struct Validation<T, TError> : IEquatable<Validation<T, TError>>
 {
     private readonly T _value;
     private readonly IReadOnlyList<TError> _errors;
-    private readonly bool _isValid;
 
     private Validation(T value)
     {
         _value = value;
         _errors = [];
-        _isValid = true;
+        IsValid = true;
     }
 
     private Validation(IReadOnlyList<TError> errors)
     {
         _value = default!;
         _errors = errors;
-        _isValid = false;
+        IsValid = false;
     }
 
     /// <summary>
     ///     Gets whether this validation succeeded.
     /// </summary>
-    public bool IsValid => _isValid;
+    public bool IsValid { get; }
 
     /// <summary>
     ///     Gets whether this validation failed.
     /// </summary>
-    public bool IsInvalid => !_isValid;
+    public bool IsInvalid => !IsValid;
 
     /// <summary>
     ///     Creates a successful validation.
@@ -79,14 +78,14 @@ public readonly struct Validation<T, TError> : IEquatable<Validation<T, TError>>
     /// <summary>
     ///     Gets the valid value, or throws if invalid.
     /// </summary>
-    public T Value => _isValid
+    public T Value => IsValid
         ? _value
         : throw new InvalidOperationException($"Validation failed with {_errors.Count} error(s).");
 
     /// <summary>
     ///     Gets the errors, or throws if valid.
     /// </summary>
-    public IReadOnlyList<TError> Errors => !_isValid
+    public IReadOnlyList<TError> Errors => !IsValid
         ? _errors
         : throw new InvalidOperationException("Validation succeeded, no errors available.");
 
@@ -96,7 +95,7 @@ public readonly struct Validation<T, TError> : IEquatable<Validation<T, TError>>
     public bool TryGetValue([MaybeNullWhen(false)] out T value)
     {
         value = _value;
-        return _isValid;
+        return IsValid;
     }
 
     /// <summary>
@@ -105,7 +104,7 @@ public readonly struct Validation<T, TError> : IEquatable<Validation<T, TError>>
     public bool TryGetErrors([MaybeNullWhen(false)] out IReadOnlyList<TError> errors)
     {
         errors = _errors;
-        return !_isValid;
+        return !IsValid;
     }
 
     /// <summary>
@@ -115,7 +114,7 @@ public readonly struct Validation<T, TError> : IEquatable<Validation<T, TError>>
     {
         ArgumentNullException.ThrowIfNull(valid);
         ArgumentNullException.ThrowIfNull(invalid);
-        return _isValid ? valid(_value) : invalid(_errors);
+        return IsValid ? valid(_value) : invalid(_errors);
     }
 
     /// <summary>
@@ -126,10 +125,14 @@ public readonly struct Validation<T, TError> : IEquatable<Validation<T, TError>>
         ArgumentNullException.ThrowIfNull(valid);
         ArgumentNullException.ThrowIfNull(invalid);
 
-        if (_isValid)
+        if (IsValid)
+        {
             valid(_value);
+        }
         else
+        {
             invalid(_errors);
+        }
     }
 
     /// <summary>
@@ -138,7 +141,7 @@ public readonly struct Validation<T, TError> : IEquatable<Validation<T, TError>>
     public Validation<TResult, TError> Map<TResult>(Func<T, TResult> mapper)
     {
         ArgumentNullException.ThrowIfNull(mapper);
-        return _isValid
+        return IsValid
             ? Validation<TResult, TError>.Valid(mapper(_value))
             : Validation<TResult, TError>.Invalid(_errors);
     }
@@ -149,7 +152,7 @@ public readonly struct Validation<T, TError> : IEquatable<Validation<T, TError>>
     public Validation<T, TNewError> MapErrors<TNewError>(Func<TError, TNewError> mapper)
     {
         ArgumentNullException.ThrowIfNull(mapper);
-        return _isValid
+        return IsValid
             ? Validation<T, TNewError>.Valid(_value)
             : Validation<T, TNewError>.Invalid(_errors.Select(mapper).ToList());
     }
@@ -161,13 +164,13 @@ public readonly struct Validation<T, TError> : IEquatable<Validation<T, TError>>
     public Validation<TResult, TError> Bind<TResult>(Func<T, Validation<TResult, TError>> binder)
     {
         ArgumentNullException.ThrowIfNull(binder);
-        return _isValid ? binder(_value) : Validation<TResult, TError>.Invalid(_errors);
+        return IsValid ? binder(_value) : Validation<TResult, TError>.Invalid(_errors);
     }
 
     /// <summary>
     ///     Gets the value or a default if invalid.
     /// </summary>
-    public T GetValueOrDefault(T defaultValue = default!) => _isValid ? _value : defaultValue;
+    public T GetValueOrDefault(T defaultValue = default!) => IsValid ? _value : defaultValue;
 
     /// <summary>
     ///     Gets the value or computes a default if invalid.
@@ -175,20 +178,20 @@ public readonly struct Validation<T, TError> : IEquatable<Validation<T, TError>>
     public T GetValueOrElse(Func<IReadOnlyList<TError>, T> defaultFactory)
     {
         ArgumentNullException.ThrowIfNull(defaultFactory);
-        return _isValid ? _value : defaultFactory(_errors);
+        return IsValid ? _value : defaultFactory(_errors);
     }
 
     /// <summary>
     ///     Converts to a Result (first error only).
     /// </summary>
     public Result<T, TError> ToResult() =>
-        _isValid ? Result<T, TError>.Success(_value) : Result<T, TError>.Failure(_errors[0]);
+        IsValid ? Result<T, TError>.Success(_value) : Result<T, TError>.Failure(_errors[0]);
 
     /// <summary>
     ///     Converts to an Option (discarding errors).
     /// </summary>
     public Option<T> ToOption() =>
-        _isValid ? Option.Some(_value) : Option.NoneOf<T>();
+        IsValid ? Option.Some(_value) : Option.NoneOf<T>();
 
     /// <summary>
     ///     Adds a condition that must be true for the value.
@@ -196,8 +199,11 @@ public readonly struct Validation<T, TError> : IEquatable<Validation<T, TError>>
     public Validation<T, TError> Ensure(Func<T, bool> predicate, TError error)
     {
         ArgumentNullException.ThrowIfNull(predicate);
-        if (!_isValid)
+        if (!IsValid)
+        {
             return this;
+        }
+
         return predicate(_value) ? this : Invalid(error);
     }
 
@@ -207,27 +213,33 @@ public readonly struct Validation<T, TError> : IEquatable<Validation<T, TError>>
     public Validation<T, TError> And(Func<T, Validation<T, TError>> validator)
     {
         ArgumentNullException.ThrowIfNull(validator);
-        if (!_isValid)
+        if (!IsValid)
+        {
             return this;
+        }
 
         var other = validator(_value);
         if (other.IsValid)
+        {
             return this;
+        }
 
         // Combine errors
         return Invalid(_errors.Concat(other._errors).ToList());
     }
 
-    #region Equality
-
     /// <inheritdoc />
     public bool Equals(Validation<T, TError> other)
     {
-        if (_isValid != other._isValid)
+        if (IsValid != other.IsValid)
+        {
             return false;
+        }
 
-        if (_isValid)
+        if (IsValid)
+        {
             return EqualityComparer<T>.Default.Equals(_value, other._value);
+        }
 
         return _errors.SequenceEqual(other._errors);
     }
@@ -236,7 +248,7 @@ public readonly struct Validation<T, TError> : IEquatable<Validation<T, TError>>
     public override bool Equals(object? obj) => obj is Validation<T, TError> other && Equals(other);
 
     /// <inheritdoc />
-    public override int GetHashCode() => _isValid
+    public override int GetHashCode() => IsValid
         ? HashCode.Combine(true, _value)
         : HashCode.Combine(false, _errors.Count);
 
@@ -252,10 +264,8 @@ public readonly struct Validation<T, TError> : IEquatable<Validation<T, TError>>
     public static bool operator !=(Validation<T, TError> left, Validation<T, TError> right) =>
         !left.Equals(right);
 
-    #endregion
-
     /// <inheritdoc />
-    public override string ToString() => _isValid
+    public override string ToString() => IsValid
         ? $"Valid({_value})"
         : $"Invalid([{string.Join(", ", _errors)}])";
 }
@@ -334,7 +344,9 @@ public readonly struct Validation<T> : IEquatable<Validation<T>>
     public Validation<TResult> Bind<TResult>(Func<T, Validation<TResult>> binder)
     {
         ArgumentNullException.ThrowIfNull(binder);
-        return _inner.IsValid ? binder(_inner.Value) : new Validation<TResult>(Validation<TResult, string>.Invalid(_inner.Errors));
+        return _inner.IsValid
+            ? binder(_inner.Value)
+            : new Validation<TResult>(Validation<TResult, string>.Invalid(_inner.Errors));
     }
 
     /// <summary>
@@ -352,8 +364,6 @@ public readonly struct Validation<T> : IEquatable<Validation<T>>
     ///     Converts to the generic Validation type.
     /// </summary>
     public Validation<T, string> ToGeneric() => _inner;
-
-    #region Equality
 
     /// <inheritdoc />
     public bool Equals(Validation<T> other) => _inner.Equals(other._inner);
@@ -373,8 +383,6 @@ public readonly struct Validation<T> : IEquatable<Validation<T>>
     ///     Inequality operator.
     /// </summary>
     public static bool operator !=(Validation<T> left, Validation<T> right) => !left.Equals(right);
-
-    #endregion
 
     /// <inheritdoc />
     public override string ToString() => _inner.ToString();
@@ -435,8 +443,15 @@ public static class Validation
     {
         var errors = new List<TError>();
 
-        if (v1.IsInvalid) errors.AddRange(v1.Errors);
-        if (v2.IsInvalid) errors.AddRange(v2.Errors);
+        if (v1.IsInvalid)
+        {
+            errors.AddRange(v1.Errors);
+        }
+
+        if (v2.IsInvalid)
+        {
+            errors.AddRange(v2.Errors);
+        }
 
         return errors.Count > 0
             ? Validation<(T1, T2), TError>.Invalid(errors)
@@ -453,9 +468,20 @@ public static class Validation
     {
         var errors = new List<TError>();
 
-        if (v1.IsInvalid) errors.AddRange(v1.Errors);
-        if (v2.IsInvalid) errors.AddRange(v2.Errors);
-        if (v3.IsInvalid) errors.AddRange(v3.Errors);
+        if (v1.IsInvalid)
+        {
+            errors.AddRange(v1.Errors);
+        }
+
+        if (v2.IsInvalid)
+        {
+            errors.AddRange(v2.Errors);
+        }
+
+        if (v3.IsInvalid)
+        {
+            errors.AddRange(v3.Errors);
+        }
 
         return errors.Count > 0
             ? Validation<(T1, T2, T3), TError>.Invalid(errors)
@@ -499,9 +525,13 @@ public static class Validation
         foreach (var v in validations)
         {
             if (v.IsValid)
+            {
                 values.Add(v.Value);
+            }
             else
+            {
                 errors.AddRange(v.Errors);
+            }
         }
 
         return errors.Count > 0

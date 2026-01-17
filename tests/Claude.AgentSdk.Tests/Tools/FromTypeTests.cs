@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Claude.AgentSdk.Tools;
 
 namespace Claude.AgentSdk.Tests.Tools;
@@ -9,27 +9,39 @@ namespace Claude.AgentSdk.Tests.Tools;
 [UnitTest]
 public class FromTypeTests
 {
-    #region Test Tool Classes
-
     public class CalculatorTools
     {
         [ClaudeTool("add", "Add two numbers together")]
-        public string Add(AddArgs args) => $"Result: {args.A + args.B}";
+        public string Add(AddArgs args)
+        {
+            return $"Result: {args.A + args.B}";
+        }
 
         [ClaudeTool("subtract", "Subtract two numbers")]
-        public string Subtract(SubtractArgs args) => $"Result: {args.A - args.B}";
+        public string Subtract(SubtractArgs args)
+        {
+            return $"Result: {args.A - args.B}";
+        }
 
         [ClaudeTool("multiply", "Multiply two numbers")]
-        public Task<string> MultiplyAsync(MultiplyArgs args) => Task.FromResult($"Result: {args.A * args.B}");
+        public Task<string> MultiplyAsync(MultiplyArgs args)
+        {
+            return Task.FromResult($"Result: {args.A * args.B}");
+        }
     }
 
     public record AddArgs(int A, int B);
+
     public record SubtractArgs(int A, int B);
+
     public record MultiplyArgs(int A, int B);
 
     public class NoToolsClass
     {
-        public string NotATool() => "This is not a tool";
+        public string NotATool()
+        {
+            return "This is not a tool";
+        }
     }
 
     public class ToolWithDependency
@@ -42,14 +54,13 @@ public class FromTypeTests
         }
 
         [ClaudeTool("greet", "Greet someone")]
-        public string Greet(GreetArgs args) => $"{_prefix} {args.Name}!";
+        public string Greet(GreetArgs args)
+        {
+            return $"{_prefix} {args.Name}!";
+        }
     }
 
     public record GreetArgs(string Name);
-
-    #endregion
-
-    #region FromType Tests
 
     [Fact]
     public void FromType_WithValidClass_CreatesServerConfig()
@@ -81,10 +92,6 @@ public class FromTypeTests
         Assert.Throws<InvalidOperationException>(() =>
             ToolHelpers.FromType<NoToolsClass>("no-tools"));
     }
-
-    #endregion
-
-    #region FromInstance Tests
 
     [Fact]
     public void FromInstance_WithValidInstance_CreatesServerConfig()
@@ -123,10 +130,6 @@ public class FromTypeTests
             ToolHelpers.FromInstance<CalculatorTools>(null!, "test"));
     }
 
-    #endregion
-
-    #region Integration Tests
-
     [Fact]
     public async Task FromType_ToolsCanBeInvoked()
     {
@@ -137,16 +140,16 @@ public class FromTypeTests
 
         // Create a tools/call request
         var request = JsonDocument.Parse("""
-        {
-            "jsonrpc": "2.0",
-            "id": "1",
-            "method": "tools/call",
-            "params": {
-                "name": "add",
-                "arguments": { "a": 5, "b": 3 }
-            }
-        }
-        """);
+                                         {
+                                             "jsonrpc": "2.0",
+                                             "id": "1",
+                                             "method": "tools/call",
+                                             "params": {
+                                                 "name": "add",
+                                                 "arguments": { "a": 5, "b": 3 }
+                                             }
+                                         }
+                                         """);
 
         // Act
         var result = await server.HandleRequestAsync(request.RootElement);
@@ -167,12 +170,12 @@ public class FromTypeTests
 
         // Create a tools/list request
         var request = JsonDocument.Parse("""
-        {
-            "jsonrpc": "2.0",
-            "id": "1",
-            "method": "tools/list"
-        }
-        """);
+                                         {
+                                             "jsonrpc": "2.0",
+                                             "id": "1",
+                                             "method": "tools/list"
+                                         }
+                                         """);
 
         // Act
         var result = await server.HandleRequestAsync(request.RootElement);
@@ -184,6 +187,4 @@ public class FromTypeTests
         Assert.Contains("subtract", resultJson);
         Assert.Contains("multiply", resultJson);
     }
-
-    #endregion
 }

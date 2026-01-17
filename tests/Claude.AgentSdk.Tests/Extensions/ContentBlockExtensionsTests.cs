@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Claude.AgentSdk.Extensions;
 using Claude.AgentSdk.Messages;
 using Claude.AgentSdk.Types;
@@ -11,7 +11,11 @@ namespace Claude.AgentSdk.Tests.Extensions;
 [UnitTest]
 public class ContentBlockExtensionsTests
 {
-    #region Type Checking Tests
+    private sealed class TestInput
+    {
+        public string? Path { get; set; }
+        public int Count { get; set; }
+    }
 
     [Fact]
     public void IsText_WithTextBlock_ReturnsTrue()
@@ -92,10 +96,6 @@ public class ContentBlockExtensionsTests
         // Act & Assert
         Assert.False(block.IsThinking());
     }
-
-    #endregion
-
-    #region Type Casting Tests
 
     [Fact]
     public void AsText_WithTextBlock_ReturnsText()
@@ -204,10 +204,6 @@ public class ContentBlockExtensionsTests
         Assert.Null(content);
     }
 
-    #endregion
-
-    #region ToolUseBlock Extension Tests
-
     [Fact]
     public void GetInput_WithValidInput_DeserializesCorrectly()
     {
@@ -305,10 +301,6 @@ public class ContentBlockExtensionsTests
         // Act & Assert
         Assert.False(toolUse.IsTool(ToolName.Write));
     }
-
-    #endregion
-
-    #region MCP Tool Extension Tests
 
     [Fact]
     public void IsMcpTool_WithMcpTool_ReturnsTrue()
@@ -427,10 +419,6 @@ public class ContentBlockExtensionsTests
         Assert.Equal("Read", toolName);
     }
 
-    #endregion
-
-    #region ToolResultBlock Extension Tests
-
     [Fact]
     public void IsError_WithErrorResult_ReturnsTrue()
     {
@@ -506,16 +494,4 @@ public class ContentBlockExtensionsTests
         // Assert
         Assert.Equal(string.Empty, content);
     }
-
-    #endregion
-
-    #region Helper Classes
-
-    private sealed class TestInput
-    {
-        public string? Path { get; set; }
-        public int Count { get; set; }
-    }
-
-    #endregion
 }

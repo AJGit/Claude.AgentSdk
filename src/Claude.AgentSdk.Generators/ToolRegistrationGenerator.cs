@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -14,24 +14,28 @@ namespace Claude.AgentSdk.Generators;
 [Generator]
 public sealed class ToolRegistrationGenerator : IIncrementalGenerator
 {
-    private const string GenerateToolRegistrationAttribute = "Claude.AgentSdk.Attributes.GenerateToolRegistrationAttribute";
+    private const string GenerateToolRegistrationAttribute =
+        "Claude.AgentSdk.Attributes.GenerateToolRegistrationAttribute";
+
     private const string ClaudeToolAttribute = "Claude.AgentSdk.Tools.ClaudeToolAttribute";
     private const string ToolParameterAttribute = "Claude.AgentSdk.Attributes.ToolParameterAttribute";
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         // Find all classes with [GenerateToolRegistration]
-        var classDeclarations = context.SyntaxProvider
+        IncrementalValuesProvider<ClassDeclarationSyntax?> classDeclarations = context.SyntaxProvider
             .CreateSyntaxProvider(
-                predicate: static (s, _) => IsCandidateClass(s),
-                transform: static (ctx, _) => GetSemanticTargetForGeneration(ctx))
+                static (s, _) => IsCandidateClass(s),
+                static (ctx, _) => GetSemanticTargetForGeneration(ctx))
             .Where(static m => m is not null);
 
         // Combine with compilation
-        var compilationAndClasses = context.CompilationProvider.Combine(classDeclarations.Collect());
+        IncrementalValueProvider<(Compilation Left, ImmutableArray<ClassDeclarationSyntax?> Right)>
+            compilationAndClasses = context.CompilationProvider.Combine(classDeclarations.Collect());
 
         // Generate source
-        context.RegisterSourceOutput(compilationAndClasses, static (spc, source) => Execute(source.Left, source.Right!, spc));
+        context.RegisterSourceOutput(compilationAndClasses,
+            static (spc, source) => Execute(source.Left, source.Right!, spc));
     }
 
     private static bool IsCandidateClass(SyntaxNode node)
@@ -41,16 +45,16 @@ public sealed class ToolRegistrationGenerator : IIncrementalGenerator
 
     private static ClassDeclarationSyntax? GetSemanticTargetForGeneration(GeneratorSyntaxContext context)
     {
-        var classDeclaration = (ClassDeclarationSyntax)context.Node;
+        ClassDeclarationSyntax classDeclaration = (ClassDeclarationSyntax)context.Node;
 
-        foreach (var attributeList in classDeclaration.AttributeLists)
+        foreach (AttributeListSyntax attributeList in classDeclaration.AttributeLists)
         {
-            foreach (var attribute in attributeList.Attributes)
+            foreach (AttributeSyntax attribute in attributeList.Attributes)
             {
-                var symbol = context.SemanticModel.GetSymbolInfo(attribute).Symbol;
+                ISymbol? symbol = context.SemanticModel.GetSymbolInfo(attribute).Symbol;
                 if (symbol is IMethodSymbol methodSymbol)
                 {
-                    var attributeType = methodSymbol.ContainingType.ToDisplayString();
+                    string attributeType = methodSymbol.ContainingType.ToDisplayString();
                     if (attributeType == GenerateToolRegistrationAttribute)
                     {
                         return classDeclaration;
@@ -62,42 +66,44 @@ public sealed class ToolRegistrationGenerator : IIncrementalGenerator
         return null;
     }
 
-    private static void Execute(Compilation compilation, ImmutableArray<ClassDeclarationSyntax?> classes, SourceProductionContext context)
+    private static void Execute(Compilation compilation, ImmutableArray<ClassDeclarationSyntax?> classes,
+        SourceProductionContext context)
     {
         if (classes.IsDefaultOrEmpty)
         {
             return;
         }
 
-        foreach (var classDeclaration in classes.Distinct())
+        foreach (ClassDeclarationSyntax? classDeclaration in classes.Distinct())
         {
             if (classDeclaration is null)
             {
                 continue;
             }
 
-            var semanticModel = compilation.GetSemanticModel(classDeclaration.SyntaxTree);
-            var classSymbol = semanticModel.GetDeclaredSymbol(classDeclaration);
+            SemanticModel semanticModel = compilation.GetSemanticModel(classDeclaration.SyntaxTree);
+            INamedTypeSymbol? classSymbol = semanticModel.GetDeclaredSymbol(classDeclaration);
 
             if (classSymbol is null)
             {
                 continue;
             }
 
-            var source = GenerateToolRegistrationExtension(classSymbol, compilation);
-            context.AddSource($"{classSymbol.Name}ToolRegistrationExtensions.g.cs", SourceText.From(source, Encoding.UTF8));
+            string source = GenerateToolRegistrationExtension(classSymbol, compilation);
+            context.AddSource($"{classSymbol.Name}ToolRegistrationExtensions.g.cs",
+                SourceText.From(source, Encoding.UTF8));
         }
     }
 
     private static string GenerateToolRegistrationExtension(INamedTypeSymbol classSymbol, Compilation compilation)
     {
-        var className = classSymbol.Name;
-        var classNamespace = classSymbol.ContainingNamespace.ToDisplayString();
-        var fullClassName = classSymbol.ToDisplayString();
+        string className = classSymbol.Name;
+        string classNamespace = classSymbol.ContainingNamespace.ToDisplayString();
+        string fullClassName = classSymbol.ToDisplayString();
 
-        var toolMethods = GetToolMethods(classSymbol, compilation);
+        List<ToolMethodInfo> toolMethods = GetToolMethods(classSymbol, compilation);
 
-        var sb = new StringBuilder();
+        StringBuilder sb = new();
         sb.AppendLine("// <auto-generated />");
         sb.AppendLine("#nullable enable");
         sb.AppendLine();
@@ -121,15 +127,17 @@ public sealed class ToolRegistrationGenerator : IIncrementalGenerator
         sb.AppendLine("    };");
         sb.AppendLine();
         sb.AppendLine("    /// <summary>");
-        sb.AppendLine($"    ///     Registers all tools from <see cref=\"{className}\"/> using compile-time generated code (no reflection).");
+        sb.AppendLine(
+            $"    ///     Registers all tools from <see cref=\"{className}\"/> using compile-time generated code (no reflection).");
         sb.AppendLine("    /// </summary>");
         sb.AppendLine("    /// <param name=\"server\">The MCP tool server to register tools with.</param>");
         sb.AppendLine("    /// <param name=\"instance\">The instance containing the tool methods.</param>");
         sb.AppendLine("    /// <returns>The number of tools registered.</returns>");
-        sb.AppendLine($"    public static int RegisterToolsCompiled(this McpToolServer server, {fullClassName} instance)");
+        sb.AppendLine(
+            $"    public static int RegisterToolsCompiled(this McpToolServer server, {fullClassName} instance)");
         sb.AppendLine("    {");
 
-        foreach (var tool in toolMethods)
+        foreach (ToolMethodInfo? tool in toolMethods)
         {
             sb.AppendLine();
             GenerateToolRegistration(sb, tool);
@@ -158,34 +166,35 @@ public sealed class ToolRegistrationGenerator : IIncrementalGenerator
 
     private static List<ToolMethodInfo> GetToolMethods(INamedTypeSymbol classSymbol, Compilation compilation)
     {
-        var tools = new List<ToolMethodInfo>();
-        var claudeToolAttributeSymbol = compilation.GetTypeByMetadataName(ClaudeToolAttribute);
+        List<ToolMethodInfo> tools = [];
+        INamedTypeSymbol? claudeToolAttributeSymbol = compilation.GetTypeByMetadataName(ClaudeToolAttribute);
 
         if (claudeToolAttributeSymbol is null)
         {
             return tools;
         }
 
-        foreach (var member in classSymbol.GetMembers())
+        foreach (ISymbol? member in classSymbol.GetMembers())
         {
             if (member is not IMethodSymbol methodSymbol)
             {
                 continue;
             }
 
-            var claudeToolAttr = methodSymbol.GetAttributes()
-                .FirstOrDefault(a => SymbolEqualityComparer.Default.Equals(a.AttributeClass, claudeToolAttributeSymbol));
+            AttributeData? claudeToolAttr = methodSymbol.GetAttributes()
+                .FirstOrDefault(a =>
+                    SymbolEqualityComparer.Default.Equals(a.AttributeClass, claudeToolAttributeSymbol));
 
             if (claudeToolAttr is null)
             {
                 continue;
             }
 
-            var name = claudeToolAttr.ConstructorArguments[0].Value?.ToString() ?? methodSymbol.Name;
-            var description = claudeToolAttr.ConstructorArguments[1].Value?.ToString() ?? "";
+            string name = claudeToolAttr.ConstructorArguments[0].Value?.ToString() ?? methodSymbol.Name;
+            string description = claudeToolAttr.ConstructorArguments[1].Value?.ToString() ?? "";
 
-            var parameters = new List<ToolParameterInfo>();
-            foreach (var param in methodSymbol.Parameters)
+            List<ToolParameterInfo> parameters = [];
+            foreach (IParameterSymbol? param in methodSymbol.Parameters)
             {
                 if (param.Type.ToDisplayString() == "System.Threading.CancellationToken")
                 {
@@ -216,15 +225,16 @@ public sealed class ToolRegistrationGenerator : IIncrementalGenerator
         return tools;
     }
 
-    private static ToolParameterAttributeInfo? GetToolParameterAttributes(IParameterSymbol param, Compilation compilation)
+    private static ToolParameterAttributeInfo? GetToolParameterAttributes(IParameterSymbol param,
+        Compilation compilation)
     {
-        var toolParamAttributeSymbol = compilation.GetTypeByMetadataName(ToolParameterAttribute);
+        INamedTypeSymbol? toolParamAttributeSymbol = compilation.GetTypeByMetadataName(ToolParameterAttribute);
         if (toolParamAttributeSymbol is null)
         {
             return null;
         }
 
-        var attr = param.GetAttributes()
+        AttributeData? attr = param.GetAttributes()
             .FirstOrDefault(a => SymbolEqualityComparer.Default.Equals(a.AttributeClass, toolParamAttributeSymbol));
 
         if (attr is null)
@@ -232,9 +242,9 @@ public sealed class ToolRegistrationGenerator : IIncrementalGenerator
             return null;
         }
 
-        var info = new ToolParameterAttributeInfo();
+        ToolParameterAttributeInfo info = new();
 
-        foreach (var namedArg in attr.NamedArguments)
+        foreach (KeyValuePair<string, TypedConstant> namedArg in attr.NamedArguments)
         {
             switch (namedArg.Key)
             {
@@ -275,15 +285,15 @@ public sealed class ToolRegistrationGenerator : IIncrementalGenerator
         sb.AppendLine("            [\"properties\"] = new JsonObject");
         sb.AppendLine("            {");
 
-        foreach (var param in tool.Parameters)
+        foreach (ToolParameterInfo? param in tool.Parameters)
         {
-            var jsonType = GetJsonSchemaType(param.Type);
+            string jsonType = GetJsonSchemaType(param.Type);
             sb.Append($"                [\"{param.Name}\"] = new JsonObject {{ [\"type\"] = \"{jsonType}\"");
 
             // Add items type for arrays
             if (jsonType == "array")
             {
-                var itemType = GetArrayItemType(param.Type);
+                string itemType = GetArrayItemType(param.Type);
                 sb.Append($", [\"items\"] = new JsonObject {{ [\"type\"] = \"{itemType}\" }}");
             }
 
@@ -297,14 +307,15 @@ public sealed class ToolRegistrationGenerator : IIncrementalGenerator
 
         sb.AppendLine("            },");
         sb.Append("            [\"required\"] = new JsonArray { ");
-        var requiredParams = tool.Parameters.Where(p => !p.HasDefaultValue).Select(p => $"\"{p.Name}\"");
+        IEnumerable<string> requiredParams =
+            tool.Parameters.Where(p => !p.HasDefaultValue).Select(p => $"\"{p.Name}\"");
         sb.Append(string.Join(", ", requiredParams));
         sb.AppendLine(" }");
         sb.AppendLine("        };");
         sb.AppendLine();
 
         // Generate registration
-        sb.AppendLine($"        server.RegisterTool(new ToolDefinition");
+        sb.AppendLine("        server.RegisterTool(new ToolDefinition");
         sb.AppendLine("        {");
         sb.AppendLine($"            Name = \"{tool.ToolName}\",");
         sb.AppendLine($"            Description = \"{EscapeString(tool.Description)}\",");
@@ -313,17 +324,17 @@ public sealed class ToolRegistrationGenerator : IIncrementalGenerator
         sb.AppendLine("            {");
 
         // Generate parameter extraction
-        foreach (var param in tool.Parameters)
+        foreach (ToolParameterInfo? param in tool.Parameters)
         {
-            var extraction = GenerateParameterExtraction(param);
+            string extraction = GenerateParameterExtraction(param);
             sb.AppendLine($"                {extraction}");
         }
 
         // Generate validation (if any constraints are specified)
-        var hasValidation = false;
-        foreach (var param in tool.Parameters)
+        bool hasValidation = false;
+        foreach (ToolParameterInfo? param in tool.Parameters)
         {
-            var validation = GenerateParameterValidation(param);
+            string? validation = GenerateParameterValidation(param);
             if (!string.IsNullOrEmpty(validation))
             {
                 if (!hasValidation)
@@ -332,24 +343,21 @@ public sealed class ToolRegistrationGenerator : IIncrementalGenerator
                     sb.AppendLine("                // Parameter validation");
                     hasValidation = true;
                 }
+
                 sb.AppendLine(validation);
             }
         }
 
         // Generate method call
         sb.AppendLine();
-        var paramList = string.Join(", ", tool.Parameters.Select(p => p.Name));
-        if (tool.IsAsync)
-        {
-            sb.AppendLine($"                var result = await instance.{tool.MethodName}({paramList}).ConfigureAwait(false);");
-        }
-        else
-        {
-            sb.AppendLine($"                var result = instance.{tool.MethodName}({paramList});");
-        }
+        string paramList = string.Join(", ", tool.Parameters.Select(p => p.Name));
+        sb.AppendLine(
+            tool.IsAsync
+                ? $"                var result = await instance.{tool.MethodName}({paramList}).ConfigureAwait(false);"
+                : $"                var result = instance.{tool.MethodName}({paramList});");
 
         // Handle return type
-        var returnTypeName = tool.ReturnType.ToDisplayString();
+        string returnTypeName = tool.ReturnType.ToDisplayString();
         if (returnTypeName == "Claude.AgentSdk.Tools.ToolResult" ||
             returnTypeName == "System.Threading.Tasks.Task<Claude.AgentSdk.Tools.ToolResult>")
         {
@@ -370,24 +378,27 @@ public sealed class ToolRegistrationGenerator : IIncrementalGenerator
 
     private static string GenerateParameterExtraction(ToolParameterInfo param)
     {
-        var typeName = param.Type.ToDisplayString();
-        var nullable = param.HasDefaultValue || param.Type.NullableAnnotation == NullableAnnotation.Annotated;
+        string typeName = param.Type.ToDisplayString();
+        bool nullable = param.HasDefaultValue || param.Type.NullableAnnotation == NullableAnnotation.Annotated;
 
         // Handle string types
         if (typeName == "string" || typeName == "string?")
         {
             if (param.HasDefaultValue)
             {
-                var defaultStr = param.DefaultValue == null ? "null" : $"\"{param.DefaultValue}\"";
-                return $"var {param.Name} = input.TryGetProperty(\"{param.Name}\", out var _{param.Name}) ? _{param.Name}.GetString() ?? {defaultStr} : {defaultStr};";
+                string defaultStr = param.DefaultValue == null ? "null" : $"\"{param.DefaultValue}\"";
+                return
+                    $"var {param.Name} = input.TryGetProperty(\"{param.Name}\", out var _{param.Name}) ? _{param.Name}.GetString() ?? {defaultStr} : {defaultStr};";
             }
+
             return $"var {param.Name} = input.GetProperty(\"{param.Name}\").GetString()!;";
         }
 
         // Handle nullable int
         if (typeName == "int?" || typeName == "System.Nullable<int>" || typeName == "System.Nullable<System.Int32>")
         {
-            return $"var {param.Name} = input.TryGetProperty(\"{param.Name}\", out var _{param.Name}) && _{param.Name}.ValueKind != JsonValueKind.Null ? (int?)_{param.Name}.GetInt32() : null;";
+            return
+                $"var {param.Name} = input.TryGetProperty(\"{param.Name}\", out var _{param.Name}) && _{param.Name}.ValueKind != JsonValueKind.Null ? (int?)_{param.Name}.GetInt32() : null;";
         }
 
         // Handle non-nullable int
@@ -395,15 +406,18 @@ public sealed class ToolRegistrationGenerator : IIncrementalGenerator
         {
             if (param.HasDefaultValue)
             {
-                return $"var {param.Name} = input.TryGetProperty(\"{param.Name}\", out var _{param.Name}) ? _{param.Name}.GetInt32() : {param.DefaultValue ?? 0};";
+                return
+                    $"var {param.Name} = input.TryGetProperty(\"{param.Name}\", out var _{param.Name}) ? _{param.Name}.GetInt32() : {param.DefaultValue ?? 0};";
             }
+
             return $"var {param.Name} = input.GetProperty(\"{param.Name}\").GetInt32();";
         }
 
         // Handle nullable long
         if (typeName == "long?" || typeName == "System.Nullable<long>" || typeName == "System.Nullable<System.Int64>")
         {
-            return $"var {param.Name} = input.TryGetProperty(\"{param.Name}\", out var _{param.Name}) && _{param.Name}.ValueKind != JsonValueKind.Null ? (long?)_{param.Name}.GetInt64() : null;";
+            return
+                $"var {param.Name} = input.TryGetProperty(\"{param.Name}\", out var _{param.Name}) && _{param.Name}.ValueKind != JsonValueKind.Null ? (long?)_{param.Name}.GetInt64() : null;";
         }
 
         // Handle non-nullable long
@@ -411,15 +425,18 @@ public sealed class ToolRegistrationGenerator : IIncrementalGenerator
         {
             if (param.HasDefaultValue)
             {
-                return $"var {param.Name} = input.TryGetProperty(\"{param.Name}\", out var _{param.Name}) ? _{param.Name}.GetInt64() : {param.DefaultValue ?? 0}L;";
+                return
+                    $"var {param.Name} = input.TryGetProperty(\"{param.Name}\", out var _{param.Name}) ? _{param.Name}.GetInt64() : {param.DefaultValue ?? 0}L;";
             }
+
             return $"var {param.Name} = input.GetProperty(\"{param.Name}\").GetInt64();";
         }
 
         // Handle nullable bool
         if (typeName == "bool?" || typeName == "System.Nullable<bool>" || typeName == "System.Nullable<System.Boolean>")
         {
-            return $"var {param.Name} = input.TryGetProperty(\"{param.Name}\", out var _{param.Name}) && _{param.Name}.ValueKind != JsonValueKind.Null ? (bool?)_{param.Name}.GetBoolean() : null;";
+            return
+                $"var {param.Name} = input.TryGetProperty(\"{param.Name}\", out var _{param.Name}) && _{param.Name}.ValueKind != JsonValueKind.Null ? (bool?)_{param.Name}.GetBoolean() : null;";
         }
 
         // Handle non-nullable bool
@@ -427,16 +444,20 @@ public sealed class ToolRegistrationGenerator : IIncrementalGenerator
         {
             if (param.HasDefaultValue)
             {
-                var defaultVal = param.DefaultValue is true ? "true" : "false";
-                return $"var {param.Name} = input.TryGetProperty(\"{param.Name}\", out var _{param.Name}) ? _{param.Name}.GetBoolean() : {defaultVal};";
+                string defaultVal = param.DefaultValue is true ? "true" : "false";
+                return
+                    $"var {param.Name} = input.TryGetProperty(\"{param.Name}\", out var _{param.Name}) ? _{param.Name}.GetBoolean() : {defaultVal};";
             }
+
             return $"var {param.Name} = input.GetProperty(\"{param.Name}\").GetBoolean();";
         }
 
         // Handle nullable double
-        if (typeName == "double?" || typeName == "System.Nullable<double>" || typeName == "System.Nullable<System.Double>")
+        if (typeName == "double?" || typeName == "System.Nullable<double>" ||
+            typeName == "System.Nullable<System.Double>")
         {
-            return $"var {param.Name} = input.TryGetProperty(\"{param.Name}\", out var _{param.Name}) && _{param.Name}.ValueKind != JsonValueKind.Null ? (double?)_{param.Name}.GetDouble() : null;";
+            return
+                $"var {param.Name} = input.TryGetProperty(\"{param.Name}\", out var _{param.Name}) && _{param.Name}.ValueKind != JsonValueKind.Null ? (double?)_{param.Name}.GetDouble() : null;";
         }
 
         // Handle non-nullable double
@@ -444,89 +465,103 @@ public sealed class ToolRegistrationGenerator : IIncrementalGenerator
         {
             if (param.HasDefaultValue)
             {
-                return $"var {param.Name} = input.TryGetProperty(\"{param.Name}\", out var _{param.Name}) ? _{param.Name}.GetDouble() : {param.DefaultValue ?? 0.0};";
+                return
+                    $"var {param.Name} = input.TryGetProperty(\"{param.Name}\", out var _{param.Name}) ? _{param.Name}.GetDouble() : {param.DefaultValue ?? 0.0};";
             }
+
             return $"var {param.Name} = input.GetProperty(\"{param.Name}\").GetDouble();";
         }
 
         // Handle array types (including nullable arrays)
         if (typeName.TrimEnd('?').EndsWith("[]"))
         {
-            var baseArrayType = typeName.TrimEnd('?');
+            string baseArrayType = typeName.TrimEnd('?');
             if (param.HasDefaultValue || typeName.EndsWith("?"))
             {
-                return $"var {param.Name} = input.TryGetProperty(\"{param.Name}\", out var _{param.Name}) && _{param.Name}.ValueKind != JsonValueKind.Null ? JsonSerializer.Deserialize<{baseArrayType}>(_{param.Name}.GetRawText(), JsonOptions) : null;";
+                return
+                    $"var {param.Name} = input.TryGetProperty(\"{param.Name}\", out var _{param.Name}) && _{param.Name}.ValueKind != JsonValueKind.Null ? JsonSerializer.Deserialize<{baseArrayType}>(_{param.Name}.GetRawText(), JsonOptions) : null;";
             }
-            return $"var {param.Name} = JsonSerializer.Deserialize<{baseArrayType}>(input.GetProperty(\"{param.Name}\").GetRawText(), JsonOptions)!;";
+
+            return
+                $"var {param.Name} = JsonSerializer.Deserialize<{baseArrayType}>(input.GetProperty(\"{param.Name}\").GetRawText(), JsonOptions)!;";
         }
 
         // Complex type - deserialize
         if (param.HasDefaultValue || typeName.EndsWith("?"))
         {
-            var baseType = typeName.TrimEnd('?');
-            return $"var {param.Name} = input.TryGetProperty(\"{param.Name}\", out var _{param.Name}) && _{param.Name}.ValueKind != JsonValueKind.Null ? JsonSerializer.Deserialize<{baseType}>(_{param.Name}.GetRawText(), JsonOptions) : default;";
+            string baseType = typeName.TrimEnd('?');
+            return
+                $"var {param.Name} = input.TryGetProperty(\"{param.Name}\", out var _{param.Name}) && _{param.Name}.ValueKind != JsonValueKind.Null ? JsonSerializer.Deserialize<{baseType}>(_{param.Name}.GetRawText(), JsonOptions) : default;";
         }
-        return $"var {param.Name} = JsonSerializer.Deserialize<{typeName}>(input.GetProperty(\"{param.Name}\").GetRawText(), JsonOptions)!;";
+
+        return
+            $"var {param.Name} = JsonSerializer.Deserialize<{typeName}>(input.GetProperty(\"{param.Name}\").GetRawText(), JsonOptions)!;";
     }
 
     private static string? GenerateParameterValidation(ToolParameterInfo param)
     {
-        var attrs = param.ParameterAttributes;
+        ToolParameterAttributeInfo? attrs = param.ParameterAttributes;
         if (attrs is null)
         {
             return null;
         }
 
-        var validations = new List<string>();
-        var typeName = param.Type.ToDisplayString().TrimEnd('?');
-        var isNullable = param.HasDefaultValue || param.Type.NullableAnnotation == NullableAnnotation.Annotated;
+        List<string> validations = [];
+        string typeName = param.Type.ToDisplayString().TrimEnd('?');
+        bool isNullable = param.HasDefaultValue || param.Type.NullableAnnotation == NullableAnnotation.Annotated;
 
         // String length validations
         if (typeName == "string")
         {
             if (attrs.MinLength.HasValue)
             {
-                var check = isNullable
+                string check = isNullable
                     ? $"{param.Name} is not null && {param.Name}.Length < {attrs.MinLength.Value}"
                     : $"{param.Name}.Length < {attrs.MinLength.Value}";
-                validations.Add($"                if ({check}) return ToolResult.Error($\"Parameter '{param.Name}' must have minimum length of {attrs.MinLength.Value}\");");
+                validations.Add(
+                    $"                if ({check}) return ToolResult.Error($\"Parameter '{param.Name}' must have minimum length of {attrs.MinLength.Value}\");");
             }
 
             if (attrs.MaxLength.HasValue)
             {
-                var check = isNullable
+                string check = isNullable
                     ? $"{param.Name} is not null && {param.Name}.Length > {attrs.MaxLength.Value}"
                     : $"{param.Name}.Length > {attrs.MaxLength.Value}";
-                validations.Add($"                if ({check}) return ToolResult.Error($\"Parameter '{param.Name}' must have maximum length of {attrs.MaxLength.Value}\");");
+                validations.Add(
+                    $"                if ({check}) return ToolResult.Error($\"Parameter '{param.Name}' must have maximum length of {attrs.MaxLength.Value}\");");
             }
 
             if (!string.IsNullOrEmpty(attrs.Pattern))
             {
-                var escapedPattern = EscapeString(attrs.Pattern!);
-                var check = isNullable
+                string escapedPattern = EscapeString(attrs.Pattern!);
+                string check = isNullable
                     ? $"{param.Name} is not null && !System.Text.RegularExpressions.Regex.IsMatch({param.Name}, @\"{escapedPattern}\")"
                     : $"!System.Text.RegularExpressions.Regex.IsMatch({param.Name}, @\"{escapedPattern}\")";
-                validations.Add($"                if ({check}) return ToolResult.Error($\"Parameter '{param.Name}' must match pattern '{escapedPattern}'\");");
+                validations.Add(
+                    $"                if ({check}) return ToolResult.Error($\"Parameter '{param.Name}' must match pattern '{escapedPattern}'\");");
             }
         }
 
         // Numeric range validations
-        if (typeName is "int" or "System.Int32" or "long" or "System.Int64" or "double" or "System.Double" or "float" or "System.Single" or "decimal" or "System.Decimal")
+        if (typeName is "int" or "System.Int32" or "long" or "System.Int64" or "double" or "System.Double" or "float"
+            or "System.Single" or "decimal" or "System.Decimal")
         {
             if (attrs.MinValue.HasValue)
             {
-                var check = isNullable
+                string check = isNullable
                     ? $"{param.Name}.HasValue && {param.Name}.Value < {attrs.MinValue.Value}"
                     : $"{param.Name} < {attrs.MinValue.Value}";
-                validations.Add($"                if ({check}) return ToolResult.Error($\"Parameter '{param.Name}' must be at least {attrs.MinValue.Value}\");");
+                validations.Add(
+                    $"                if ({check}) return ToolResult.Error($\"Parameter '{param.Name}' must be at least {attrs.MinValue.Value}\");");
             }
 
             if (attrs.MaxValue.HasValue)
             {
-                var check = isNullable
+                string check = isNullable
                     ? $"{param.Name}.HasValue && {param.Name}.Value > {attrs.MaxValue.Value}"
                     : $"{param.Name} > {attrs.MaxValue.Value}";
-                validations.Add($"                if ({check}) return ToolResult.Error($\"Parameter '{param.Name}' must be at most {attrs.MaxValue.Value}\");");
+                validations.Add(
+                    $"                if ({check}) return ToolResult.Error($\"Parameter '{param.Name}' must be at most {attrs.MaxValue.Value}\");");
             }
         }
 
@@ -535,18 +570,20 @@ public sealed class ToolRegistrationGenerator : IIncrementalGenerator
         {
             if (attrs.MinLength.HasValue)
             {
-                var check = isNullable
+                string check = isNullable
                     ? $"{param.Name} is not null && {param.Name}.Length < {attrs.MinLength.Value}"
                     : $"{param.Name}.Length < {attrs.MinLength.Value}";
-                validations.Add($"                if ({check}) return ToolResult.Error($\"Parameter '{param.Name}' must have at least {attrs.MinLength.Value} items\");");
+                validations.Add(
+                    $"                if ({check}) return ToolResult.Error($\"Parameter '{param.Name}' must have at least {attrs.MinLength.Value} items\");");
             }
 
             if (attrs.MaxLength.HasValue)
             {
-                var check = isNullable
+                string check = isNullable
                     ? $"{param.Name} is not null && {param.Name}.Length > {attrs.MaxLength.Value}"
                     : $"{param.Name}.Length > {attrs.MaxLength.Value}";
-                validations.Add($"                if ({check}) return ToolResult.Error($\"Parameter '{param.Name}' must have at most {attrs.MaxLength.Value} items\");");
+                validations.Add(
+                    $"                if ({check}) return ToolResult.Error($\"Parameter '{param.Name}' must have at most {attrs.MaxLength.Value} items\");");
             }
         }
 
@@ -555,10 +592,10 @@ public sealed class ToolRegistrationGenerator : IIncrementalGenerator
 
     private static string GetJsonSchemaType(ITypeSymbol type)
     {
-        var typeName = type.ToDisplayString();
+        string typeName = type.ToDisplayString();
 
         // Handle nullable types - strip the ? suffix for comparison
-        var baseTypeName = typeName.TrimEnd('?');
+        string baseTypeName = typeName.TrimEnd('?');
 
         return baseTypeName switch
         {
@@ -575,11 +612,11 @@ public sealed class ToolRegistrationGenerator : IIncrementalGenerator
     private static string GetJsonSchemaTypeFromNullable(string typeName)
     {
         // Extract inner type from System.Nullable<T>
-        var innerStart = typeName.IndexOf('<') + 1;
-        var innerEnd = typeName.LastIndexOf('>');
+        int innerStart = typeName.IndexOf('<') + 1;
+        int innerEnd = typeName.LastIndexOf('>');
         if (innerStart > 0 && innerEnd > innerStart)
         {
-            var innerType = typeName.Substring(innerStart, innerEnd - innerStart);
+            string innerType = typeName.Substring(innerStart, innerEnd - innerStart);
             return innerType switch
             {
                 "int" or "System.Int32" or "long" or "System.Int64" => "integer",
@@ -588,17 +625,18 @@ public sealed class ToolRegistrationGenerator : IIncrementalGenerator
                 _ => "object"
             };
         }
+
         return "object";
     }
 
     private static string GetArrayItemType(ITypeSymbol type)
     {
-        var typeName = type.ToDisplayString().TrimEnd('?');
+        string typeName = type.ToDisplayString().TrimEnd('?');
 
         // Remove the [] suffix to get element type
         if (typeName.EndsWith("[]"))
         {
-            var elementTypeName = typeName.Substring(0, typeName.Length - 2);
+            string elementTypeName = typeName.Substring(0, typeName.Length - 2);
             return elementTypeName switch
             {
                 "string" => "string",
@@ -621,7 +659,8 @@ public sealed class ToolRegistrationGenerator : IIncrementalGenerator
     private static void GenerateGetToolNamesMethod(StringBuilder sb, string className, List<ToolMethodInfo> toolMethods)
     {
         sb.AppendLine("    /// <summary>");
-        sb.AppendLine($"    ///     Gets the tool names from <see cref=\"{className}\"/> as a compile-time generated list.");
+        sb.AppendLine(
+            $"    ///     Gets the tool names from <see cref=\"{className}\"/> as a compile-time generated list.");
         sb.AppendLine("    /// </summary>");
         sb.AppendLine("    /// <param name=\"instance\">The instance (used only for extension method syntax).</param>");
         sb.AppendLine("    /// <returns>A read-only list of tool names.</returns>");
@@ -630,7 +669,7 @@ public sealed class ToolRegistrationGenerator : IIncrementalGenerator
         sb.AppendLine("        return new[]");
         sb.AppendLine("        {");
 
-        foreach (var tool in toolMethods)
+        foreach (ToolMethodInfo? tool in toolMethods)
         {
             sb.AppendLine($"            \"{tool.ToolName}\",");
         }
@@ -639,20 +678,24 @@ public sealed class ToolRegistrationGenerator : IIncrementalGenerator
         sb.AppendLine("    }");
     }
 
-    private static void GenerateGetMcpToolNamesMethod(StringBuilder sb, string className, List<ToolMethodInfo> toolMethods)
+    private static void GenerateGetMcpToolNamesMethod(StringBuilder sb, string className,
+        List<ToolMethodInfo> toolMethods)
     {
         sb.AppendLine("    /// <summary>");
-        sb.AppendLine($"    ///     Gets the MCP-prefixed tool names from <see cref=\"{className}\"/> for use in AllowedTools.");
+        sb.AppendLine(
+            $"    ///     Gets the MCP-prefixed tool names from <see cref=\"{className}\"/> for use in AllowedTools.");
         sb.AppendLine("    /// </summary>");
         sb.AppendLine("    /// <param name=\"instance\">The instance (used only for extension method syntax).</param>");
         sb.AppendLine("    /// <param name=\"serverName\">The MCP server name to use in the prefix.</param>");
-        sb.AppendLine("    /// <returns>A read-only list of MCP-prefixed tool names in the format \"mcp__{serverName}__{toolName}\".</returns>");
-        sb.AppendLine($"    public static IReadOnlyList<string> GetMcpToolNamesCompiled(this {className} instance, string serverName)");
+        sb.AppendLine(
+            "    /// <returns>A read-only list of MCP-prefixed tool names in the format \"mcp__{serverName}__{toolName}\".</returns>");
+        sb.AppendLine(
+            $"    public static IReadOnlyList<string> GetMcpToolNamesCompiled(this {className} instance, string serverName)");
         sb.AppendLine("    {");
         sb.AppendLine("        return new[]");
         sb.AppendLine("        {");
 
-        foreach (var tool in toolMethods)
+        foreach (ToolMethodInfo? tool in toolMethods)
         {
             sb.AppendLine($"            $\"mcp__{{serverName}}__{tool.ToolName}\",");
         }
@@ -661,20 +704,23 @@ public sealed class ToolRegistrationGenerator : IIncrementalGenerator
         sb.AppendLine("    }");
     }
 
-    private static void GenerateGetAllowedToolsMethod(StringBuilder sb, string className, List<ToolMethodInfo> toolMethods)
+    private static void GenerateGetAllowedToolsMethod(StringBuilder sb, string className,
+        List<ToolMethodInfo> toolMethods)
     {
         sb.AppendLine("    /// <summary>");
-        sb.AppendLine($"    ///     Gets tool names from <see cref=\"{className}\"/> formatted for direct use in ClaudeAgentOptions.AllowedTools.");
+        sb.AppendLine(
+            $"    ///     Gets tool names from <see cref=\"{className}\"/> formatted for direct use in ClaudeAgentOptions.AllowedTools.");
         sb.AppendLine("    /// </summary>");
         sb.AppendLine("    /// <param name=\"instance\">The instance (used only for extension method syntax).</param>");
         sb.AppendLine("    /// <param name=\"serverName\">The MCP server name to use in the prefix.</param>");
         sb.AppendLine("    /// <returns>An array of MCP-prefixed tool names suitable for AllowedTools.</returns>");
-        sb.AppendLine($"    public static string[] GetAllowedToolsCompiled(this {className} instance, string serverName)");
+        sb.AppendLine(
+            $"    public static string[] GetAllowedToolsCompiled(this {className} instance, string serverName)");
         sb.AppendLine("    {");
         sb.AppendLine("        return new[]");
         sb.AppendLine("        {");
 
-        foreach (var tool in toolMethods)
+        foreach (ToolMethodInfo? tool in toolMethods)
         {
             sb.AppendLine($"            $\"mcp__{{serverName}}__{tool.ToolName}\",");
         }

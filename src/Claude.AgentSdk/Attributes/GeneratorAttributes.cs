@@ -25,7 +25,7 @@ public enum EnumNamingStrategy
 ///     When applied, the generator creates ToJsonString() extension and Parse/TryParse methods.
 /// </summary>
 /// <remarks>
-///     Use <see cref="EnumMemberAttribute"/> on individual enum values to specify
+///     Use <see cref="EnumMemberAttribute" /> on individual enum values to specify
 ///     custom string representations. Without it, the naming strategy is applied.
 /// </remarks>
 /// <example>
@@ -37,14 +37,14 @@ public enum EnumNamingStrategy
 ///         [EnumMember(Value = "assistant")] Assistant,
 ///         [EnumMember(Value = "stream_event")] StreamEvent
 ///     }
-///
+/// 
 ///     // Generated:
 ///     // MessageType.User.ToJsonString() → "user"
 ///     // EnumStringMappings.ParseMessageType("user") → MessageType.User
 ///     // EnumStringMappings.TryParseMessageType("user", out var result) → true
 ///     </code>
 /// </example>
-[AttributeUsage(AttributeTargets.Enum, Inherited = false, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Enum)]
 public sealed class GenerateEnumStringsAttribute : Attribute
 {
     /// <summary>
@@ -66,11 +66,11 @@ public sealed class GenerateEnumStringsAttribute : Attribute
 ///         [ClaudeTool("search", "Search for items")]
 ///         public string Search(string query, int limit = 10) => "results";
 ///     }
-///
+/// 
 ///     // Generated: MyToolsToolRegistrationExtensions.RegisterToolsCompiled(server, instance)
 ///     </code>
 /// </example>
-[AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Class, Inherited = false)]
 public sealed class GenerateToolRegistrationAttribute : Attribute
 {
 }
@@ -83,11 +83,11 @@ public sealed class GenerateToolRegistrationAttribute : Attribute
 ///     <code>
 ///     [GenerateSchema]
 ///     public record SearchInput(string Query, int Limit = 10);
-///
+/// 
 ///     // Generated: SearchInputSchemaExtensions.GetSchema()
 ///     </code>
 /// </example>
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, Inherited = false, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, Inherited = false)]
 public sealed class GenerateSchemaAttribute : Attribute
 {
 }
@@ -105,7 +105,7 @@ public sealed class GenerateSchemaAttribute : Attribute
 ///     // Class-based usage:
 ///     [ClaudeAgent("MyAgent", Description = "An agent that does things")]
 ///     public class MyAgent { }
-///
+/// 
 ///     // Property-based usage (with GenerateAgentRegistration):
 ///     [GenerateAgentRegistration]
 ///     public class MyAgents
@@ -116,7 +116,7 @@ public sealed class GenerateSchemaAttribute : Attribute
 ///     }
 ///     </code>
 /// </example>
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Property, Inherited = false, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Property, Inherited = false)]
 public sealed class ClaudeAgentAttribute : Attribute
 {
     /// <summary>
@@ -157,7 +157,7 @@ public sealed class ClaudeAgentAttribute : Attribute
 ///         int limit = 10) => "results";
 ///     </code>
 /// </example>
-[AttributeUsage(AttributeTargets.Parameter | AttributeTargets.Property, Inherited = false, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Parameter | AttributeTargets.Property)]
 public sealed class ToolParameterAttribute : Attribute
 {
     /// <summary>
@@ -207,11 +207,11 @@ public sealed class ToolParameterAttribute : Attribute
 /// </summary>
 /// <remarks>
 ///     <para>
-///     The generated Match methods provide a functional approach to handling discriminated unions,
-///     similar to F# match expressions or Rust's match statements.
+///         The generated Match methods provide a functional approach to handling discriminated unions,
+///         similar to F# match expressions or Rust's match statements.
 ///     </para>
 ///     <para>
-///     The type must use <see cref="JsonDerivedTypeAttribute"/> to define the derived types.
+///         The type must use <see cref="JsonDerivedTypeAttribute" /> to define the derived types.
 ///     </para>
 /// </remarks>
 /// <example>
@@ -220,7 +220,7 @@ public sealed class ToolParameterAttribute : Attribute
 ///     [JsonDerivedType(typeof(UserMessage), "user")]
 ///     [JsonDerivedType(typeof(AssistantMessage), "assistant")]
 ///     public abstract record Message;
-///
+/// 
 ///     // Generated usage:
 ///     var result = message.Match(
 ///         user: u => u.Content,
@@ -229,7 +229,7 @@ public sealed class ToolParameterAttribute : Attribute
 ///     );
 ///     </code>
 /// </example>
-[AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Class, Inherited = false)]
 public sealed class GenerateMatchAttribute : Attribute
 {
 }
@@ -237,7 +237,7 @@ public sealed class GenerateMatchAttribute : Attribute
 /// <summary>
 ///     Marks a class for compile-time hook registration generation via source generator.
 ///     When applied, the generator creates a GetHooksCompiled() extension method that returns
-///     a dictionary of hooks keyed by <see cref="HookEvent"/>.
+///     a dictionary of hooks keyed by <see cref="HookEvent" />.
 /// </summary>
 /// <example>
 ///     <code>
@@ -248,13 +248,13 @@ public sealed class GenerateMatchAttribute : Attribute
 ///         public Task&lt;HookOutput&gt; ValidateBash(HookInput input, string? toolUseId,
 ///             HookContext ctx, CancellationToken ct) { ... }
 ///     }
-///
+/// 
 ///     // Generated usage:
 ///     var hooks = new MyHooks();
 ///     var options = new ClaudeAgentOptions { Hooks = hooks.GetHooksCompiled() };
 ///     </code>
 /// </example>
-[AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Class, Inherited = false)]
 public sealed class GenerateHookRegistrationAttribute : Attribute
 {
 }
@@ -265,12 +265,12 @@ public sealed class GenerateHookRegistrationAttribute : Attribute
 /// </summary>
 /// <remarks>
 ///     <para>
-///     Multiple [HookHandler] attributes can be applied to the same method to handle
-///     different hook events or matchers.
+///         Multiple [HookHandler] attributes can be applied to the same method to handle
+///         different hook events or matchers.
 ///     </para>
 ///     <para>
-///     Method signature must be:
-///     <code>Task&lt;HookOutput&gt; MethodName(HookInput input, string? toolUseId, HookContext ctx, CancellationToken ct)</code>
+///         Method signature must be:
+///         <code>Task&lt;HookOutput&gt; MethodName(HookInput input, string? toolUseId, HookContext ctx, CancellationToken ct)</code>
 ///     </para>
 /// </remarks>
 [AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = true)]
@@ -316,25 +316,25 @@ public sealed class HookHandlerAttribute : Attribute
 ///         [AgentTools("Read", "Grep", "Glob")]
 ///         public static string CodeReviewerPrompt => "You are a code review specialist...";
 ///     }
-///
+/// 
 ///     // Generated usage:
 ///     var agents = new MyAgents().GetAgentsCompiled();
 ///     var options = new ClaudeAgentOptions { Agents = agents };
 ///     </code>
 /// </example>
-[AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Class, Inherited = false)]
 public sealed class GenerateAgentRegistrationAttribute : Attribute
 {
 }
 
 /// <summary>
 ///     Specifies the tools available to an agent.
-///     Must be applied alongside <see cref="ClaudeAgentAttribute"/>.
+///     Must be applied alongside <see cref="ClaudeAgentAttribute" />.
 /// </summary>
 /// <remarks>
 ///     Do NOT include "Task" in a subagent's tools - subagents cannot spawn their own subagents.
 /// </remarks>
-[AttributeUsage(AttributeTargets.Property, Inherited = false, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Property)]
 public sealed class AgentToolsAttribute : Attribute
 {
     /// <summary>

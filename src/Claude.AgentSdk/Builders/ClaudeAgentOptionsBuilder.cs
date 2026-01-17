@@ -1,20 +1,20 @@
-using Claude.AgentSdk.Protocol;
+﻿using Claude.AgentSdk.Protocol;
 using Claude.AgentSdk.Tools;
 using Claude.AgentSdk.Types;
 
 namespace Claude.AgentSdk.Builders;
 
 /// <summary>
-///     Fluent builder for configuring <see cref="ClaudeAgentOptions"/>.
+///     Fluent builder for configuring <see cref="ClaudeAgentOptions" />.
 /// </summary>
 /// <remarks>
 ///     <para>
-///     This builder provides a more ergonomic way to configure agent options
-///     compared to using object initializers with many properties.
+///         This builder provides a more ergonomic way to configure agent options
+///         compared to using object initializers with many properties.
 ///     </para>
 ///     <para>
-///     Example usage:
-///     <code>
+///         Example usage:
+///         <code>
 ///     var options = new ClaudeAgentOptionsBuilder()
 ///         .WithModel(ModelIdentifier.Sonnet)
 ///         .WithSystemPrompt("You are a helpful assistant.")
@@ -28,46 +28,97 @@ namespace Claude.AgentSdk.Builders;
 /// </remarks>
 public sealed class ClaudeAgentOptionsBuilder
 {
-    private ToolsConfig? _tools;
-    private readonly List<string> _allowedTools = new();
-    private readonly List<string> _disallowedTools = new();
-    private SystemPromptConfig? _systemPrompt;
-    private readonly List<SettingSource> _settingSources = new();
-    private readonly Dictionary<string, McpServerConfig> _mcpServers = new();
-    private readonly Dictionary<string, AgentDefinition> _agents = new();
-    private readonly List<PluginConfig> _plugins = new();
-    private PermissionMode? _permissionMode;
-    private bool _continueConversation;
-    private string? _resume;
-    private int? _maxTurns;
-    private double? _maxBudgetUsd;
-    private ModelIdentifier? _modelId;
-    private ModelIdentifier? _fallbackModelId;
-    private string? _workingDirectory;
-    private string? _cliPath;
-    private readonly List<string> _addDirectories = new();
-    private readonly Dictionary<string, string> _environment = new();
-    private readonly Dictionary<string, string?> _extraArgs = new();
+    private readonly List<string> _addDirectories = [];
+    private readonly List<string> _additionalDataPaths = [];
+    private readonly Dictionary<string, AgentDefinition> _agents = [];
+    private readonly List<string> _allowedTools = [];
+    private readonly List<string> _betas = [];
+    private readonly List<string> _disallowedTools = [];
+    private readonly Dictionary<string, string> _environment = [];
+    private readonly Dictionary<string, string?> _extraArgs = [];
+    private readonly Dictionary<HookEvent, List<HookMatcher>> _hooks = [];
+    private readonly Dictionary<string, McpServerConfig> _mcpServers = [];
+    private readonly List<PluginConfig> _plugins = [];
+    private readonly List<SettingSource> _settingSources = [];
     private Func<ToolPermissionRequest, CancellationToken, Task<PermissionResult>>? _canUseTool;
-    private readonly Dictionary<Protocol.HookEvent, List<HookMatcher>> _hooks = new();
-    private bool _includePartialMessages;
-    private bool _forkSession;
-    private string? _resumeSessionAt;
-    private int? _maxThinkingTokens;
-    private JsonElement? _outputFormat;
-    private bool _enableFileCheckpointing;
-    private readonly List<string> _betas = new();
-    private SandboxConfig? _sandbox;
-    private string? _permissionPromptToolName;
-    private bool _strictMcpConfig;
+    private string? _cliPath;
+    private bool _continueConversation;
     private bool _dangerouslySkipPermissions;
-    private bool _noHooks;
-    private string? _user;
-    private readonly List<string> _additionalDataPaths = new();
-    private Action<string>? _onStderr;
+    private bool _enableFileCheckpointing;
+    private ModelIdentifier? _fallbackModelId;
+    private bool _forkSession;
+    private bool _includePartialMessages;
+    private double? _maxBudgetUsd;
+    private int? _maxThinkingTokens;
+    private int? _maxTurns;
     private int _messageChannelCapacity = 256;
+    private ModelIdentifier? _modelId;
+    private bool _noHooks;
+    private Action<string>? _onStderr;
+    private JsonElement? _outputFormat;
+    private PermissionMode? _permissionMode;
+    private string? _permissionPromptToolName;
+    private string? _resume;
+    private string? _resumeSessionAt;
+    private SandboxConfig? _sandbox;
+    private bool _strictMcpConfig;
+    private SystemPromptConfig? _systemPrompt;
+    private ToolsConfig? _tools;
+    private string? _user;
+    private string? _workingDirectory;
 
-    #region Model Configuration
+    /// <summary>
+    ///     Builds the <see cref="ClaudeAgentOptions" /> instance.
+    /// </summary>
+    /// <returns>The configured options.</returns>
+    public ClaudeAgentOptions Build()
+    {
+        return new ClaudeAgentOptions
+        {
+            Tools = _tools,
+            AllowedTools = _allowedTools.Count > 0 ? _allowedTools : [],
+            DisallowedTools = _disallowedTools.Count > 0 ? _disallowedTools : [],
+            SystemPrompt = _systemPrompt,
+            SettingSources = _settingSources.Count > 0 ? _settingSources : null,
+            McpServers = _mcpServers.Count > 0 ? _mcpServers : null,
+            Agents = _agents.Count > 0 ? _agents : null,
+            Plugins = _plugins.Count > 0 ? _plugins : null,
+            PermissionMode = _permissionMode,
+            ContinueConversation = _continueConversation,
+            Resume = _resume,
+            MaxTurns = _maxTurns,
+            MaxBudgetUsd = _maxBudgetUsd,
+            ModelId = _modelId,
+            FallbackModelId = _fallbackModelId,
+            WorkingDirectory = _workingDirectory,
+            CliPath = _cliPath,
+            AddDirectories = _addDirectories.Count > 0 ? _addDirectories : [],
+            Environment = _environment.Count > 0 ? _environment : new Dictionary<string, string>(),
+            ExtraArgs = _extraArgs.Count > 0 ? _extraArgs : new Dictionary<string, string?>(),
+            CanUseTool = _canUseTool,
+            Hooks = _hooks.Count > 0
+                ? _hooks.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => (IReadOnlyList<HookMatcher>)kvp.Value)
+                : null,
+            IncludePartialMessages = _includePartialMessages,
+            ForkSession = _forkSession,
+            ResumeSessionAt = _resumeSessionAt,
+            MaxThinkingTokens = _maxThinkingTokens,
+            OutputFormat = _outputFormat,
+            EnableFileCheckpointing = _enableFileCheckpointing,
+            Betas = _betas.Count > 0 ? _betas : null,
+            Sandbox = _sandbox,
+            PermissionPromptToolName = _permissionPromptToolName,
+            StrictMcpConfig = _strictMcpConfig,
+            DangerouslySkipPermissions = _dangerouslySkipPermissions,
+            NoHooks = _noHooks,
+            User = _user,
+            AdditionalDataPaths = _additionalDataPaths.Count > 0 ? _additionalDataPaths : null,
+            OnStderr = _onStderr,
+            MessageChannelCapacity = _messageChannelCapacity
+        };
+    }
 
     /// <summary>
     ///     Sets the model to use.
@@ -91,10 +142,6 @@ public sealed class ClaudeAgentOptionsBuilder
         return this;
     }
 
-    #endregion
-
-    #region System Prompt Configuration
-
     /// <summary>
     ///     Sets a custom system prompt.
     /// </summary>
@@ -116,10 +163,6 @@ public sealed class ClaudeAgentOptionsBuilder
         _systemPrompt = SystemPromptConfig.ClaudeCode(append);
         return this;
     }
-
-    #endregion
-
-    #region Tools Configuration
 
     /// <summary>
     ///     Sets the tools configuration to use a preset.
@@ -197,10 +240,6 @@ public sealed class ClaudeAgentOptionsBuilder
         return this;
     }
 
-    #endregion
-
-    #region MCP Server Configuration
-
     /// <summary>
     ///     Adds an MCP server configuration.
     /// </summary>
@@ -260,12 +299,9 @@ public sealed class ClaudeAgentOptionsBuilder
         {
             _mcpServers[name] = config;
         }
+
         return this;
     }
-
-    #endregion
-
-    #region Agent Configuration
 
     /// <summary>
     ///     Adds a subagent definition.
@@ -285,16 +321,13 @@ public sealed class ClaudeAgentOptionsBuilder
     /// <param name="name">The agent name.</param>
     /// <param name="configure">A function to configure the agent builder.</param>
     /// <returns>This builder for chaining.</returns>
-    public ClaudeAgentOptionsBuilder AddAgent(string name, Func<AgentDefinitionBuilder, AgentDefinitionBuilder> configure)
+    public ClaudeAgentOptionsBuilder AddAgent(string name,
+        Func<AgentDefinitionBuilder, AgentDefinitionBuilder> configure)
     {
         var builder = new AgentDefinitionBuilder();
         _agents[name] = configure(builder).Build();
         return this;
     }
-
-    #endregion
-
-    #region Hook Configuration
 
     /// <summary>
     ///     Adds a hook matcher for an event.
@@ -302,13 +335,14 @@ public sealed class ClaudeAgentOptionsBuilder
     /// <param name="hookEvent">The hook event type.</param>
     /// <param name="matcher">The hook matcher.</param>
     /// <returns>This builder for chaining.</returns>
-    public ClaudeAgentOptionsBuilder AddHook(Protocol.HookEvent hookEvent, HookMatcher matcher)
+    public ClaudeAgentOptionsBuilder AddHook(HookEvent hookEvent, HookMatcher matcher)
     {
         if (!_hooks.TryGetValue(hookEvent, out var matchers))
         {
-            matchers = new List<HookMatcher>();
+            matchers = [];
             _hooks[hookEvent] = matchers;
         }
+
         matchers.Add(matcher);
         return this;
     }
@@ -324,11 +358,13 @@ public sealed class ClaudeAgentOptionsBuilder
         {
             if (!_hooks.TryGetValue(hookEvent, out var existingMatchers))
             {
-                existingMatchers = new List<HookMatcher>();
+                existingMatchers = [];
                 _hooks[hookEvent] = existingMatchers;
             }
+
             existingMatchers.AddRange(matchers);
         }
+
         return this;
     }
 
@@ -341,10 +377,10 @@ public sealed class ClaudeAgentOptionsBuilder
     /// <returns>This builder for chaining.</returns>
     public ClaudeAgentOptionsBuilder OnPreToolUse(HookCallback handler, string? matcher = null, double? timeout = null)
     {
-        return AddHook(Protocol.HookEvent.PreToolUse, new HookMatcher
+        return AddHook(HookEvent.PreToolUse, new HookMatcher
         {
             Matcher = matcher,
-            Hooks = new[] { handler },
+            Hooks = [handler],
             Timeout = timeout
         });
     }
@@ -358,10 +394,10 @@ public sealed class ClaudeAgentOptionsBuilder
     /// <returns>This builder for chaining.</returns>
     public ClaudeAgentOptionsBuilder OnPostToolUse(HookCallback handler, string? matcher = null, double? timeout = null)
     {
-        return AddHook(Protocol.HookEvent.PostToolUse, new HookMatcher
+        return AddHook(HookEvent.PostToolUse, new HookMatcher
         {
             Matcher = matcher,
-            Hooks = new[] { handler },
+            Hooks = [handler],
             Timeout = timeout
         });
     }
@@ -374,16 +410,12 @@ public sealed class ClaudeAgentOptionsBuilder
     /// <returns>This builder for chaining.</returns>
     public ClaudeAgentOptionsBuilder OnStop(HookCallback handler, double? timeout = null)
     {
-        return AddHook(Protocol.HookEvent.Stop, new HookMatcher
+        return AddHook(HookEvent.Stop, new HookMatcher
         {
-            Hooks = new[] { handler },
+            Hooks = [handler],
             Timeout = timeout
         });
     }
-
-    #endregion
-
-    #region Permission Configuration
 
     /// <summary>
     ///     Sets the permission mode.
@@ -418,10 +450,6 @@ public sealed class ClaudeAgentOptionsBuilder
         return this;
     }
 
-    #endregion
-
-    #region Sandbox Configuration
-
     /// <summary>
     ///     Sets the sandbox mode.
     /// </summary>
@@ -454,10 +482,6 @@ public sealed class ClaudeAgentOptionsBuilder
         _sandbox = SandboxConfig.WithSettings(configure);
         return this;
     }
-
-    #endregion
-
-    #region Session Configuration
 
     /// <summary>
     ///     Enables continuing an existing conversation.
@@ -503,10 +527,6 @@ public sealed class ClaudeAgentOptionsBuilder
         return this;
     }
 
-    #endregion
-
-    #region Limits and Budget
-
     /// <summary>
     ///     Sets the maximum number of turns.
     /// </summary>
@@ -539,10 +559,6 @@ public sealed class ClaudeAgentOptionsBuilder
         _maxThinkingTokens = maxTokens;
         return this;
     }
-
-    #endregion
-
-    #region Path Configuration
 
     /// <summary>
     ///     Sets the working directory.
@@ -577,10 +593,6 @@ public sealed class ClaudeAgentOptionsBuilder
         return this;
     }
 
-    #endregion
-
-    #region Settings Sources
-
     /// <summary>
     ///     Adds setting sources for loading CLAUDE.md files.
     /// </summary>
@@ -599,7 +611,10 @@ public sealed class ClaudeAgentOptionsBuilder
     public ClaudeAgentOptionsBuilder LoadProjectSettings()
     {
         if (!_settingSources.Contains(SettingSource.Project))
+        {
             _settingSources.Add(SettingSource.Project);
+        }
+
         return this;
     }
 
@@ -610,7 +625,10 @@ public sealed class ClaudeAgentOptionsBuilder
     public ClaudeAgentOptionsBuilder LoadUserSettings()
     {
         if (!_settingSources.Contains(SettingSource.User))
+        {
             _settingSources.Add(SettingSource.User);
+        }
+
         return this;
     }
 
@@ -624,10 +642,6 @@ public sealed class ClaudeAgentOptionsBuilder
         _additionalDataPaths.AddRange(paths);
         return this;
     }
-
-    #endregion
-
-    #region Environment and Extra Args
 
     /// <summary>
     ///     Adds an environment variable.
@@ -652,6 +666,7 @@ public sealed class ClaudeAgentOptionsBuilder
         {
             _environment[key] = value;
         }
+
         return this;
     }
 
@@ -666,10 +681,6 @@ public sealed class ClaudeAgentOptionsBuilder
         _extraArgs[key] = value;
         return this;
     }
-
-    #endregion
-
-    #region Streaming and Output
 
     /// <summary>
     ///     Enables partial message streaming events.
@@ -713,10 +724,6 @@ public sealed class ClaudeAgentOptionsBuilder
         _messageChannelCapacity = capacity;
         return this;
     }
-
-    #endregion
-
-    #region Features
 
     /// <summary>
     ///     Enables file checkpointing for rewind support.
@@ -790,60 +797,5 @@ public sealed class ClaudeAgentOptionsBuilder
     {
         _permissionPromptToolName = toolName;
         return this;
-    }
-
-    #endregion
-
-    /// <summary>
-    ///     Builds the <see cref="ClaudeAgentOptions"/> instance.
-    /// </summary>
-    /// <returns>The configured options.</returns>
-    public ClaudeAgentOptions Build()
-    {
-        return new ClaudeAgentOptions
-        {
-            Tools = _tools,
-            AllowedTools = _allowedTools.Count > 0 ? _allowedTools : [],
-            DisallowedTools = _disallowedTools.Count > 0 ? _disallowedTools : [],
-            SystemPrompt = _systemPrompt,
-            SettingSources = _settingSources.Count > 0 ? _settingSources : null,
-            McpServers = _mcpServers.Count > 0 ? _mcpServers : null,
-            Agents = _agents.Count > 0 ? _agents : null,
-            Plugins = _plugins.Count > 0 ? _plugins : null,
-            PermissionMode = _permissionMode,
-            ContinueConversation = _continueConversation,
-            Resume = _resume,
-            MaxTurns = _maxTurns,
-            MaxBudgetUsd = _maxBudgetUsd,
-            ModelId = _modelId,
-            FallbackModelId = _fallbackModelId,
-            WorkingDirectory = _workingDirectory,
-            CliPath = _cliPath,
-            AddDirectories = _addDirectories.Count > 0 ? _addDirectories : [],
-            Environment = _environment.Count > 0 ? _environment : new Dictionary<string, string>(),
-            ExtraArgs = _extraArgs.Count > 0 ? _extraArgs : new Dictionary<string, string?>(),
-            CanUseTool = _canUseTool,
-            Hooks = _hooks.Count > 0
-                ? _hooks.ToDictionary(
-                    kvp => kvp.Key,
-                    kvp => (IReadOnlyList<HookMatcher>)kvp.Value)
-                : null,
-            IncludePartialMessages = _includePartialMessages,
-            ForkSession = _forkSession,
-            ResumeSessionAt = _resumeSessionAt,
-            MaxThinkingTokens = _maxThinkingTokens,
-            OutputFormat = _outputFormat,
-            EnableFileCheckpointing = _enableFileCheckpointing,
-            Betas = _betas.Count > 0 ? _betas : null,
-            Sandbox = _sandbox,
-            PermissionPromptToolName = _permissionPromptToolName,
-            StrictMcpConfig = _strictMcpConfig,
-            DangerouslySkipPermissions = _dangerouslySkipPermissions,
-            NoHooks = _noHooks,
-            User = _user,
-            AdditionalDataPaths = _additionalDataPaths.Count > 0 ? _additionalDataPaths : null,
-            OnStderr = _onStderr,
-            MessageChannelCapacity = _messageChannelCapacity
-        };
     }
 }

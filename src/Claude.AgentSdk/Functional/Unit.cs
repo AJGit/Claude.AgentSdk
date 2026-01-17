@@ -1,4 +1,5 @@
 // ReSharper disable ConvertToAutoProperty
+
 #pragma warning disable CA1805 // Member is explicitly initialized to its default value
 
 namespace Claude.AgentSdk.Functional;
@@ -9,19 +10,19 @@ namespace Claude.AgentSdk.Functional;
 /// </summary>
 /// <remarks>
 ///     <para>
-///     Unit is useful when working with generic types that require a type parameter,
-///     but you don't have a meaningful value to return (like void).
+///         Unit is useful when working with generic types that require a type parameter,
+///         but you don't have a meaningful value to return (like void).
 ///     </para>
 ///     <para>
-///     Example usage:
-///     <code>
+///         Example usage:
+///         <code>
 ///     // Instead of Task (void), use Task&lt;Unit&gt; for consistency
 ///     public Task&lt;Unit&gt; DoSomethingAsync()
 ///     {
 ///         // ... do work ...
 ///         return Unit.Task;
 ///     }
-///
+/// 
 ///     // Works with Result&lt;T&gt; for operations that don't return a value
 ///     public Result&lt;Unit&gt; ValidateInput(string input)
 ///     {

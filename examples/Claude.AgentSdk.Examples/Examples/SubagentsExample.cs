@@ -1,9 +1,9 @@
-using Claude.AgentSdk.Messages;
+﻿using Claude.AgentSdk.Messages;
 
 namespace Claude.AgentSdk.Examples.Examples;
 
 /// <summary>
-/// Demonstrates using custom subagents for specialized tasks.
+///     Demonstrates using custom subagents for specialized tasks.
 /// </summary>
 public class SubagentsExample : IExample
 {
@@ -18,7 +18,7 @@ public class SubagentsExample : IExample
         var options = new ClaudeAgentOptions
         {
             SystemPrompt = SystemPromptConfig.ClaudeCode(
-                append: "You can delegate specialized tasks to subagents when appropriate."
+                "You can delegate specialized tasks to subagents when appropriate."
             ),
 
             // Allow the Task tool for subagent invocation
@@ -27,7 +27,7 @@ public class SubagentsExample : IExample
             // Define custom subagents
             Agents = new Dictionary<string, AgentDefinition>
             {
-                ["code-reviewer"] = new AgentDefinition
+                ["code-reviewer"] = new()
                 {
                     Description = "Expert code reviewer. Use for security, quality, and best practices reviews.",
                     Prompt = @"You are an expert code reviewer. Analyze code for:
@@ -41,9 +41,10 @@ Provide specific, actionable feedback with line references.",
                     Model = "sonnet" // Use a specific model for this agent
                 },
 
-                ["docs-writer"] = new AgentDefinition
+                ["docs-writer"] = new()
                 {
-                    Description = "Technical documentation writer. Use for generating docs, READMEs, and API documentation.",
+                    Description =
+                        "Technical documentation writer. Use for generating docs, READMEs, and API documentation.",
                     Prompt = @"You are a technical documentation specialist. Create clear,
 comprehensive documentation following best practices:
 - Use proper markdown formatting
@@ -54,7 +55,7 @@ comprehensive documentation following best practices:
                     Model = "sonnet"
                 },
 
-                ["test-generator"] = new AgentDefinition
+                ["test-generator"] = new()
                 {
                     Description = "Unit test generator. Use for creating comprehensive test suites.",
                     Prompt = @"You are a testing expert. Generate thorough unit tests that:
@@ -100,13 +101,14 @@ Provide the review findings.";
                                 Console.WriteLine(text.Text);
                                 break;
 
-                            case ToolUseBlock toolUse when toolUse.Name == "Task":
+                            case ToolUseBlock { Name: "Task" }:
                                 Console.ForegroundColor = ConsoleColor.Magenta;
-                                Console.WriteLine($"\n[Delegating to subagent...]");
+                                Console.WriteLine("\n[Delegating to subagent...]");
                                 Console.ResetColor();
                                 break;
                         }
                     }
+
                     break;
 
                 case ResultMessage result:

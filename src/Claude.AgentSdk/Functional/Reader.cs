@@ -1,4 +1,4 @@
-namespace Claude.AgentSdk.Functional;
+﻿namespace Claude.AgentSdk.Functional;
 
 /// <summary>
 ///     Represents a computation that requires an environment/context to produce a result.
@@ -8,23 +8,23 @@ namespace Claude.AgentSdk.Functional;
 /// <typeparam name="T">The result type.</typeparam>
 /// <remarks>
 ///     <para>
-///     Reader monad allows you to compose functions that depend on a shared context
-///     without explicitly threading that context through every function call.
+///         Reader monad allows you to compose functions that depend on a shared context
+///         without explicitly threading that context through every function call.
 ///     </para>
 ///     <para>
-///     Example usage:
-///     <code>
+///         Example usage:
+///         <code>
 ///     // Define a context
 ///     record AppConfig(string ConnectionString, ILogger Logger);
-///
+/// 
 ///     // Create readers that depend on the context
 ///     Reader&lt;AppConfig, string&gt; getConnectionString =
 ///         Reader.Ask&lt;AppConfig&gt;().Map(cfg => cfg.ConnectionString);
-///
+/// 
 ///     Reader&lt;AppConfig, User&gt; getUser(int id) =>
 ///         getConnectionString.Bind(connStr => Reader.Return&lt;AppConfig, User&gt;(
 ///             LoadUser(connStr, id)));
-///
+/// 
 ///     // Run with context
 ///     var config = new AppConfig("...", logger);
 ///     User user = getUser(123).Run(config);
@@ -290,7 +290,7 @@ public static class Reader
     ///     Creates an async Reader that returns the environment itself.
     /// </summary>
     public static ReaderAsync<TEnv, TEnv> AskAsync<TEnv>() =>
-        new(env => Task.FromResult(env));
+        new(Task.FromResult);
 
     /// <summary>
     ///     Creates an async Reader from a function.

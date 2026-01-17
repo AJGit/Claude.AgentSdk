@@ -1,7 +1,9 @@
+using System.Text.RegularExpressions;
+
 namespace Claude.AgentSdk.EmailAgent;
 
 /// <summary>
-/// Represents an email in the mock email store.
+///     Represents an email in the mock email store.
 /// </summary>
 public record Email
 {
@@ -20,7 +22,7 @@ public record Email
 }
 
 /// <summary>
-/// Mock email store with sample data for demonstration.
+///     Mock email store with sample data for demonstration.
 /// </summary>
 public class MockEmailStore
 {
@@ -43,18 +45,18 @@ public class MockEmailStore
 
     public IReadOnlyList<Email> Search(string query)
     {
-        var lowerQuery = query.ToLowerInvariant();
+        string lowerQuery = query.ToLowerInvariant();
 
         // Parse Gmail-like search operators
-        var results = _emails.AsEnumerable();
+        IEnumerable<Email> results = _emails.AsEnumerable();
 
         // Handle from: operator
         if (lowerQuery.Contains("from:"))
         {
-            var fromMatch = System.Text.RegularExpressions.Regex.Match(lowerQuery, @"from:(\S+)");
+            Match fromMatch = Regex.Match(lowerQuery, @"from:(\S+)");
             if (fromMatch.Success)
             {
-                var fromValue = fromMatch.Groups[1].Value;
+                string fromValue = fromMatch.Groups[1].Value;
                 results = results.Where(e => e.From.Contains(fromValue, StringComparison.OrdinalIgnoreCase));
                 lowerQuery = lowerQuery.Replace(fromMatch.Value, "").Trim();
             }
@@ -63,10 +65,10 @@ public class MockEmailStore
         // Handle to: operator
         if (lowerQuery.Contains("to:"))
         {
-            var toMatch = System.Text.RegularExpressions.Regex.Match(lowerQuery, @"to:(\S+)");
+            Match toMatch = Regex.Match(lowerQuery, @"to:(\S+)");
             if (toMatch.Success)
             {
-                var toValue = toMatch.Groups[1].Value;
+                string toValue = toMatch.Groups[1].Value;
                 results = results.Where(e => e.To.Contains(toValue, StringComparison.OrdinalIgnoreCase));
                 lowerQuery = lowerQuery.Replace(toMatch.Value, "").Trim();
             }
@@ -96,11 +98,12 @@ public class MockEmailStore
         // Handle label: operator
         if (lowerQuery.Contains("label:"))
         {
-            var labelMatch = System.Text.RegularExpressions.Regex.Match(lowerQuery, @"label:(\S+)");
+            Match labelMatch = Regex.Match(lowerQuery, @"label:(\S+)");
             if (labelMatch.Success)
             {
-                var labelValue = labelMatch.Groups[1].Value;
-                results = results.Where(e => e.Labels.Any(l => l.Contains(labelValue, StringComparison.OrdinalIgnoreCase)));
+                string labelValue = labelMatch.Groups[1].Value;
+                results = results.Where(e =>
+                    e.Labels.Any(l => l.Contains(labelValue, StringComparison.OrdinalIgnoreCase)));
                 lowerQuery = lowerQuery.Replace(labelMatch.Value, "").Trim();
             }
         }
@@ -108,10 +111,10 @@ public class MockEmailStore
         // Handle newer_than: operator (e.g., newer_than:7d)
         if (lowerQuery.Contains("newer_than:"))
         {
-            var newerMatch = System.Text.RegularExpressions.Regex.Match(lowerQuery, @"newer_than:(\d+)d");
-            if (newerMatch.Success && int.TryParse(newerMatch.Groups[1].Value, out var days))
+            Match newerMatch = Regex.Match(lowerQuery, @"newer_than:(\d+)d");
+            if (newerMatch.Success && int.TryParse(newerMatch.Groups[1].Value, out int days))
             {
-                var cutoff = DateTime.Now.AddDays(-days);
+                DateTime cutoff = DateTime.Now.AddDays(-days);
                 results = results.Where(e => e.Date >= cutoff);
                 lowerQuery = lowerQuery.Replace(newerMatch.Value, "").Trim();
             }
@@ -136,43 +139,58 @@ public class MockEmailStore
 
     public IReadOnlyList<Email> GetByIds(IEnumerable<string> ids)
     {
-        var idSet = ids.ToHashSet();
+        HashSet<string> idSet = ids.ToHashSet();
         return _emails.Where(e => idSet.Contains(e.Id)).ToList();
     }
 
     public void MarkAsRead(string id)
     {
-        var email = GetById(id);
-        if (email != null) email.IsRead = true;
+        Email? email = GetById(id);
+        if (email != null)
+        {
+            email.IsRead = true;
+        }
     }
 
     public void MarkAsUnread(string id)
     {
-        var email = GetById(id);
-        if (email != null) email.IsRead = false;
+        Email? email = GetById(id);
+        if (email != null)
+        {
+            email.IsRead = false;
+        }
     }
 
     public void Star(string id)
     {
-        var email = GetById(id);
-        if (email != null) email.IsStarred = true;
+        Email? email = GetById(id);
+        if (email != null)
+        {
+            email.IsStarred = true;
+        }
     }
 
     public void Unstar(string id)
     {
-        var email = GetById(id);
-        if (email != null) email.IsStarred = false;
+        Email? email = GetById(id);
+        if (email != null)
+        {
+            email.IsStarred = false;
+        }
     }
 
     public void Archive(string id)
     {
-        var email = GetById(id);
-        if (email != null) email.IsArchived = true;
+        Email? email = GetById(id);
+        if (email != null)
+        {
+            email.IsArchived = true;
+        }
     }
 
     public void AddLabel(string id, string label)
     {
-        var email = GetById(id);
+        Email? email = GetById(id);
         if (email != null && !email.Labels.Contains(label))
         {
             email.Labels.Add(label);
@@ -181,13 +199,13 @@ public class MockEmailStore
 
     public void RemoveLabel(string id, string label)
     {
-        var email = GetById(id);
+        Email? email = GetById(id);
         email?.Labels.Remove(label);
     }
 
     private void SeedSampleEmails()
     {
-        var now = DateTime.Now;
+        DateTime now = DateTime.Now;
 
         _emails.AddRange([
             // Work emails
@@ -198,22 +216,22 @@ public class MockEmailStore
                 To = "me@example.com",
                 Subject = "Q4 Budget Review Meeting",
                 Body = """
-                    Hi team,
+                       Hi team,
 
-                    I'd like to schedule a meeting to review our Q4 budget projections.
-                    We're currently tracking 15% under budget on operational expenses,
-                    but our marketing spend is up 8% from last quarter.
+                       I'd like to schedule a meeting to review our Q4 budget projections.
+                       We're currently tracking 15% under budget on operational expenses,
+                       but our marketing spend is up 8% from last quarter.
 
-                    Key items to discuss:
-                    - Revenue projections ($2.4M expected)
-                    - Marketing ROI analysis
-                    - Headcount planning for Q1
+                       Key items to discuss:
+                       - Revenue projections ($2.4M expected)
+                       - Marketing ROI analysis
+                       - Headcount planning for Q1
 
-                    Please review the attached spreadsheet before the meeting.
+                       Please review the attached spreadsheet before the meeting.
 
-                    Best,
-                    John
-                    """,
+                       Best,
+                       John
+                       """,
                 Date = now.AddHours(-2),
                 IsRead = false,
                 HasAttachments = true,
@@ -226,17 +244,17 @@ public class MockEmailStore
                 To = "me@example.com",
                 Subject = "RE: Project Alpha Status Update",
                 Body = """
-                    Thanks for the update! The client is very happy with the progress.
+                       Thanks for the update! The client is very happy with the progress.
 
-                    A few notes:
-                    - Phase 2 milestone completed on schedule
-                    - Testing team reports 95% test coverage
-                    - Deployment to staging planned for Friday
+                       A few notes:
+                       - Phase 2 milestone completed on schedule
+                       - Testing team reports 95% test coverage
+                       - Deployment to staging planned for Friday
 
-                    Can you send me the updated timeline for Phase 3?
+                       Can you send me the updated timeline for Phase 3?
 
-                    Sarah
-                    """,
+                       Sarah
+                       """,
                 Date = now.AddHours(-5),
                 IsRead = true,
                 Labels = ["Work", "Projects"]
@@ -248,21 +266,21 @@ public class MockEmailStore
                 To = "all@company.com",
                 Subject = "Benefits Enrollment Reminder - Deadline Dec 15",
                 Body = """
-                    Dear Employees,
+                       Dear Employees,
 
-                    This is a reminder that the annual benefits enrollment period ends on December 15th.
+                       This is a reminder that the annual benefits enrollment period ends on December 15th.
 
-                    Changes for 2025:
-                    - New dental plan option with lower deductible
-                    - Increased 401(k) match to 5%
-                    - Expanded mental health coverage
+                       Changes for 2025:
+                       - New dental plan option with lower deductible
+                       - Increased 401(k) match to 5%
+                       - Expanded mental health coverage
 
-                    Please log in to the HR portal to make your selections.
+                       Please log in to the HR portal to make your selections.
 
-                    Questions? Contact benefits@company.com
+                       Questions? Contact benefits@company.com
 
-                    HR Team
-                    """,
+                       HR Team
+                       """,
                 Date = now.AddDays(-1),
                 IsRead = false,
                 Labels = ["Work", "HR"]
@@ -276,23 +294,23 @@ public class MockEmailStore
                 To = "me@example.com",
                 Subject = "This Week in AI: GPT-5 Rumors and More",
                 Body = """
-                    TECH WEEKLY DIGEST
+                       TECH WEEKLY DIGEST
 
-                    TOP STORIES:
-                    1. OpenAI reportedly testing GPT-5 internally
-                    2. Apple announces new M4 chip lineup
-                    3. Google's Gemini 2.0 benchmarks leak
-                    4. EU AI Act enforcement begins January 2025
+                       TOP STORIES:
+                       1. OpenAI reportedly testing GPT-5 internally
+                       2. Apple announces new M4 chip lineup
+                       3. Google's Gemini 2.0 benchmarks leak
+                       4. EU AI Act enforcement begins January 2025
 
-                    DEVELOPER CORNER:
-                    - New TypeScript 6.0 features preview
-                    - Rust adoption hits all-time high
-                    - WebAssembly 3.0 draft specification released
+                       DEVELOPER CORNER:
+                       - New TypeScript 6.0 features preview
+                       - Rust adoption hits all-time high
+                       - WebAssembly 3.0 draft specification released
 
-                    Read more at techweekly.com/digest
+                       Read more at techweekly.com/digest
 
-                    Unsubscribe | Manage Preferences
-                    """,
+                       Unsubscribe | Manage Preferences
+                       """,
                 Date = now.AddDays(-2),
                 IsRead = true,
                 Labels = ["Newsletter"]
@@ -304,19 +322,19 @@ public class MockEmailStore
                 To = "me@example.com",
                 Subject = "Your order has shipped!",
                 Body = """
-                    Your Amazon order #112-3456789 has shipped!
+                       Your Amazon order #112-3456789 has shipped!
 
-                    Items:
-                    - Mechanical Keyboard (Cherry MX Blue) - $129.99
-                    - USB-C Hub 7-in-1 - $45.99
+                       Items:
+                       - Mechanical Keyboard (Cherry MX Blue) - $129.99
+                       - USB-C Hub 7-in-1 - $45.99
 
-                    Estimated delivery: December 12, 2024
-                    Carrier: UPS
+                       Estimated delivery: December 12, 2024
+                       Carrier: UPS
 
-                    Track your package: amazon.com/track/ABC123
+                       Track your package: amazon.com/track/ABC123
 
-                    Thank you for shopping with Amazon!
-                    """,
+                       Thank you for shopping with Amazon!
+                       """,
                 Date = now.AddDays(-1).AddHours(-3),
                 IsRead = true,
                 Labels = ["Shopping"]
@@ -328,17 +346,17 @@ public class MockEmailStore
                 To = "me@example.com",
                 Subject = "Your December Statement is Ready",
                 Body = """
-                    Your Chase account statement for November 2024 is now available.
+                       Your Chase account statement for November 2024 is now available.
 
-                    Account Summary:
-                    - Checking (*1234): $5,432.10
-                    - Savings (*5678): $12,500.00
-                    - Credit Card (*9012): Balance $1,234.56, Payment Due Dec 15
+                       Account Summary:
+                       - Checking (*1234): $5,432.10
+                       - Savings (*5678): $12,500.00
+                       - Credit Card (*9012): Balance $1,234.56, Payment Due Dec 15
 
-                    Log in to view your full statement at chase.com
+                       Log in to view your full statement at chase.com
 
-                    This is an automated message. Please do not reply.
-                    """,
+                       This is an automated message. Please do not reply.
+                       """,
                 Date = now.AddDays(-3),
                 IsRead = false,
                 HasAttachments = true,
@@ -351,19 +369,19 @@ public class MockEmailStore
                 To = "me@example.com",
                 Subject = "Holiday dinner plans",
                 Body = """
-                    Hi sweetie!
+                       Hi sweetie!
 
-                    Just confirming - we're doing Christmas dinner at our place this year.
-                    Everyone's arriving around 2pm on the 25th.
+                       Just confirming - we're doing Christmas dinner at our place this year.
+                       Everyone's arriving around 2pm on the 25th.
 
-                    Can you bring that amazing apple pie you made last year?
-                    Also, your cousin Mike is bringing his new girlfriend, so we'll be 12 people total.
+                       Can you bring that amazing apple pie you made last year?
+                       Also, your cousin Mike is bringing his new girlfriend, so we'll be 12 people total.
 
-                    Let me know if you need any help with directions or anything!
+                       Let me know if you need any help with directions or anything!
 
-                    Love,
-                    Mom
-                    """,
+                       Love,
+                       Mom
+                       """,
                 Date = now.AddDays(-4),
                 IsRead = true,
                 IsStarred = true,
@@ -376,27 +394,27 @@ public class MockEmailStore
                 To = "me@example.com",
                 Subject = "[claude-agent-sdk] Issue #142: Memory leak in query handler",
                 Body = """
-                    @developer opened a new issue in anthropics/claude-agent-sdk:
+                       @developer opened a new issue in anthropics/claude-agent-sdk:
 
-                    **Issue #142: Memory leak in query handler**
+                       **Issue #142: Memory leak in query handler**
 
-                    Description:
-                    When running long-running queries with many tool calls, memory usage
-                    grows unbounded. Profiling shows accumulation in the message queue.
+                       Description:
+                       When running long-running queries with many tool calls, memory usage
+                       grows unbounded. Profiling shows accumulation in the message queue.
 
-                    Steps to reproduce:
-                    1. Run query with 100+ tool calls
-                    2. Monitor memory usage
-                    3. Observe 50MB+ memory growth
+                       Steps to reproduce:
+                       1. Run query with 100+ tool calls
+                       2. Monitor memory usage
+                       3. Observe 50MB+ memory growth
 
-                    Environment:
-                    - Node.js 22.1.0
-                    - SDK version 0.1.28
+                       Environment:
+                       - Node.js 22.1.0
+                       - SDK version 0.1.28
 
-                    ---
-                    Reply to this email or view the issue at:
-                    https://github.com/anthropics/claude-agent-sdk/issues/142
-                    """,
+                       ---
+                       Reply to this email or view the issue at:
+                       https://github.com/anthropics/claude-agent-sdk/issues/142
+                       """,
                 Date = now.AddHours(-8),
                 IsRead = false,
                 Labels = ["GitHub", "Work"]
@@ -408,20 +426,20 @@ public class MockEmailStore
                 To = "me@example.com",
                 Subject = "Your Netflix subscription renewal",
                 Body = """
-                    Hi there,
+                       Hi there,
 
-                    Your Netflix subscription will automatically renew on December 15, 2024.
+                       Your Netflix subscription will automatically renew on December 15, 2024.
 
-                    Plan: Premium (4K + HDR)
-                    Amount: $22.99/month
+                       Plan: Premium (4K + HDR)
+                       Amount: $22.99/month
 
-                    Your payment method: Visa ending in 4242
+                       Your payment method: Visa ending in 4242
 
-                    To update your payment method or cancel, visit netflix.com/account
+                       To update your payment method or cancel, visit netflix.com/account
 
-                    Happy streaming!
-                    The Netflix Team
-                    """,
+                       Happy streaming!
+                       The Netflix Team
+                       """,
                 Date = now.AddDays(-5),
                 IsRead = true,
                 Labels = ["Subscriptions"]
@@ -433,28 +451,28 @@ public class MockEmailStore
                 To = "me@example.com",
                 Subject = "New job matches for you: Senior Software Engineer",
                 Body = """
-                    Based on your profile, here are new job matches:
+                       Based on your profile, here are new job matches:
 
-                    1. Senior Software Engineer - Google
-                       Mountain View, CA | $200K-$350K
-                       Posted 2 days ago | 45 applicants
+                       1. Senior Software Engineer - Google
+                          Mountain View, CA | $200K-$350K
+                          Posted 2 days ago | 45 applicants
 
-                    2. Staff Engineer - Stripe
-                       San Francisco, CA | $250K-$400K
-                       Posted 1 week ago | 120 applicants
+                       2. Staff Engineer - Stripe
+                          San Francisco, CA | $250K-$400K
+                          Posted 1 week ago | 120 applicants
 
-                    3. Principal Engineer - Anthropic
-                       San Francisco, CA | $300K-$450K
-                       Posted 3 days ago | 30 applicants
+                       3. Principal Engineer - Anthropic
+                          San Francisco, CA | $300K-$450K
+                          Posted 3 days ago | 30 applicants
 
-                    View all matches: linkedin.com/jobs
+                       View all matches: linkedin.com/jobs
 
-                    Update your preferences: linkedin.com/settings
-                    """,
+                       Update your preferences: linkedin.com/settings
+                       """,
                 Date = now.AddDays(-2).AddHours(-6),
                 IsRead = false,
                 Labels = ["Jobs"]
-            },
+            }
         ]);
     }
 }

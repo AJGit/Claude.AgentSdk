@@ -1,6 +1,5 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using Claude.AgentSdk;
 using Claude.AgentSdk.Messages;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -12,21 +11,21 @@ namespace Claude.AgentSdk.Extensions.DependencyInjection;
 /// </summary>
 /// <remarks>
 ///     <para>
-///     This class exposes standardized telemetry for Claude agent operations,
-///     compatible with any OpenTelemetry-compatible backend (Prometheus, Jaeger, etc.).
+///         This class exposes standardized telemetry for Claude agent operations,
+///         compatible with any OpenTelemetry-compatible backend (Prometheus, Jaeger, etc.).
 ///     </para>
 ///     <para>
-///     Metrics exposed:
-///     - claude_agent_sessions_total: Total sessions created
-///     - claude_agent_messages_total: Total messages by type
-///     - claude_agent_tool_executions_total: Total tool executions by tool name
-///     - claude_agent_session_duration_seconds: Session duration histogram
-///     - claude_agent_tokens_total: Token usage (input/output)
-///     - claude_agent_errors_total: Error count by type
+///         Metrics exposed:
+///         - claude_agent_sessions_total: Total sessions created
+///         - claude_agent_messages_total: Total messages by type
+///         - claude_agent_tool_executions_total: Total tool executions by tool name
+///         - claude_agent_session_duration_seconds: Session duration histogram
+///         - claude_agent_tokens_total: Token usage (input/output)
+///         - claude_agent_errors_total: Error count by type
 ///     </para>
 ///     <para>
-///     Activity sources:
-///     - Claude.AgentSdk: Root activity source for all agent operations
+///         Activity sources:
+///         - Claude.AgentSdk: Root activity source for all agent operations
 ///     </para>
 /// </remarks>
 public sealed class ClaudeAgentTelemetry : IDisposable
@@ -41,24 +40,20 @@ public sealed class ClaudeAgentTelemetry : IDisposable
     /// </summary>
     public const string ActivitySourceName = "Claude.AgentSdk";
 
-    /// <summary>
-    ///     The singleton instance.
-    /// </summary>
-    public static ClaudeAgentTelemetry Instance { get; } = new();
+    private readonly ActivitySource _activitySource;
+    private readonly Counter<long> _errorsTotal;
+    private readonly Counter<long> _messagesTotal;
 
     private readonly Meter _meter;
-    private readonly ActivitySource _activitySource;
-
-    // Counters
-    private readonly Counter<long> _sessionsTotal;
-    private readonly Counter<long> _messagesTotal;
-    private readonly Counter<long> _toolExecutionsTotal;
-    private readonly Counter<long> _errorsTotal;
-    private readonly Counter<long> _tokensTotal;
 
     // Histograms
     private readonly Histogram<double> _sessionDuration;
+
+    // Counters
+    private readonly Counter<long> _sessionsTotal;
+    private readonly Counter<long> _tokensTotal;
     private readonly Histogram<double> _toolExecutionDuration;
+    private readonly Counter<long> _toolExecutionsTotal;
 
     private ClaudeAgentTelemetry()
     {
@@ -89,13 +84,25 @@ public sealed class ClaudeAgentTelemetry : IDisposable
         // Initialize histograms
         _sessionDuration = _meter.CreateHistogram<double>(
             "claude_agent_session_duration_seconds",
-            unit: "s",
-            description: "Duration of Claude agent sessions in seconds");
+            "s",
+            "Duration of Claude agent sessions in seconds");
 
         _toolExecutionDuration = _meter.CreateHistogram<double>(
             "claude_agent_tool_execution_duration_seconds",
-            unit: "s",
-            description: "Duration of tool executions in seconds");
+            "s",
+            "Duration of tool executions in seconds");
+    }
+
+    /// <summary>
+    ///     The singleton instance.
+    /// </summary>
+    public static ClaudeAgentTelemetry Instance { get; } = new();
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        _meter.Dispose();
+        _activitySource.Dispose();
     }
 
     /// <summary>
@@ -103,9 +110,11 @@ public sealed class ClaudeAgentTelemetry : IDisposable
     /// </summary>
     public void RecordSessionCreated(string? model = null)
     {
-        var tags = new TagList();
+        TagList tags = [];
         if (!string.IsNullOrEmpty(model))
+        {
             tags.Add("model", model);
+        }
 
         _sessionsTotal.Add(1, tags);
     }
@@ -115,7 +124,7 @@ public sealed class ClaudeAgentTelemetry : IDisposable
     /// </summary>
     public void RecordMessage(Message message)
     {
-        var messageType = message switch
+        string messageType = message switch
         {
             AssistantMessage => "assistant",
             UserMessage => "user",
@@ -139,7 +148,7 @@ public sealed class ClaudeAgentTelemetry : IDisposable
     /// </summary>
     public void RecordToolExecution(string toolName, TimeSpan duration, bool success = true)
     {
-        var tags = new TagList
+        TagList tags = new()
         {
             { "tool", toolName },
             { "success", success.ToString().ToLowerInvariant() }
@@ -154,7 +163,7 @@ public sealed class ClaudeAgentTelemetry : IDisposable
     /// </summary>
     public void RecordError(string errorType, string? message = null)
     {
-        var tags = new TagList { { "type", errorType } };
+        TagList tags = new() { { "type", errorType } };
         _errorsTotal.Add(1, tags);
     }
 
@@ -163,9 +172,11 @@ public sealed class ClaudeAgentTelemetry : IDisposable
     /// </summary>
     public void RecordSessionDuration(TimeSpan duration, string? model = null)
     {
-        var tags = new TagList();
+        TagList tags = [];
         if (!string.IsNullOrEmpty(model))
+        {
             tags.Add("model", model);
+        }
 
         _sessionDuration.Record(duration.TotalSeconds, tags);
     }
@@ -175,11 +186,12 @@ public sealed class ClaudeAgentTelemetry : IDisposable
     /// </summary>
     public Activity? StartSessionActivity(string? sessionId = null)
     {
-        var activity = _activitySource.StartActivity("claude.session", ActivityKind.Client);
+        Activity? activity = _activitySource.StartActivity("claude.session", ActivityKind.Client);
         if (activity is not null && !string.IsNullOrEmpty(sessionId))
         {
             activity.SetTag("session.id", sessionId);
         }
+
         return activity;
     }
 
@@ -188,13 +200,16 @@ public sealed class ClaudeAgentTelemetry : IDisposable
     /// </summary>
     public Activity? StartToolActivity(string toolName, string? toolUseId = null)
     {
-        var activity = _activitySource.StartActivity($"claude.tool.{toolName}", ActivityKind.Internal);
+        Activity? activity = _activitySource.StartActivity($"claude.tool.{toolName}");
         if (activity is not null)
         {
             activity.SetTag("tool.name", toolName);
             if (!string.IsNullOrEmpty(toolUseId))
+            {
                 activity.SetTag("tool.use_id", toolUseId);
+            }
         }
+
         return activity;
     }
 
@@ -203,23 +218,17 @@ public sealed class ClaudeAgentTelemetry : IDisposable
     /// </summary>
     public Activity? StartPromptActivity(string? promptPreview = null)
     {
-        var activity = _activitySource.StartActivity("claude.prompt", ActivityKind.Client);
+        Activity? activity = _activitySource.StartActivity("claude.prompt", ActivityKind.Client);
         if (activity is not null && !string.IsNullOrEmpty(promptPreview))
         {
             // Only include first 100 chars to avoid huge traces
-            var preview = promptPreview.Length > 100
+            string preview = promptPreview.Length > 100
                 ? promptPreview[..100] + "..."
                 : promptPreview;
             activity.SetTag("prompt.preview", preview);
         }
-        return activity;
-    }
 
-    /// <inheritdoc />
-    public void Dispose()
-    {
-        _meter.Dispose();
-        _activitySource.Dispose();
+        return activity;
     }
 }
 
@@ -243,12 +252,18 @@ public static class TelemetryExtensions
     /// <summary>
     ///     Gets the meter name for configuring OpenTelemetry.
     /// </summary>
-    public static string GetMeterName() => ClaudeAgentTelemetry.MeterName;
+    public static string GetMeterName()
+    {
+        return ClaudeAgentTelemetry.MeterName;
+    }
 
     /// <summary>
     ///     Gets the activity source name for configuring OpenTelemetry.
     /// </summary>
-    public static string GetActivitySourceName() => ClaudeAgentTelemetry.ActivitySourceName;
+    public static string GetActivitySourceName()
+    {
+        return ClaudeAgentTelemetry.ActivitySourceName;
+    }
 }
 
 /// <summary>
@@ -278,12 +293,16 @@ public readonly struct TelemetryScope : IDisposable
     /// <summary>
     ///     Creates a scope for timing session duration.
     /// </summary>
-    public static TelemetryScope Session(string? model = null) =>
-        new(duration => ClaudeAgentTelemetry.Instance.RecordSessionDuration(duration, model));
+    public static TelemetryScope Session(string? model = null)
+    {
+        return new TelemetryScope(duration => ClaudeAgentTelemetry.Instance.RecordSessionDuration(duration, model));
+    }
 
     /// <summary>
     ///     Creates a scope for timing tool execution.
     /// </summary>
-    public static TelemetryScope Tool(string toolName) =>
-        new(duration => ClaudeAgentTelemetry.Instance.RecordToolExecution(toolName, duration));
+    public static TelemetryScope Tool(string toolName)
+    {
+        return new TelemetryScope(duration => ClaudeAgentTelemetry.Instance.RecordToolExecution(toolName, duration));
+    }
 }

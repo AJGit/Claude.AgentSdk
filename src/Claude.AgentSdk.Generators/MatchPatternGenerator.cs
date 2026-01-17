@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -20,17 +20,19 @@ public sealed class MatchPatternGenerator : IIncrementalGenerator
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         // Find all classes with [GenerateMatch]
-        var classDeclarations = context.SyntaxProvider
+        IncrementalValuesProvider<TypeDeclarationSyntax?> classDeclarations = context.SyntaxProvider
             .CreateSyntaxProvider(
-                predicate: static (s, _) => IsCandidateClass(s),
-                transform: static (ctx, _) => GetSemanticTargetForGeneration(ctx))
+                static (s, _) => IsCandidateClass(s),
+                static (ctx, _) => GetSemanticTargetForGeneration(ctx))
             .Where(static m => m is not null);
 
         // Combine with compilation
-        var compilationAndClasses = context.CompilationProvider.Combine(classDeclarations.Collect());
+        IncrementalValueProvider<(Compilation Left, ImmutableArray<TypeDeclarationSyntax?> Right)>
+            compilationAndClasses = context.CompilationProvider.Combine(classDeclarations.Collect());
 
         // Generate source
-        context.RegisterSourceOutput(compilationAndClasses, static (spc, source) => Execute(source.Left, source.Right!, spc));
+        context.RegisterSourceOutput(compilationAndClasses,
+            static (spc, source) => Execute(source.Left, source.Right!, spc));
     }
 
     private static bool IsCandidateClass(SyntaxNode node)
@@ -41,16 +43,16 @@ public sealed class MatchPatternGenerator : IIncrementalGenerator
 
     private static TypeDeclarationSyntax? GetSemanticTargetForGeneration(GeneratorSyntaxContext context)
     {
-        var typeDeclaration = (TypeDeclarationSyntax)context.Node;
+        TypeDeclarationSyntax typeDeclaration = (TypeDeclarationSyntax)context.Node;
 
-        foreach (var attributeList in typeDeclaration.AttributeLists)
+        foreach (AttributeListSyntax attributeList in typeDeclaration.AttributeLists)
         {
-            foreach (var attribute in attributeList.Attributes)
+            foreach (AttributeSyntax attribute in attributeList.Attributes)
             {
-                var symbol = context.SemanticModel.GetSymbolInfo(attribute).Symbol;
+                ISymbol? symbol = context.SemanticModel.GetSymbolInfo(attribute).Symbol;
                 if (symbol is IMethodSymbol methodSymbol)
                 {
-                    var attributeType = methodSymbol.ContainingType.ToDisplayString();
+                    string attributeType = methodSymbol.ContainingType.ToDisplayString();
                     if (attributeType == GenerateMatchAttribute)
                     {
                         return typeDeclaration;
@@ -62,32 +64,33 @@ public sealed class MatchPatternGenerator : IIncrementalGenerator
         return null;
     }
 
-    private static void Execute(Compilation compilation, ImmutableArray<TypeDeclarationSyntax?> types, SourceProductionContext context)
+    private static void Execute(Compilation compilation, ImmutableArray<TypeDeclarationSyntax?> types,
+        SourceProductionContext context)
     {
         if (types.IsDefaultOrEmpty)
         {
             return;
         }
 
-        foreach (var typeDeclaration in types.Distinct())
+        foreach (TypeDeclarationSyntax? typeDeclaration in types.Distinct())
         {
             if (typeDeclaration is null)
             {
                 continue;
             }
 
-            var semanticModel = compilation.GetSemanticModel(typeDeclaration.SyntaxTree);
-            var typeSymbol = semanticModel.GetDeclaredSymbol(typeDeclaration);
+            SemanticModel semanticModel = compilation.GetSemanticModel(typeDeclaration.SyntaxTree);
+            INamedTypeSymbol? typeSymbol = semanticModel.GetDeclaredSymbol(typeDeclaration);
 
             if (typeSymbol is null)
             {
                 continue;
             }
 
-            var matchInfo = GetMatchInfo(typeSymbol, compilation);
+            MatchInfo? matchInfo = GetMatchInfo(typeSymbol, compilation);
             if (matchInfo is not null && matchInfo.DerivedTypes.Count > 0)
             {
-                var source = GenerateMatchExtension(matchInfo);
+                string source = GenerateMatchExtension(matchInfo);
                 context.AddSource($"{matchInfo.TypeName}MatchExtensions.g.cs", SourceText.From(source, Encoding.UTF8));
             }
         }
@@ -95,16 +98,16 @@ public sealed class MatchPatternGenerator : IIncrementalGenerator
 
     private static MatchInfo? GetMatchInfo(INamedTypeSymbol typeSymbol, Compilation compilation)
     {
-        var jsonDerivedTypeAttrSymbol = compilation.GetTypeByMetadataName(JsonDerivedTypeAttribute);
+        INamedTypeSymbol? jsonDerivedTypeAttrSymbol = compilation.GetTypeByMetadataName(JsonDerivedTypeAttribute);
         if (jsonDerivedTypeAttrSymbol is null)
         {
             return null;
         }
 
-        var derivedTypes = new List<DerivedTypeInfo>();
+        List<DerivedTypeInfo> derivedTypes = [];
 
         // Find all [JsonDerivedType] attributes on the base type
-        foreach (var attr in typeSymbol.GetAttributes())
+        foreach (AttributeData? attr in typeSymbol.GetAttributes())
         {
             if (!SymbolEqualityComparer.Default.Equals(attr.AttributeClass, jsonDerivedTypeAttrSymbol))
             {
@@ -116,7 +119,7 @@ public sealed class MatchPatternGenerator : IIncrementalGenerator
                 continue;
             }
 
-            var derivedTypeArg = attr.ConstructorArguments[0];
+            TypedConstant derivedTypeArg = attr.ConstructorArguments[0];
             if (derivedTypeArg.Value is not INamedTypeSymbol derivedTypeSymbol)
             {
                 continue;
@@ -130,7 +133,7 @@ public sealed class MatchPatternGenerator : IIncrementalGenerator
             }
 
             // Create a parameter name from the derived type name
-            var paramName = ToCamelCase(derivedTypeSymbol.Name);
+            string paramName = ToCamelCase(derivedTypeSymbol.Name);
 
             derivedTypes.Add(new DerivedTypeInfo
             {
@@ -160,8 +163,8 @@ public sealed class MatchPatternGenerator : IIncrementalGenerator
         }
 
         // Handle acronyms and consecutive uppercase letters
-        var result = new StringBuilder();
-        var i = 0;
+        StringBuilder result = new();
+        int i = 0;
 
         // Find the first lowercase letter or the end
         while (i < name.Length && char.IsUpper(name[i]))
@@ -184,6 +187,7 @@ public sealed class MatchPatternGenerator : IIncrementalGenerator
             {
                 result.Append(char.ToLowerInvariant(name[i]));
             }
+
             i++;
         }
 
@@ -199,7 +203,7 @@ public sealed class MatchPatternGenerator : IIncrementalGenerator
 
     private static string GenerateMatchExtension(MatchInfo info)
     {
-        var sb = new StringBuilder();
+        StringBuilder sb = new();
         sb.AppendLine("// <auto-generated />");
         sb.AppendLine("#nullable enable");
         sb.AppendLine();
@@ -214,16 +218,16 @@ public sealed class MatchPatternGenerator : IIncrementalGenerator
         sb.AppendLine("{");
 
         // Generate Match<TResult> with all required parameters
-        GenerateMatchMethod(sb, info, withDefault: false);
+        GenerateMatchMethod(sb, info, false);
 
         // Generate Match<TResult> with defaultCase for partial matching
-        GenerateMatchMethod(sb, info, withDefault: true);
+        GenerateMatchMethod(sb, info, true);
 
         // Generate void Match (action-based)
-        GenerateVoidMatchMethod(sb, info, withDefault: false);
+        GenerateVoidMatchMethod(sb, info, false);
 
         // Generate void Match with defaultCase
-        GenerateVoidMatchMethod(sb, info, withDefault: true);
+        GenerateVoidMatchMethod(sb, info, true);
 
         sb.AppendLine("}");
 
@@ -232,10 +236,10 @@ public sealed class MatchPatternGenerator : IIncrementalGenerator
 
     private static void GenerateMatchMethod(StringBuilder sb, MatchInfo info, bool withDefault)
     {
-        var paramList = new List<string>();
-        foreach (var derived in info.DerivedTypes)
+        List<string> paramList = [];
+        foreach (DerivedTypeInfo? derived in info.DerivedTypes)
         {
-            var optionalMark = withDefault ? "?" : "";
+            string optionalMark = withDefault ? "?" : "";
             paramList.Add($"Func<{derived.FullTypeName}, TResult>{optionalMark} {derived.ParameterName} = null!");
         }
 
@@ -249,33 +253,31 @@ public sealed class MatchPatternGenerator : IIncrementalGenerator
         sb.AppendLine($"    ///     Matches the {info.TypeName} against its derived types and returns a result.");
         sb.AppendLine("    /// </summary>");
         sb.AppendLine("    /// <typeparam name=\"TResult\">The type of the result.</typeparam>");
-        sb.AppendLine($"    public static TResult Match<TResult>(");
+        sb.AppendLine("    public static TResult Match<TResult>(");
         sb.AppendLine($"        this {info.FullTypeName} value,");
         sb.AppendLine($"        {string.Join(",\n        ", paramList)})");
         sb.AppendLine("    {");
         sb.AppendLine("        return value switch");
         sb.AppendLine("        {");
 
-        foreach (var derived in info.DerivedTypes)
+        foreach (DerivedTypeInfo? derived in info.DerivedTypes)
         {
-            if (withDefault)
-            {
-                sb.AppendLine($"            {derived.FullTypeName} x when {derived.ParameterName} is not null => {derived.ParameterName}(x),");
-            }
-            else
-            {
-                sb.AppendLine($"            {derived.FullTypeName} x => {derived.ParameterName}(x),");
-            }
+            sb.AppendLine(
+                withDefault
+                    ? $"            {derived.FullTypeName} x when {derived.ParameterName} is not null => {derived.ParameterName}(x),"
+                    : $"            {derived.FullTypeName} x => {derived.ParameterName}(x),");
         }
 
         if (withDefault)
         {
-            sb.AppendLine($"            _ when defaultCase is not null => defaultCase(),");
-            sb.AppendLine($"            _ => throw new InvalidOperationException($\"Unhandled {info.TypeName} type: {{value.GetType().Name}}\")");
+            sb.AppendLine("            _ when defaultCase is not null => defaultCase(),");
+            sb.AppendLine(
+                $"            _ => throw new InvalidOperationException($\"Unhandled {info.TypeName} type: {{value.GetType().Name}}\")");
         }
         else
         {
-            sb.AppendLine($"            _ => throw new InvalidOperationException($\"Unhandled {info.TypeName} type: {{value.GetType().Name}}\")");
+            sb.AppendLine(
+                $"            _ => throw new InvalidOperationException($\"Unhandled {info.TypeName} type: {{value.GetType().Name}}\")");
         }
 
         sb.AppendLine("        };");
@@ -284,10 +286,10 @@ public sealed class MatchPatternGenerator : IIncrementalGenerator
 
     private static void GenerateVoidMatchMethod(StringBuilder sb, MatchInfo info, bool withDefault)
     {
-        var paramList = new List<string>();
-        foreach (var derived in info.DerivedTypes)
+        List<string> paramList = [];
+        foreach (DerivedTypeInfo? derived in info.DerivedTypes)
         {
-            var optionalMark = withDefault ? "?" : "";
+            string optionalMark = withDefault ? "?" : "";
             paramList.Add($"Action<{derived.FullTypeName}>{optionalMark} {derived.ParameterName} = null!");
         }
 
@@ -296,7 +298,7 @@ public sealed class MatchPatternGenerator : IIncrementalGenerator
             paramList.Add("Action? defaultCase = null");
         }
 
-        var methodName = withDefault ? "MatchAction" : "Match";
+        string methodName = withDefault ? "MatchAction" : "Match";
 
         sb.AppendLine();
         sb.AppendLine("    /// <summary>");
@@ -309,7 +311,7 @@ public sealed class MatchPatternGenerator : IIncrementalGenerator
         sb.AppendLine("        switch (value)");
         sb.AppendLine("        {");
 
-        foreach (var derived in info.DerivedTypes)
+        foreach (DerivedTypeInfo? derived in info.DerivedTypes)
         {
             if (withDefault)
             {
@@ -329,13 +331,15 @@ public sealed class MatchPatternGenerator : IIncrementalGenerator
         {
             sb.AppendLine("            default:");
             sb.AppendLine("                if (defaultCase is not null) defaultCase();");
-            sb.AppendLine($"                else throw new InvalidOperationException($\"Unhandled {info.TypeName} type: {{value.GetType().Name}}\");");
+            sb.AppendLine(
+                $"                else throw new InvalidOperationException($\"Unhandled {info.TypeName} type: {{value.GetType().Name}}\");");
             sb.AppendLine("                return;");
         }
         else
         {
             sb.AppendLine("            default:");
-            sb.AppendLine($"                throw new InvalidOperationException($\"Unhandled {info.TypeName} type: {{value.GetType().Name}}\");");
+            sb.AppendLine(
+                $"                throw new InvalidOperationException($\"Unhandled {info.TypeName} type: {{value.GetType().Name}}\");");
         }
 
         sb.AppendLine("        }");

@@ -17,10 +17,10 @@ namespace Claude.AgentSdk.Tests;
 ///     <code>
 ///     # Run only unit tests (exclude E2E)
 ///     dotnet test --filter "Category!=E2E"
-///
+/// 
 ///     # Run only E2E tests
 ///     dotnet test --filter "Category=E2E"
-///
+/// 
 ///     # Run only integration tests
 ///     dotnet test --filter "Category=Integration"
 ///     </code>
@@ -56,7 +56,7 @@ public static class TestCategories
 ///     E2E tests are excluded by default in CI pipelines. Run them explicitly with:
 ///     <code>dotnet test --filter "Category=E2E"</code>
 /// </remarks>
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public sealed class E2ETestAttribute : Attribute, ITraitAttribute
 {
     /// <inheritdoc />
@@ -69,7 +69,7 @@ public sealed class E2ETestAttribute : Attribute, ITraitAttribute
 /// <summary>
 ///     Marks a test class or method as an integration test.
 /// </summary>
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public sealed class IntegrationTestAttribute : Attribute, ITraitAttribute
 {
     /// <inheritdoc />
@@ -82,7 +82,7 @@ public sealed class IntegrationTestAttribute : Attribute, ITraitAttribute
 /// <summary>
 ///     Marks a test class or method as a unit test.
 /// </summary>
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public sealed class UnitTestAttribute : Attribute, ITraitAttribute
 {
     /// <inheritdoc />

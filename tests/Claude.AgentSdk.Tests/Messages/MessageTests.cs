@@ -1,6 +1,6 @@
+﻿using System.Globalization;
 using System.Text.Json;
 using Claude.AgentSdk.Messages;
-using Xunit;
 
 namespace Claude.AgentSdk.Tests.Messages;
 
@@ -14,22 +14,20 @@ public class MessageTests
         PropertyNameCaseInsensitive = true
     };
 
-    #region Polymorphic Type Discrimination Tests
-
     [Fact]
     public void Deserialize_UserMessage_ReturnsCorrectType()
     {
         const string json = """
-            {
-                "type": "user",
-                "message": {
-                    "content": "Hello, Claude!",
-                    "uuid": "test-uuid-123"
-                }
-            }
-            """;
+                            {
+                                "type": "user",
+                                "message": {
+                                    "content": "Hello, Claude!",
+                                    "uuid": "test-uuid-123"
+                                }
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions);
+        Message? message = JsonSerializer.Deserialize<Message>(json, JsonOptions);
 
         Assert.NotNull(message);
         Assert.IsType<UserMessage>(message);
@@ -39,18 +37,18 @@ public class MessageTests
     public void Deserialize_AssistantMessage_ReturnsCorrectType()
     {
         const string json = """
-            {
-                "type": "assistant",
-                "message": {
-                    "content": [
-                        { "type": "text", "text": "Hello!" }
-                    ],
-                    "model": "claude-3-opus"
-                }
-            }
-            """;
+                            {
+                                "type": "assistant",
+                                "message": {
+                                    "content": [
+                                        { "type": "text", "text": "Hello!" }
+                                    ],
+                                    "model": "claude-3-opus"
+                                }
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions);
+        Message? message = JsonSerializer.Deserialize<Message>(json, JsonOptions);
 
         Assert.NotNull(message);
         Assert.IsType<AssistantMessage>(message);
@@ -60,14 +58,14 @@ public class MessageTests
     public void Deserialize_SystemMessage_ReturnsCorrectType()
     {
         const string json = """
-            {
-                "type": "system",
-                "subtype": "init",
-                "session_id": "session-123"
-            }
-            """;
+                            {
+                                "type": "system",
+                                "subtype": "init",
+                                "session_id": "session-123"
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions);
+        Message? message = JsonSerializer.Deserialize<Message>(json, JsonOptions);
 
         Assert.NotNull(message);
         Assert.IsType<SystemMessage>(message);
@@ -77,18 +75,18 @@ public class MessageTests
     public void Deserialize_ResultMessage_ReturnsCorrectType()
     {
         const string json = """
-            {
-                "type": "result",
-                "subtype": "success",
-                "duration_ms": 1000,
-                "duration_api_ms": 500,
-                "is_error": false,
-                "num_turns": 1,
-                "session_id": "session-123"
-            }
-            """;
+                            {
+                                "type": "result",
+                                "subtype": "success",
+                                "duration_ms": 1000,
+                                "duration_api_ms": 500,
+                                "is_error": false,
+                                "num_turns": 1,
+                                "session_id": "session-123"
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions);
+        Message? message = JsonSerializer.Deserialize<Message>(json, JsonOptions);
 
         Assert.NotNull(message);
         Assert.IsType<ResultMessage>(message);
@@ -98,15 +96,15 @@ public class MessageTests
     public void Deserialize_StreamEvent_ReturnsCorrectType()
     {
         const string json = """
-            {
-                "type": "stream_event",
-                "uuid": "event-uuid-123",
-                "session_id": "session-123",
-                "event": { "type": "content_block_delta" }
-            }
-            """;
+                            {
+                                "type": "stream_event",
+                                "uuid": "event-uuid-123",
+                                "session_id": "session-123",
+                                "event": { "type": "content_block_delta" }
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions);
+        Message? message = JsonSerializer.Deserialize<Message>(json, JsonOptions);
 
         Assert.NotNull(message);
         Assert.IsType<StreamEvent>(message);
@@ -120,41 +118,38 @@ public class MessageTests
     [InlineData("stream_event", typeof(StreamEvent))]
     public void Deserialize_AllMessageTypes_ReturnsExpectedTypes(string typeValue, Type expectedType)
     {
-        var json = typeValue switch
+        string json = typeValue switch
         {
             "user" => """{"type":"user","message":{"content":"test"}}""",
             "assistant" => """{"type":"assistant","message":{"content":[],"model":"claude-3"}}""",
             "system" => """{"type":"system","subtype":"init"}""",
-            "result" => """{"type":"result","subtype":"done","duration_ms":0,"duration_api_ms":0,"is_error":false,"num_turns":0,"session_id":"s"}""",
+            "result" =>
+                """{"type":"result","subtype":"done","duration_ms":0,"duration_api_ms":0,"is_error":false,"num_turns":0,"session_id":"s"}""",
             "stream_event" => """{"type":"stream_event","uuid":"u","session_id":"s","event":{}}""",
             _ => throw new ArgumentException($"Unknown type: {typeValue}")
         };
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions);
+        Message? message = JsonSerializer.Deserialize<Message>(json, JsonOptions);
 
         Assert.NotNull(message);
         Assert.IsType(expectedType, message);
     }
 
-    #endregion
-
-    #region UserMessage Tests
-
     [Fact]
     public void Deserialize_UserMessage_WithStringContent_MapsProperties()
     {
         const string json = """
-            {
-                "type": "user",
-                "message": {
-                    "content": "Hello, Claude!",
-                    "uuid": "test-uuid-123",
-                    "parent_tool_use_id": "tool-use-456"
-                }
-            }
-            """;
+                            {
+                                "type": "user",
+                                "message": {
+                                    "content": "Hello, Claude!",
+                                    "uuid": "test-uuid-123",
+                                    "parent_tool_use_id": "tool-use-456"
+                                }
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as UserMessage;
+        UserMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as UserMessage;
 
         Assert.NotNull(message);
         Assert.Equal("test-uuid-123", message.MessageContent.Uuid);
@@ -167,19 +162,19 @@ public class MessageTests
     public void Deserialize_UserMessage_WithArrayContent_MapsProperties()
     {
         const string json = """
-            {
-                "type": "user",
-                "message": {
-                    "content": [
-                        { "type": "text", "text": "Part 1" },
-                        { "type": "text", "text": "Part 2" }
-                    ],
-                    "uuid": "array-uuid"
-                }
-            }
-            """;
+                            {
+                                "type": "user",
+                                "message": {
+                                    "content": [
+                                        { "type": "text", "text": "Part 1" },
+                                        { "type": "text", "text": "Part 2" }
+                                    ],
+                                    "uuid": "array-uuid"
+                                }
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as UserMessage;
+        UserMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as UserMessage;
 
         Assert.NotNull(message);
         Assert.Equal("array-uuid", message.MessageContent.Uuid);
@@ -191,46 +186,42 @@ public class MessageTests
     public void Deserialize_UserMessage_WithNullOptionalFields_AllowsNull()
     {
         const string json = """
-            {
-                "type": "user",
-                "message": {
-                    "content": "Hello"
-                }
-            }
-            """;
+                            {
+                                "type": "user",
+                                "message": {
+                                    "content": "Hello"
+                                }
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as UserMessage;
+        UserMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as UserMessage;
 
         Assert.NotNull(message);
         Assert.Null(message.MessageContent.Uuid);
         Assert.Null(message.MessageContent.ParentToolUseId);
     }
 
-    #endregion
-
-    #region AssistantMessage Tests
-
     [Fact]
     public void Deserialize_AssistantMessage_WithTextBlock_MapsProperties()
     {
         const string json = """
-            {
-                "type": "assistant",
-                "message": {
-                    "content": [
-                        { "type": "text", "text": "Hello, user!" }
-                    ],
-                    "model": "claude-3-opus-20240229"
-                }
-            }
-            """;
+                            {
+                                "type": "assistant",
+                                "message": {
+                                    "content": [
+                                        { "type": "text", "text": "Hello, user!" }
+                                    ],
+                                    "model": "claude-3-opus-20240229"
+                                }
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as AssistantMessage;
+        AssistantMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as AssistantMessage;
 
         Assert.NotNull(message);
         Assert.Equal("claude-3-opus-20240229", message.MessageContent.Model);
         Assert.Single(message.MessageContent.Content);
-        var textBlock = Assert.IsType<TextBlock>(message.MessageContent.Content[0]);
+        TextBlock textBlock = Assert.IsType<TextBlock>(message.MessageContent.Content[0]);
         Assert.Equal("Hello, user!", textBlock.Text);
     }
 
@@ -238,27 +229,27 @@ public class MessageTests
     public void Deserialize_AssistantMessage_WithToolUseBlock_MapsProperties()
     {
         const string json = """
-            {
-                "type": "assistant",
-                "message": {
-                    "content": [
-                        {
-                            "type": "tool_use",
-                            "id": "toolu_123",
-                            "name": "read_file",
-                            "input": { "path": "/test/file.txt" }
-                        }
-                    ],
-                    "model": "claude-3-sonnet"
-                }
-            }
-            """;
+                            {
+                                "type": "assistant",
+                                "message": {
+                                    "content": [
+                                        {
+                                            "type": "tool_use",
+                                            "id": "toolu_123",
+                                            "name": "read_file",
+                                            "input": { "path": "/test/file.txt" }
+                                        }
+                                    ],
+                                    "model": "claude-3-sonnet"
+                                }
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as AssistantMessage;
+        AssistantMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as AssistantMessage;
 
         Assert.NotNull(message);
         Assert.Single(message.MessageContent.Content);
-        var toolUseBlock = Assert.IsType<ToolUseBlock>(message.MessageContent.Content[0]);
+        ToolUseBlock toolUseBlock = Assert.IsType<ToolUseBlock>(message.MessageContent.Content[0]);
         Assert.Equal("toolu_123", toolUseBlock.Id);
         Assert.Equal("read_file", toolUseBlock.Name);
         Assert.Equal("/test/file.txt", toolUseBlock.Input.GetProperty("path").GetString());
@@ -268,26 +259,26 @@ public class MessageTests
     public void Deserialize_AssistantMessage_WithThinkingBlock_MapsProperties()
     {
         const string json = """
-            {
-                "type": "assistant",
-                "message": {
-                    "content": [
-                        {
-                            "type": "thinking",
-                            "thinking": "Let me consider this carefully...",
-                            "signature": "sig-abc123"
-                        }
-                    ],
-                    "model": "claude-3-opus"
-                }
-            }
-            """;
+                            {
+                                "type": "assistant",
+                                "message": {
+                                    "content": [
+                                        {
+                                            "type": "thinking",
+                                            "thinking": "Let me consider this carefully...",
+                                            "signature": "sig-abc123"
+                                        }
+                                    ],
+                                    "model": "claude-3-opus"
+                                }
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as AssistantMessage;
+        AssistantMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as AssistantMessage;
 
         Assert.NotNull(message);
         Assert.Single(message.MessageContent.Content);
-        var thinkingBlock = Assert.IsType<ThinkingBlock>(message.MessageContent.Content[0]);
+        ThinkingBlock thinkingBlock = Assert.IsType<ThinkingBlock>(message.MessageContent.Content[0]);
         Assert.Equal("Let me consider this carefully...", thinkingBlock.Thinking);
         Assert.Equal("sig-abc123", thinkingBlock.Signature);
     }
@@ -296,20 +287,20 @@ public class MessageTests
     public void Deserialize_AssistantMessage_WithMixedContentBlocks_MapsAllBlocks()
     {
         const string json = """
-            {
-                "type": "assistant",
-                "message": {
-                    "content": [
-                        { "type": "thinking", "thinking": "I need to use a tool", "signature": "sig-1" },
-                        { "type": "text", "text": "Let me check that file for you." },
-                        { "type": "tool_use", "id": "toolu_1", "name": "read_file", "input": {} }
-                    ],
-                    "model": "claude-3-opus"
-                }
-            }
-            """;
+                            {
+                                "type": "assistant",
+                                "message": {
+                                    "content": [
+                                        { "type": "thinking", "thinking": "I need to use a tool", "signature": "sig-1" },
+                                        { "type": "text", "text": "Let me check that file for you." },
+                                        { "type": "tool_use", "id": "toolu_1", "name": "read_file", "input": {} }
+                                    ],
+                                    "model": "claude-3-opus"
+                                }
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as AssistantMessage;
+        AssistantMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as AssistantMessage;
 
         Assert.NotNull(message);
         Assert.Equal(3, message.MessageContent.Content.Count);
@@ -322,17 +313,17 @@ public class MessageTests
     public void Deserialize_AssistantMessage_WithError_MapsErrorProperty()
     {
         const string json = """
-            {
-                "type": "assistant",
-                "message": {
-                    "content": [],
-                    "model": "claude-3-opus",
-                    "error": "Rate limit exceeded"
-                }
-            }
-            """;
+                            {
+                                "type": "assistant",
+                                "message": {
+                                    "content": [],
+                                    "model": "claude-3-opus",
+                                    "error": "Rate limit exceeded"
+                                }
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as AssistantMessage;
+        AssistantMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as AssistantMessage;
 
         Assert.NotNull(message);
         Assert.Equal("Rate limit exceeded", message.MessageContent.Error);
@@ -342,17 +333,17 @@ public class MessageTests
     public void Deserialize_AssistantMessage_WithParentToolUseId_MapsProperty()
     {
         const string json = """
-            {
-                "type": "assistant",
-                "message": {
-                    "content": [{ "type": "text", "text": "Response" }],
-                    "model": "claude-3",
-                    "parent_tool_use_id": "parent-tool-123"
-                }
-            }
-            """;
+                            {
+                                "type": "assistant",
+                                "message": {
+                                    "content": [{ "type": "text", "text": "Response" }],
+                                    "model": "claude-3",
+                                    "parent_tool_use_id": "parent-tool-123"
+                                }
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as AssistantMessage;
+        AssistantMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as AssistantMessage;
 
         Assert.NotNull(message);
         Assert.Equal("parent-tool-123", message.MessageContent.ParentToolUseId);
@@ -362,46 +353,42 @@ public class MessageTests
     public void Deserialize_AssistantMessage_WithEmptyContent_AllowsEmptyList()
     {
         const string json = """
-            {
-                "type": "assistant",
-                "message": {
-                    "content": [],
-                    "model": "claude-3"
-                }
-            }
-            """;
+                            {
+                                "type": "assistant",
+                                "message": {
+                                    "content": [],
+                                    "model": "claude-3"
+                                }
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as AssistantMessage;
+        AssistantMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as AssistantMessage;
 
         Assert.NotNull(message);
         Assert.Empty(message.MessageContent.Content);
     }
 
-    #endregion
-
-    #region SystemMessage Tests
-
     [Fact]
     public void Deserialize_SystemMessage_InitSubtype_MapsAllProperties()
     {
         const string json = """
-            {
-                "type": "system",
-                "subtype": "init",
-                "session_id": "session-abc123",
-                "cwd": "/home/user/project",
-                "slash_commands": ["/help", "/clear", "/exit"],
-                "tools": ["read_file", "write_file", "bash"],
-                "mcp_servers": [
-                    { "name": "file-server", "status": "connected" },
-                    { "name": "db-server", "status": "error", "error": "Connection refused" }
-                ],
-                "model": "claude-3-opus",
-                "permission_mode": "auto"
-            }
-            """;
+                            {
+                                "type": "system",
+                                "subtype": "init",
+                                "session_id": "session-abc123",
+                                "cwd": "/home/user/project",
+                                "slash_commands": ["/help", "/clear", "/exit"],
+                                "tools": ["read_file", "write_file", "bash"],
+                                "mcp_servers": [
+                                    { "name": "file-server", "status": "connected" },
+                                    { "name": "db-server", "status": "error", "error": "Connection refused" }
+                                ],
+                                "model": "claude-3-opus",
+                                "permission_mode": "auto"
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as SystemMessage;
+        SystemMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as SystemMessage;
 
         Assert.NotNull(message);
         Assert.Equal("init", message.Subtype);
@@ -422,18 +409,18 @@ public class MessageTests
     public void Deserialize_SystemMessage_CompactBoundarySubtype_MapsMetadata()
     {
         const string json = """
-            {
-                "type": "system",
-                "subtype": "compact_boundary",
-                "compact_metadata": {
-                    "pre_tokens": 50000,
-                    "post_tokens": 10000,
-                    "trigger": "token_limit"
-                }
-            }
-            """;
+                            {
+                                "type": "system",
+                                "subtype": "compact_boundary",
+                                "compact_metadata": {
+                                    "pre_tokens": 50000,
+                                    "post_tokens": 10000,
+                                    "trigger": "token_limit"
+                                }
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as SystemMessage;
+        SystemMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as SystemMessage;
 
         Assert.NotNull(message);
         Assert.Equal("compact_boundary", message.Subtype);
@@ -449,13 +436,13 @@ public class MessageTests
     public void Deserialize_SystemMessage_WithMinimalFields_AllowsNullOptional()
     {
         const string json = """
-            {
-                "type": "system",
-                "subtype": "status"
-            }
-            """;
+                            {
+                                "type": "system",
+                                "subtype": "status"
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as SystemMessage;
+        SystemMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as SystemMessage;
 
         Assert.NotNull(message);
         Assert.Equal("status", message.Subtype);
@@ -474,17 +461,17 @@ public class MessageTests
     public void Deserialize_SystemMessage_WithData_MapsJsonElement()
     {
         const string json = """
-            {
-                "type": "system",
-                "subtype": "custom",
-                "data": {
-                    "custom_field": "custom_value",
-                    "nested": { "key": 123 }
-                }
-            }
-            """;
+                            {
+                                "type": "system",
+                                "subtype": "custom",
+                                "data": {
+                                    "custom_field": "custom_value",
+                                    "nested": { "key": 123 }
+                                }
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as SystemMessage;
+        SystemMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as SystemMessage;
 
         Assert.NotNull(message);
         Assert.NotNull(message.Data);
@@ -496,16 +483,16 @@ public class MessageTests
     public void Deserialize_McpServerStatus_WithError_MapsAllFields()
     {
         const string json = """
-            {
-                "type": "system",
-                "subtype": "init",
-                "mcp_servers": [
-                    { "name": "failing-server", "status": "error", "error": "Authentication failed" }
-                ]
-            }
-            """;
+                            {
+                                "type": "system",
+                                "subtype": "init",
+                                "mcp_servers": [
+                                    { "name": "failing-server", "status": "error", "error": "Authentication failed" }
+                                ]
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as SystemMessage;
+        SystemMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as SystemMessage;
 
         Assert.NotNull(message);
         Assert.NotNull(message.McpServers);
@@ -523,42 +510,38 @@ public class MessageTests
     public void SystemMessage_IsInitAndIsCompactBoundary_ReturnsCorrectValues(
         string subtype, bool expectedIsInit, bool expectedIsCompactBoundary)
     {
-        var json = $$"""
-            {
-                "type": "system",
-                "subtype": "{{subtype}}"
-            }
-            """;
+        string json = $$"""
+                        {
+                            "type": "system",
+                            "subtype": "{{subtype}}"
+                        }
+                        """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as SystemMessage;
+        SystemMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as SystemMessage;
 
         Assert.NotNull(message);
         Assert.Equal(expectedIsInit, message.IsInit);
         Assert.Equal(expectedIsCompactBoundary, message.IsCompactBoundary);
     }
 
-    #endregion
-
-    #region ResultMessage Tests
-
     [Fact]
     public void Deserialize_ResultMessage_SuccessfulResult_MapsAllProperties()
     {
         const string json = """
-            {
-                "type": "result",
-                "subtype": "success",
-                "duration_ms": 15000,
-                "duration_api_ms": 12500,
-                "is_error": false,
-                "num_turns": 5,
-                "session_id": "session-result-123",
-                "total_cost_usd": 0.0523,
-                "result": "Task completed successfully"
-            }
-            """;
+                            {
+                                "type": "result",
+                                "subtype": "success",
+                                "duration_ms": 15000,
+                                "duration_api_ms": 12500,
+                                "is_error": false,
+                                "num_turns": 5,
+                                "session_id": "session-result-123",
+                                "total_cost_usd": 0.0523,
+                                "result": "Task completed successfully"
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as ResultMessage;
+        ResultMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as ResultMessage;
 
         Assert.NotNull(message);
         Assert.Equal("success", message.Subtype);
@@ -575,19 +558,19 @@ public class MessageTests
     public void Deserialize_ResultMessage_WithError_MapsIsErrorTrue()
     {
         const string json = """
-            {
-                "type": "result",
-                "subtype": "error",
-                "duration_ms": 500,
-                "duration_api_ms": 250,
-                "is_error": true,
-                "num_turns": 1,
-                "session_id": "session-error-123",
-                "result": "An unexpected error occurred"
-            }
-            """;
+                            {
+                                "type": "result",
+                                "subtype": "error",
+                                "duration_ms": 500,
+                                "duration_api_ms": 250,
+                                "is_error": true,
+                                "num_turns": 1,
+                                "session_id": "session-error-123",
+                                "result": "An unexpected error occurred"
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as ResultMessage;
+        ResultMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as ResultMessage;
 
         Assert.NotNull(message);
         Assert.True(message.IsError);
@@ -598,24 +581,24 @@ public class MessageTests
     public void Deserialize_ResultMessage_WithUsage_MapsJsonElement()
     {
         const string json = """
-            {
-                "type": "result",
-                "subtype": "success",
-                "duration_ms": 1000,
-                "duration_api_ms": 800,
-                "is_error": false,
-                "num_turns": 2,
-                "session_id": "session-usage-123",
-                "usage": {
-                    "input_tokens": 1500,
-                    "output_tokens": 500,
-                    "cache_creation_input_tokens": 0,
-                    "cache_read_input_tokens": 1000
-                }
-            }
-            """;
+                            {
+                                "type": "result",
+                                "subtype": "success",
+                                "duration_ms": 1000,
+                                "duration_api_ms": 800,
+                                "is_error": false,
+                                "num_turns": 2,
+                                "session_id": "session-usage-123",
+                                "usage": {
+                                    "input_tokens": 1500,
+                                    "output_tokens": 500,
+                                    "cache_creation_input_tokens": 0,
+                                    "cache_read_input_tokens": 1000
+                                }
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as ResultMessage;
+        ResultMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as ResultMessage;
 
         Assert.NotNull(message);
         Assert.NotNull(message.Usage);
@@ -628,29 +611,29 @@ public class MessageTests
     public void Deserialize_ResultMessage_WithStructuredOutput_MapsJsonElement()
     {
         const string json = """
-            {
-                "type": "result",
-                "subtype": "success",
-                "duration_ms": 2000,
-                "duration_api_ms": 1500,
-                "is_error": false,
-                "num_turns": 3,
-                "session_id": "session-structured-123",
-                "structured_output": {
-                    "analysis": {
-                        "score": 95,
-                        "categories": ["performance", "security"],
-                        "passed": true
-                    }
-                }
-            }
-            """;
+                            {
+                                "type": "result",
+                                "subtype": "success",
+                                "duration_ms": 2000,
+                                "duration_api_ms": 1500,
+                                "is_error": false,
+                                "num_turns": 3,
+                                "session_id": "session-structured-123",
+                                "structured_output": {
+                                    "analysis": {
+                                        "score": 95,
+                                        "categories": ["performance", "security"],
+                                        "passed": true
+                                    }
+                                }
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as ResultMessage;
+        ResultMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as ResultMessage;
 
         Assert.NotNull(message);
         Assert.NotNull(message.StructuredOutput);
-        var analysis = message.StructuredOutput.Value.GetProperty("analysis");
+        JsonElement analysis = message.StructuredOutput.Value.GetProperty("analysis");
         Assert.Equal(95, analysis.GetProperty("score").GetInt32());
         Assert.True(analysis.GetProperty("passed").GetBoolean());
     }
@@ -659,18 +642,18 @@ public class MessageTests
     public void Deserialize_ResultMessage_WithNullOptionalFields_AllowsNull()
     {
         const string json = """
-            {
-                "type": "result",
-                "subtype": "done",
-                "duration_ms": 100,
-                "duration_api_ms": 50,
-                "is_error": false,
-                "num_turns": 1,
-                "session_id": "session-minimal-123"
-            }
-            """;
+                            {
+                                "type": "result",
+                                "subtype": "done",
+                                "duration_ms": 100,
+                                "duration_api_ms": 50,
+                                "is_error": false,
+                                "num_turns": 1,
+                                "session_id": "session-minimal-123"
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as ResultMessage;
+        ResultMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as ResultMessage;
 
         Assert.NotNull(message);
         Assert.Null(message.TotalCostUsd);
@@ -686,49 +669,45 @@ public class MessageTests
     [InlineData(100.99)]
     public void Deserialize_ResultMessage_VariousCostValues_MapsPrecisely(double cost)
     {
-        var json = $$"""
-            {
-                "type": "result",
-                "subtype": "success",
-                "duration_ms": 1000,
-                "duration_api_ms": 500,
-                "is_error": false,
-                "num_turns": 1,
-                "session_id": "session-cost-test",
-                "total_cost_usd": {{cost.ToString(System.Globalization.CultureInfo.InvariantCulture)}}
-            }
-            """;
+        string json = $$"""
+                        {
+                            "type": "result",
+                            "subtype": "success",
+                            "duration_ms": 1000,
+                            "duration_api_ms": 500,
+                            "is_error": false,
+                            "num_turns": 1,
+                            "session_id": "session-cost-test",
+                            "total_cost_usd": {{cost.ToString(CultureInfo.InvariantCulture)}}
+                        }
+                        """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as ResultMessage;
+        ResultMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as ResultMessage;
 
         Assert.NotNull(message);
         Assert.Equal(cost, message.TotalCostUsd);
     }
 
-    #endregion
-
-    #region StreamEvent Tests
-
     [Fact]
     public void Deserialize_StreamEvent_ContentBlockDelta_MapsAllProperties()
     {
         const string json = """
-            {
-                "type": "stream_event",
-                "uuid": "event-uuid-abc123",
-                "session_id": "session-stream-123",
-                "event": {
-                    "type": "content_block_delta",
-                    "index": 0,
-                    "delta": {
-                        "type": "text_delta",
-                        "text": "Hello"
-                    }
-                }
-            }
-            """;
+                            {
+                                "type": "stream_event",
+                                "uuid": "event-uuid-abc123",
+                                "session_id": "session-stream-123",
+                                "event": {
+                                    "type": "content_block_delta",
+                                    "index": 0,
+                                    "delta": {
+                                        "type": "text_delta",
+                                        "text": "Hello"
+                                    }
+                                }
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as StreamEvent;
+        StreamEvent? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as StreamEvent;
 
         Assert.NotNull(message);
         Assert.Equal("event-uuid-abc123", message.Uuid);
@@ -741,16 +720,16 @@ public class MessageTests
     public void Deserialize_StreamEvent_WithParentToolUseId_MapsProperty()
     {
         const string json = """
-            {
-                "type": "stream_event",
-                "uuid": "event-uuid-456",
-                "session_id": "session-tool-stream",
-                "event": { "type": "message_start" },
-                "parent_tool_use_id": "parent-toolu-789"
-            }
-            """;
+                            {
+                                "type": "stream_event",
+                                "uuid": "event-uuid-456",
+                                "session_id": "session-tool-stream",
+                                "event": { "type": "message_start" },
+                                "parent_tool_use_id": "parent-toolu-789"
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as StreamEvent;
+        StreamEvent? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as StreamEvent;
 
         Assert.NotNull(message);
         Assert.Equal("parent-toolu-789", message.ParentToolUseId);
@@ -760,15 +739,15 @@ public class MessageTests
     public void Deserialize_StreamEvent_WithoutParentToolUseId_AllowsNull()
     {
         const string json = """
-            {
-                "type": "stream_event",
-                "uuid": "event-uuid-null",
-                "session_id": "session-no-parent",
-                "event": { "type": "message_stop" }
-            }
-            """;
+                            {
+                                "type": "stream_event",
+                                "uuid": "event-uuid-null",
+                                "session_id": "session-no-parent",
+                                "event": { "type": "message_stop" }
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as StreamEvent;
+        StreamEvent? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as StreamEvent;
 
         Assert.NotNull(message);
         Assert.Null(message.ParentToolUseId);
@@ -783,49 +762,45 @@ public class MessageTests
     [InlineData("message_stop")]
     public void Deserialize_StreamEvent_VariousEventTypes_MapsEventProperty(string eventType)
     {
-        var json = $$"""
-            {
-                "type": "stream_event",
-                "uuid": "event-{{eventType}}",
-                "session_id": "session-event-types",
-                "event": { "type": "{{eventType}}" }
-            }
-            """;
+        string json = $$"""
+                        {
+                            "type": "stream_event",
+                            "uuid": "event-{{eventType}}",
+                            "session_id": "session-event-types",
+                            "event": { "type": "{{eventType}}" }
+                        }
+                        """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as StreamEvent;
+        StreamEvent? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as StreamEvent;
 
         Assert.NotNull(message);
         Assert.Equal(eventType, message.Event.GetProperty("type").GetString());
     }
 
-    #endregion
-
-    #region ContentBlock Nested Tests
-
     [Fact]
     public void Deserialize_ToolResultBlock_WithContent_MapsAllFields()
     {
         const string json = """
-            {
-                "type": "assistant",
-                "message": {
-                    "content": [
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": "toolu_result_123",
-                            "content": { "output": "File contents here", "lines": 50 },
-                            "is_error": false
-                        }
-                    ],
-                    "model": "claude-3"
-                }
-            }
-            """;
+                            {
+                                "type": "assistant",
+                                "message": {
+                                    "content": [
+                                        {
+                                            "type": "tool_result",
+                                            "tool_use_id": "toolu_result_123",
+                                            "content": { "output": "File contents here", "lines": 50 },
+                                            "is_error": false
+                                        }
+                                    ],
+                                    "model": "claude-3"
+                                }
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as AssistantMessage;
+        AssistantMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as AssistantMessage;
 
         Assert.NotNull(message);
-        var toolResult = Assert.IsType<ToolResultBlock>(message.MessageContent.Content[0]);
+        ToolResultBlock toolResult = Assert.IsType<ToolResultBlock>(message.MessageContent.Content[0]);
         Assert.Equal("toolu_result_123", toolResult.ToolUseId);
         Assert.False(toolResult.IsError);
         Assert.NotNull(toolResult.Content);
@@ -836,26 +811,26 @@ public class MessageTests
     public void Deserialize_ToolResultBlock_WithError_MapsIsErrorTrue()
     {
         const string json = """
-            {
-                "type": "assistant",
-                "message": {
-                    "content": [
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": "toolu_error_456",
-                            "content": "File not found",
-                            "is_error": true
-                        }
-                    ],
-                    "model": "claude-3"
-                }
-            }
-            """;
+                            {
+                                "type": "assistant",
+                                "message": {
+                                    "content": [
+                                        {
+                                            "type": "tool_result",
+                                            "tool_use_id": "toolu_error_456",
+                                            "content": "File not found",
+                                            "is_error": true
+                                        }
+                                    ],
+                                    "model": "claude-3"
+                                }
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as AssistantMessage;
+        AssistantMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as AssistantMessage;
 
         Assert.NotNull(message);
-        var toolResult = Assert.IsType<ToolResultBlock>(message.MessageContent.Content[0]);
+        ToolResultBlock toolResult = Assert.IsType<ToolResultBlock>(message.MessageContent.Content[0]);
         Assert.True(toolResult.IsError);
     }
 
@@ -863,56 +838,52 @@ public class MessageTests
     public void Deserialize_ToolUseBlock_WithComplexInput_MapsNestedStructure()
     {
         const string json = """
-            {
-                "type": "assistant",
-                "message": {
-                    "content": [
-                        {
-                            "type": "tool_use",
-                            "id": "toolu_complex_789",
-                            "name": "search_files",
-                            "input": {
-                                "pattern": "*.cs",
-                                "options": {
-                                    "recursive": true,
-                                    "ignore_case": false,
-                                    "max_results": 100
-                                },
-                                "paths": ["/src", "/tests"]
+                            {
+                                "type": "assistant",
+                                "message": {
+                                    "content": [
+                                        {
+                                            "type": "tool_use",
+                                            "id": "toolu_complex_789",
+                                            "name": "search_files",
+                                            "input": {
+                                                "pattern": "*.cs",
+                                                "options": {
+                                                    "recursive": true,
+                                                    "ignore_case": false,
+                                                    "max_results": 100
+                                                },
+                                                "paths": ["/src", "/tests"]
+                                            }
+                                        }
+                                    ],
+                                    "model": "claude-3"
+                                }
                             }
-                        }
-                    ],
-                    "model": "claude-3"
-                }
-            }
-            """;
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as AssistantMessage;
+        AssistantMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as AssistantMessage;
 
         Assert.NotNull(message);
-        var toolUse = Assert.IsType<ToolUseBlock>(message.MessageContent.Content[0]);
+        ToolUseBlock toolUse = Assert.IsType<ToolUseBlock>(message.MessageContent.Content[0]);
         Assert.Equal("*.cs", toolUse.Input.GetProperty("pattern").GetString());
         Assert.True(toolUse.Input.GetProperty("options").GetProperty("recursive").GetBoolean());
         Assert.Equal(2, toolUse.Input.GetProperty("paths").GetArrayLength());
     }
 
-    #endregion
-
-    #region Edge Cases and Error Handling
-
     [Fact]
     public void Deserialize_Message_WithUnknownFields_IgnoresExtra()
     {
         const string json = """
-            {
-                "type": "system",
-                "subtype": "init",
-                "unknown_field": "should be ignored",
-                "another_unknown": { "nested": true }
-            }
-            """;
+                            {
+                                "type": "system",
+                                "subtype": "init",
+                                "unknown_field": "should be ignored",
+                                "another_unknown": { "nested": true }
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as SystemMessage;
+        SystemMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as SystemMessage;
 
         Assert.NotNull(message);
         Assert.Equal("init", message.Subtype);
@@ -922,16 +893,16 @@ public class MessageTests
     public void Deserialize_Message_WithNullJsonValues_HandlesGracefully()
     {
         const string json = """
-            {
-                "type": "system",
-                "subtype": "test",
-                "session_id": null,
-                "cwd": null,
-                "model": null
-            }
-            """;
+                            {
+                                "type": "system",
+                                "subtype": "test",
+                                "session_id": null,
+                                "cwd": null,
+                                "model": null
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as SystemMessage;
+        SystemMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as SystemMessage;
 
         Assert.NotNull(message);
         Assert.Null(message.SessionId);
@@ -943,21 +914,21 @@ public class MessageTests
     public void Deserialize_AssistantMessage_WithEmptyTextBlock_MapsEmptyString()
     {
         const string json = """
-            {
-                "type": "assistant",
-                "message": {
-                    "content": [
-                        { "type": "text", "text": "" }
-                    ],
-                    "model": "claude-3"
-                }
-            }
-            """;
+                            {
+                                "type": "assistant",
+                                "message": {
+                                    "content": [
+                                        { "type": "text", "text": "" }
+                                    ],
+                                    "model": "claude-3"
+                                }
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as AssistantMessage;
+        AssistantMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as AssistantMessage;
 
         Assert.NotNull(message);
-        var textBlock = Assert.IsType<TextBlock>(message.MessageContent.Content[0]);
+        TextBlock textBlock = Assert.IsType<TextBlock>(message.MessageContent.Content[0]);
         Assert.Equal("", textBlock.Text);
     }
 
@@ -965,18 +936,18 @@ public class MessageTests
     public void Deserialize_ResultMessage_WithZeroDuration_MapsCorrectly()
     {
         const string json = """
-            {
-                "type": "result",
-                "subtype": "instant",
-                "duration_ms": 0,
-                "duration_api_ms": 0,
-                "is_error": false,
-                "num_turns": 0,
-                "session_id": "session-zero"
-            }
-            """;
+                            {
+                                "type": "result",
+                                "subtype": "instant",
+                                "duration_ms": 0,
+                                "duration_api_ms": 0,
+                                "is_error": false,
+                                "num_turns": 0,
+                                "session_id": "session-zero"
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as ResultMessage;
+        ResultMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as ResultMessage;
 
         Assert.NotNull(message);
         Assert.Equal(0, message.DurationMs);
@@ -988,16 +959,16 @@ public class MessageTests
     public void Deserialize_SystemMessage_WithEmptyArrays_MapsEmptyCollections()
     {
         const string json = """
-            {
-                "type": "system",
-                "subtype": "init",
-                "slash_commands": [],
-                "tools": [],
-                "mcp_servers": []
-            }
-            """;
+                            {
+                                "type": "system",
+                                "subtype": "init",
+                                "slash_commands": [],
+                                "tools": [],
+                                "mcp_servers": []
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as SystemMessage;
+        SystemMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as SystemMessage;
 
         Assert.NotNull(message);
         Assert.NotNull(message.SlashCommands);
@@ -1012,15 +983,15 @@ public class MessageTests
     public void Deserialize_StreamEvent_WithEmptyEvent_MapsEmptyObject()
     {
         const string json = """
-            {
-                "type": "stream_event",
-                "uuid": "event-empty",
-                "session_id": "session-empty-event",
-                "event": {}
-            }
-            """;
+                            {
+                                "type": "stream_event",
+                                "uuid": "event-empty",
+                                "session_id": "session-empty-event",
+                                "event": {}
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as StreamEvent;
+        StreamEvent? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as StreamEvent;
 
         Assert.NotNull(message);
         Assert.Equal(JsonValueKind.Object, message.Event.ValueKind);
@@ -1030,15 +1001,15 @@ public class MessageTests
     public void Deserialize_UserMessage_WithUnicodeContent_MapsCorrectly()
     {
         const string json = """
-            {
-                "type": "user",
-                "message": {
-                    "content": "Hello! \u4f60\u597d! \ud83d\ude00 \u00e9\u00e8\u00ea"
-                }
-            }
-            """;
+                            {
+                                "type": "user",
+                                "message": {
+                                    "content": "Hello! \u4f60\u597d! \ud83d\ude00 \u00e9\u00e8\u00ea"
+                                }
+                            }
+                            """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as UserMessage;
+        UserMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as UserMessage;
 
         Assert.NotNull(message);
         Assert.Contains("\u4f60\u597d", message.MessageContent.Content.GetString());
@@ -1047,43 +1018,39 @@ public class MessageTests
     [Fact]
     public void Deserialize_AssistantMessage_WithLargeContentArray_MapsAllBlocks()
     {
-        var blocks = string.Join(",\n", Enumerable.Range(0, 20)
+        string blocks = string.Join(",\n", Enumerable.Range(0, 20)
             .Select(i => $"{{ \"type\": \"text\", \"text\": \"Block {i}\" }}"));
-        var json = $$"""
-            {
-                "type": "assistant",
-                "message": {
-                    "content": [{{blocks}}],
-                    "model": "claude-3"
-                }
-            }
-            """;
+        string json = $$"""
+                        {
+                            "type": "assistant",
+                            "message": {
+                                "content": [{{blocks}}],
+                                "model": "claude-3"
+                            }
+                        }
+                        """;
 
-        var message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as AssistantMessage;
+        AssistantMessage? message = JsonSerializer.Deserialize<Message>(json, JsonOptions) as AssistantMessage;
 
         Assert.NotNull(message);
         Assert.Equal(20, message.MessageContent.Content.Count);
-        for (var i = 0; i < 20; i++)
+        for (int i = 0; i < 20; i++)
         {
-            var textBlock = Assert.IsType<TextBlock>(message.MessageContent.Content[i]);
+            TextBlock textBlock = Assert.IsType<TextBlock>(message.MessageContent.Content[i]);
             Assert.Equal($"Block {i}", textBlock.Text);
         }
     }
 
-    #endregion
-
-    #region Record Equality Tests
-
     [Fact]
     public void UserMessageContent_Equality_WorksCorrectly()
     {
-        var content1 = new UserMessageContent
+        UserMessageContent content1 = new()
         {
             Content = JsonDocument.Parse("\"test\"").RootElement,
             Uuid = "uuid-1"
         };
 
-        var content2 = new UserMessageContent
+        UserMessageContent content2 = new()
         {
             Content = JsonDocument.Parse("\"test\"").RootElement,
             Uuid = "uuid-1"
@@ -1097,9 +1064,9 @@ public class MessageTests
     [Fact]
     public void TextBlock_Equality_WorksCorrectly()
     {
-        var block1 = new TextBlock { Text = "Hello" };
-        var block2 = new TextBlock { Text = "Hello" };
-        var block3 = new TextBlock { Text = "World" };
+        TextBlock block1 = new() { Text = "Hello" };
+        TextBlock block2 = new() { Text = "Hello" };
+        TextBlock block3 = new() { Text = "World" };
 
         Assert.Equal(block1, block2);
         Assert.NotEqual(block1, block3);
@@ -1108,9 +1075,9 @@ public class MessageTests
     [Fact]
     public void McpServerStatus_Equality_WorksCorrectly()
     {
-        var server1 = new McpServerStatus { Name = "server", Status = "connected" };
-        var server2 = new McpServerStatus { Name = "server", Status = "connected" };
-        var server3 = new McpServerStatus { Name = "server", Status = "error", Error = "Failed" };
+        McpServerStatus server1 = new() { Name = "server", Status = "connected" };
+        McpServerStatus server2 = new() { Name = "server", Status = "connected" };
+        McpServerStatus server3 = new() { Name = "server", Status = "error", Error = "Failed" };
 
         Assert.Equal(server1, server2);
         Assert.NotEqual(server1, server3);
@@ -1119,39 +1086,35 @@ public class MessageTests
     [Fact]
     public void CompactMetadata_Equality_WorksCorrectly()
     {
-        var meta1 = new CompactMetadata { PreTokens = 1000, PostTokens = 500, Trigger = "limit" };
-        var meta2 = new CompactMetadata { PreTokens = 1000, PostTokens = 500, Trigger = "limit" };
-        var meta3 = new CompactMetadata { PreTokens = 2000, PostTokens = 500, Trigger = "limit" };
+        CompactMetadata meta1 = new() { PreTokens = 1000, PostTokens = 500, Trigger = "limit" };
+        CompactMetadata meta2 = new() { PreTokens = 1000, PostTokens = 500, Trigger = "limit" };
+        CompactMetadata meta3 = new() { PreTokens = 2000, PostTokens = 500, Trigger = "limit" };
 
         Assert.Equal(meta1, meta2);
         Assert.NotEqual(meta1, meta3);
     }
 
-    #endregion
-
-    #region Serialization Round-Trip Tests
-
     [Fact]
     public void RoundTrip_TextBlock_PreservesData()
     {
-        var original = new TextBlock { Text = "Hello, World!" };
-        var json = JsonSerializer.Serialize<ContentBlock>(original, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<ContentBlock>(json, JsonOptions);
+        TextBlock original = new() { Text = "Hello, World!" };
+        string json = JsonSerializer.Serialize<ContentBlock>(original, JsonOptions);
+        ContentBlock? deserialized = JsonSerializer.Deserialize<ContentBlock>(json, JsonOptions);
 
         Assert.NotNull(deserialized);
-        var textBlock = Assert.IsType<TextBlock>(deserialized);
+        TextBlock textBlock = Assert.IsType<TextBlock>(deserialized);
         Assert.Equal(original.Text, textBlock.Text);
     }
 
     [Fact]
     public void RoundTrip_ThinkingBlock_PreservesData()
     {
-        var original = new ThinkingBlock { Thinking = "Let me think...", Signature = "sig-123" };
-        var json = JsonSerializer.Serialize<ContentBlock>(original, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<ContentBlock>(json, JsonOptions);
+        ThinkingBlock original = new() { Thinking = "Let me think...", Signature = "sig-123" };
+        string json = JsonSerializer.Serialize<ContentBlock>(original, JsonOptions);
+        ContentBlock? deserialized = JsonSerializer.Deserialize<ContentBlock>(json, JsonOptions);
 
         Assert.NotNull(deserialized);
-        var thinkingBlock = Assert.IsType<ThinkingBlock>(deserialized);
+        ThinkingBlock thinkingBlock = Assert.IsType<ThinkingBlock>(deserialized);
         Assert.Equal(original.Thinking, thinkingBlock.Thinking);
         Assert.Equal(original.Signature, thinkingBlock.Signature);
     }
@@ -1159,9 +1122,9 @@ public class MessageTests
     [Fact]
     public void RoundTrip_McpServerStatus_PreservesData()
     {
-        var original = new McpServerStatus { Name = "test-server", Status = "connected", Error = null };
-        var json = JsonSerializer.Serialize(original, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<McpServerStatus>(json, JsonOptions);
+        McpServerStatus original = new() { Name = "test-server", Status = "connected", Error = null };
+        string json = JsonSerializer.Serialize(original, JsonOptions);
+        McpServerStatus? deserialized = JsonSerializer.Deserialize<McpServerStatus>(json, JsonOptions);
 
         Assert.NotNull(deserialized);
         Assert.Equal(original.Name, deserialized.Name);
@@ -1172,15 +1135,13 @@ public class MessageTests
     [Fact]
     public void RoundTrip_CompactMetadata_PreservesData()
     {
-        var original = new CompactMetadata { PreTokens = 50000, PostTokens = 10000, Trigger = "auto" };
-        var json = JsonSerializer.Serialize(original, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<CompactMetadata>(json, JsonOptions);
+        CompactMetadata original = new() { PreTokens = 50000, PostTokens = 10000, Trigger = "auto" };
+        string json = JsonSerializer.Serialize(original, JsonOptions);
+        CompactMetadata? deserialized = JsonSerializer.Deserialize<CompactMetadata>(json, JsonOptions);
 
         Assert.NotNull(deserialized);
         Assert.Equal(original.PreTokens, deserialized.PreTokens);
         Assert.Equal(original.PostTokens, deserialized.PostTokens);
         Assert.Equal(original.Trigger, deserialized.Trigger);
     }
-
-    #endregion
 }

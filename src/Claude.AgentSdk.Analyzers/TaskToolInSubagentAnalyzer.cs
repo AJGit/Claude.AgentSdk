@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -26,27 +26,37 @@ public sealed class TaskToolInSubagentAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeObjectCreation(SyntaxNodeAnalysisContext context)
     {
-        var objectCreation = (ObjectCreationExpressionSyntax)context.Node;
+        ObjectCreationExpressionSyntax objectCreation = (ObjectCreationExpressionSyntax)context.Node;
 
         // Check if creating AgentDefinition
-        var typeSymbol = context.SemanticModel.GetTypeInfo(objectCreation).Type;
+        ITypeSymbol? typeSymbol = context.SemanticModel.GetTypeInfo(objectCreation).Type;
         if (typeSymbol?.Name != "AgentDefinition")
+        {
             return;
+        }
 
         // Check initializer for Tools property containing "Task"
         if (objectCreation.Initializer is null)
+        {
             return;
+        }
 
-        foreach (var expression in objectCreation.Initializer.Expressions)
+        foreach (ExpressionSyntax expression in objectCreation.Initializer.Expressions)
         {
             if (expression is not AssignmentExpressionSyntax assignment)
+            {
                 continue;
+            }
 
             if (assignment.Left is not IdentifierNameSyntax identifier)
+            {
                 continue;
+            }
 
             if (identifier.Identifier.Text != "Tools")
+            {
                 continue;
+            }
 
             // Check if Tools contains "Task"
             CheckForTaskTool(context, assignment.Right);
@@ -55,23 +65,29 @@ public sealed class TaskToolInSubagentAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
     {
-        var invocation = (InvocationExpressionSyntax)context.Node;
+        InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
 
         // Check for AgentDefinitionBuilder.WithTools() calls
         if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
+        {
             return;
+        }
 
         if (memberAccess.Name.Identifier.Text != "WithTools" &&
             memberAccess.Name.Identifier.Text != "AddTools")
+        {
             return;
+        }
 
         // Verify it's on AgentDefinitionBuilder
-        var typeInfo = context.SemanticModel.GetTypeInfo(memberAccess.Expression);
+        TypeInfo typeInfo = context.SemanticModel.GetTypeInfo(memberAccess.Expression);
         if (typeInfo.Type?.Name != "AgentDefinitionBuilder")
+        {
             return;
+        }
 
         // Check arguments for "Task"
-        foreach (var argument in invocation.ArgumentList.Arguments)
+        foreach (ArgumentSyntax argument in invocation.ArgumentList.Arguments)
         {
             CheckForTaskTool(context, argument.Expression);
         }
@@ -80,8 +96,7 @@ public sealed class TaskToolInSubagentAnalyzer : DiagnosticAnalyzer
     private static void CheckForTaskTool(SyntaxNodeAnalysisContext context, ExpressionSyntax expression)
     {
         // Check for string literal "Task"
-        if (expression is LiteralExpressionSyntax literal &&
-            literal.Token.ValueText == "Task")
+        if (expression is LiteralExpressionSyntax { Token.ValueText: "Task" } literal)
         {
             context.ReportDiagnostic(Diagnostic.Create(
                 DiagnosticDescriptors.TaskToolInSubagent,
@@ -90,42 +105,43 @@ public sealed class TaskToolInSubagentAnalyzer : DiagnosticAnalyzer
         }
 
         // Check for ToolName.Task
-        if (expression is MemberAccessExpressionSyntax memberAccess &&
-            memberAccess.Name.Identifier.Text == "Task")
+        if (expression is MemberAccessExpressionSyntax { Name.Identifier.Text: "Task" } memberAccess)
         {
-            var typeInfo = context.SemanticModel.GetTypeInfo(memberAccess.Expression);
+            TypeInfo typeInfo = context.SemanticModel.GetTypeInfo(memberAccess.Expression);
             if (typeInfo.Type?.Name == "ToolName")
             {
                 context.ReportDiagnostic(Diagnostic.Create(
                     DiagnosticDescriptors.TaskToolInSubagent,
                     memberAccess.GetLocation()));
             }
+
             return;
         }
 
         // Check arrays and collections
-        if (expression is ArrayCreationExpressionSyntax arrayCreation &&
-            arrayCreation.Initializer is not null)
+        if (expression is ArrayCreationExpressionSyntax { Initializer: not null } arrayCreation)
         {
-            foreach (var element in arrayCreation.Initializer.Expressions)
+            foreach (ExpressionSyntax element in arrayCreation.Initializer.Expressions)
             {
                 CheckForTaskTool(context, element);
             }
+
             return;
         }
 
         if (expression is ImplicitArrayCreationExpressionSyntax implicitArray)
         {
-            foreach (var element in implicitArray.Initializer.Expressions)
+            foreach (ExpressionSyntax element in implicitArray.Initializer.Expressions)
             {
                 CheckForTaskTool(context, element);
             }
+
             return;
         }
 
         if (expression is CollectionExpressionSyntax collection)
         {
-            foreach (var element in collection.Elements)
+            foreach (CollectionElementSyntax element in collection.Elements)
             {
                 if (element is ExpressionElementSyntax exprElement)
                 {

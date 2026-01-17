@@ -284,7 +284,7 @@ public sealed record NotificationHookInput : HookInput
     ///     Gets the strongly-typed notification type enum value.
     /// </summary>
     [JsonIgnore]
-    public Types.NotificationType NotificationTypeEnum => EnumStringMappings.ParseNotificationType(NotificationType);
+    public NotificationType NotificationTypeEnum => EnumStringMappings.ParseNotificationType(NotificationType);
 
     /// <summary>
     ///     Optional title set by the agent.

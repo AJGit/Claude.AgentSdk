@@ -1,4 +1,4 @@
-using Claude.AgentSdk.Functional;
+﻿using Claude.AgentSdk.Functional;
 
 namespace Claude.AgentSdk.Tests.Functional;
 
@@ -8,7 +8,53 @@ namespace Claude.AgentSdk.Tests.Functional;
 [UnitTest]
 public class PipelineTests
 {
-    #region Pipeline.Start Tests
+    [Fact]
+    public void Run_ExecutesPipeline()
+    {
+        // Arrange
+        var pipeline = Pipeline.Start<string>()
+            .Then(s => s.ToUpper())
+            .Then(s => s.Length);
+
+        // Act
+        var result = pipeline.Run("hello");
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(5, result.Value);
+    }
+
+    [Fact]
+    public async Task PipelineAsync_Catch_WithFallbackValue_RecoversFromFailure()
+    {
+        // Arrange
+        var pipeline = Pipeline.StartWithAsync<int, int>(x =>
+                Task.FromResult(x > 0 ? Result.Success(x) : Result.Failure<int>("Negative")))
+            .Catch(0);
+
+        // Act
+        var result = await pipeline.RunAsync(-1);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(0, result.Value);
+    }
+
+    [Fact]
+    public async Task PipelineAsync_ToFunc_ReturnsExecutableAsyncFunction()
+    {
+        // Arrange
+        var pipeline = Pipeline.StartAsync<int>()
+            .Then(x => x * 2);
+        var func = pipeline.ToFunc();
+
+        // Act
+        var result = await func(21);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(42, result.Value);
+    }
 
     [Fact]
     public void Start_WithType_CreatesPassthroughPipeline()
@@ -72,30 +118,6 @@ public class PipelineTests
             Pipeline.StartWith<int, string>(null!));
     }
 
-    #endregion
-
-    #region Pipeline.Run Tests
-
-    [Fact]
-    public void Run_ExecutesPipeline()
-    {
-        // Arrange
-        var pipeline = Pipeline.Start<string>()
-            .Then(s => s.ToUpper())
-            .Then(s => s.Length);
-
-        // Act
-        var result = pipeline.Run("hello");
-
-        // Assert
-        Assert.True(result.IsSuccess);
-        Assert.Equal(5, result.Value);
-    }
-
-    #endregion
-
-    #region Pipeline.Then Tests
-
     [Fact]
     public void Then_TransformsValue()
     {
@@ -138,10 +160,6 @@ public class PipelineTests
         Assert.True(result.IsFailure);
         Assert.Equal("Negative", result.Error);
     }
-
-    #endregion
-
-    #region Pipeline.ThenBind Tests
 
     [Fact]
     public void ThenBind_WithSuccess_TransformsValue()
@@ -187,10 +205,6 @@ public class PipelineTests
         Assert.Throws<ArgumentNullException>(() =>
             pipeline.ThenBind<string>(null!));
     }
-
-    #endregion
-
-    #region Pipeline.ThenEnsure Tests
 
     [Fact]
     public void ThenEnsure_WithSatisfiedCondition_ContinuesPipeline()
@@ -264,10 +278,6 @@ public class PipelineTests
         Assert.Equal("Initial failure", result.Error);
     }
 
-    #endregion
-
-    #region Pipeline.ThenTap Tests
-
     [Fact]
     public void ThenTap_ExecutesSideEffect()
     {
@@ -312,10 +322,6 @@ public class PipelineTests
         Assert.Throws<ArgumentNullException>(() =>
             pipeline.ThenTap(null!));
     }
-
-    #endregion
-
-    #region Pipeline.ThenIf Tests
 
     [Fact]
     public void ThenIf_WithTrueCondition_AppliesTransform()
@@ -362,10 +368,6 @@ public class PipelineTests
         Assert.True(result.IsFailure);
         Assert.Equal("Negative", result.Error);
     }
-
-    #endregion
-
-    #region Pipeline.Catch Tests
 
     [Fact]
     public void Catch_WithFallbackValue_RecoversFromFailure()
@@ -422,12 +424,8 @@ public class PipelineTests
 
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
-            pipeline.Catch((Func<string, int>)null!));
+            pipeline.Catch(null!));
     }
-
-    #endregion
-
-    #region Pipeline.CatchBind Tests
 
     [Fact]
     public void CatchBind_WithRecovery_RecoversFromFailure()
@@ -472,10 +470,6 @@ public class PipelineTests
             pipeline.CatchBind(null!));
     }
 
-    #endregion
-
-    #region Pipeline.MapError Tests
-
     [Fact]
     public void MapError_WithFailure_MapsErrorMessage()
     {
@@ -518,10 +512,6 @@ public class PipelineTests
             pipeline.MapError(null!));
     }
 
-    #endregion
-
-    #region Pipeline.ToFunc Tests
-
     [Fact]
     public void ToFunc_ReturnsExecutableFunction()
     {
@@ -555,10 +545,6 @@ public class PipelineTests
         Assert.Equal(-999, failureResult);
     }
 
-    #endregion
-
-    #region Pipeline.ToAsync Tests
-
     [Fact]
     public async Task ToAsync_ConvertsToAsyncPipeline()
     {
@@ -585,10 +571,6 @@ public class PipelineTests
         Assert.Throws<ArgumentNullException>(() =>
             pipeline!.ToAsync());
     }
-
-    #endregion
-
-    #region Pipeline.Parallel Tests
 
     [Fact]
     public void Parallel_WithTwoPipelines_CombinesResults()
@@ -640,10 +622,6 @@ public class PipelineTests
         // Assert
         Assert.True(result.IsFailure);
     }
-
-    #endregion
-
-    #region Pipeline.Race Tests
 
     [Fact]
     public void Race_WithFirstSuccess_ReturnsFirstResult()
@@ -702,10 +680,6 @@ public class PipelineTests
             Pipeline.Race<int, int>(null!));
     }
 
-    #endregion
-
-    #region Pipeline.When Tests
-
     [Fact]
     public void When_WithTrueCondition_ExecutesWhenTrue()
     {
@@ -746,12 +720,8 @@ public class PipelineTests
 
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
-            Pipeline.When<int, int>(null!, pipeline, pipeline));
+            Pipeline.When(null!, pipeline, pipeline));
     }
-
-    #endregion
-
-    #region PipelineAsync.StartAsync Tests
 
     [Fact]
     public async Task StartAsync_WithType_CreatesPassthroughPipeline()
@@ -811,10 +781,6 @@ public class PipelineTests
         Assert.Equal("42", result.Value);
     }
 
-    #endregion
-
-    #region PipelineAsync.Then Tests
-
     [Fact]
     public async Task PipelineAsync_Then_TransformsValue()
     {
@@ -841,10 +807,6 @@ public class PipelineTests
         Assert.Throws<ArgumentNullException>(() =>
             pipeline.Then<string>(null!));
     }
-
-    #endregion
-
-    #region PipelineAsync.ThenAsync Tests
 
     [Fact]
     public async Task ThenAsync_WithAsyncTransformation_AppliesTransformation()
@@ -876,10 +838,6 @@ public class PipelineTests
             pipeline.ThenAsync<string>(null!));
     }
 
-    #endregion
-
-    #region PipelineAsync.ThenBind Tests
-
     [Fact]
     public async Task PipelineAsync_ThenBind_WithSuccess_TransformsValue()
     {
@@ -907,10 +865,6 @@ public class PipelineTests
         Assert.Throws<ArgumentNullException>(() =>
             pipeline.ThenBind<int>(null!));
     }
-
-    #endregion
-
-    #region PipelineAsync.ThenBindAsync Tests
 
     [Fact]
     public async Task ThenBindAsync_WithAsyncResult_TransformsValue()
@@ -943,10 +897,6 @@ public class PipelineTests
         Assert.Throws<ArgumentNullException>(() =>
             pipeline.ThenBindAsync<int>(null!));
     }
-
-    #endregion
-
-    #region PipelineAsync.ThenEnsure Tests
 
     [Fact]
     public async Task PipelineAsync_ThenEnsure_WithSatisfiedCondition_ContinuesPipeline()
@@ -988,10 +938,6 @@ public class PipelineTests
         Assert.Throws<ArgumentNullException>(() =>
             pipeline.ThenEnsure(null!, "error"));
     }
-
-    #endregion
-
-    #region PipelineAsync.ThenEnsureAsync Tests
 
     [Fact]
     public async Task ThenEnsureAsync_WithSatisfiedCondition_ContinuesPipeline()
@@ -1042,10 +988,6 @@ public class PipelineTests
             pipeline.ThenEnsureAsync(null!, "error"));
     }
 
-    #endregion
-
-    #region PipelineAsync.ThenTap Tests
-
     [Fact]
     public async Task PipelineAsync_ThenTap_ExecutesSideEffect()
     {
@@ -1073,10 +1015,6 @@ public class PipelineTests
         Assert.Throws<ArgumentNullException>(() =>
             pipeline.ThenTap(null!));
     }
-
-    #endregion
-
-    #region PipelineAsync.ThenTapAsync Tests
 
     [Fact]
     public async Task ThenTapAsync_ExecutesAsyncSideEffect()
@@ -1131,30 +1069,6 @@ public class PipelineTests
             pipeline.ThenTapAsync(null!));
     }
 
-    #endregion
-
-    #region PipelineAsync.Catch Tests
-
-    [Fact]
-    public async Task PipelineAsync_Catch_WithFallbackValue_RecoversFromFailure()
-    {
-        // Arrange
-        var pipeline = Pipeline.StartWithAsync<int, int>(x =>
-                Task.FromResult(x > 0 ? Result.Success(x) : Result.Failure<int>("Negative")))
-            .Catch(0);
-
-        // Act
-        var result = await pipeline.RunAsync(-1);
-
-        // Assert
-        Assert.True(result.IsSuccess);
-        Assert.Equal(0, result.Value);
-    }
-
-    #endregion
-
-    #region PipelineAsync.CatchAsync Tests
-
     [Fact]
     public async Task CatchAsync_WithAsyncFallback_RecoversFromFailure()
     {
@@ -1186,10 +1100,6 @@ public class PipelineTests
             pipeline.CatchAsync(null!));
     }
 
-    #endregion
-
-    #region PipelineAsync.MapError Tests
-
     [Fact]
     public async Task PipelineAsync_MapError_WithFailure_MapsErrorMessage()
     {
@@ -1216,30 +1126,6 @@ public class PipelineTests
         Assert.Throws<ArgumentNullException>(() =>
             pipeline.MapError(null!));
     }
-
-    #endregion
-
-    #region PipelineAsync.ToFunc Tests
-
-    [Fact]
-    public async Task PipelineAsync_ToFunc_ReturnsExecutableAsyncFunction()
-    {
-        // Arrange
-        var pipeline = Pipeline.StartAsync<int>()
-            .Then(x => x * 2);
-        var func = pipeline.ToFunc();
-
-        // Act
-        var result = await func(21);
-
-        // Assert
-        Assert.True(result.IsSuccess);
-        Assert.Equal(42, result.Value);
-    }
-
-    #endregion
-
-    #region Complex Pipeline Scenarios
 
     [Fact]
     public void ComplexPipeline_WithMultipleSteps_ExecutesCorrectly()
@@ -1310,6 +1196,4 @@ public class PipelineTests
         Assert.False(step2Called);
         Assert.False(step3Called);
     }
-
-    #endregion
 }

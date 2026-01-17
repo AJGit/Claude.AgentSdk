@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -14,24 +14,28 @@ namespace Claude.AgentSdk.Generators;
 [Generator]
 public sealed class AgentRegistrationGenerator : IIncrementalGenerator
 {
-    private const string GenerateAgentRegistrationAttribute = "Claude.AgentSdk.Attributes.GenerateAgentRegistrationAttribute";
+    private const string GenerateAgentRegistrationAttribute =
+        "Claude.AgentSdk.Attributes.GenerateAgentRegistrationAttribute";
+
     private const string ClaudeAgentAttribute = "Claude.AgentSdk.Attributes.ClaudeAgentAttribute";
     private const string AgentToolsAttribute = "Claude.AgentSdk.Attributes.AgentToolsAttribute";
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         // Find all classes with [GenerateAgentRegistration]
-        var classDeclarations = context.SyntaxProvider
+        IncrementalValuesProvider<ClassDeclarationSyntax?> classDeclarations = context.SyntaxProvider
             .CreateSyntaxProvider(
-                predicate: static (s, _) => IsCandidateClass(s),
-                transform: static (ctx, _) => GetSemanticTargetForGeneration(ctx))
+                static (s, _) => IsCandidateClass(s),
+                static (ctx, _) => GetSemanticTargetForGeneration(ctx))
             .Where(static m => m is not null);
 
         // Combine with compilation
-        var compilationAndClasses = context.CompilationProvider.Combine(classDeclarations.Collect());
+        IncrementalValueProvider<(Compilation Left, ImmutableArray<ClassDeclarationSyntax?> Right)>
+            compilationAndClasses = context.CompilationProvider.Combine(classDeclarations.Collect());
 
         // Generate source
-        context.RegisterSourceOutput(compilationAndClasses, static (spc, source) => Execute(source.Left, source.Right!, spc));
+        context.RegisterSourceOutput(compilationAndClasses,
+            static (spc, source) => Execute(source.Left, source.Right!, spc));
     }
 
     private static bool IsCandidateClass(SyntaxNode node)
@@ -41,16 +45,16 @@ public sealed class AgentRegistrationGenerator : IIncrementalGenerator
 
     private static ClassDeclarationSyntax? GetSemanticTargetForGeneration(GeneratorSyntaxContext context)
     {
-        var classDeclaration = (ClassDeclarationSyntax)context.Node;
+        ClassDeclarationSyntax classDeclaration = (ClassDeclarationSyntax)context.Node;
 
-        foreach (var attributeList in classDeclaration.AttributeLists)
+        foreach (AttributeListSyntax attributeList in classDeclaration.AttributeLists)
         {
-            foreach (var attribute in attributeList.Attributes)
+            foreach (AttributeSyntax attribute in attributeList.Attributes)
             {
-                var symbol = context.SemanticModel.GetSymbolInfo(attribute).Symbol;
+                ISymbol? symbol = context.SemanticModel.GetSymbolInfo(attribute).Symbol;
                 if (symbol is IMethodSymbol methodSymbol)
                 {
-                    var attributeType = methodSymbol.ContainingType.ToDisplayString();
+                    string attributeType = methodSymbol.ContainingType.ToDisplayString();
                     if (attributeType == GenerateAgentRegistrationAttribute)
                     {
                         return classDeclaration;
@@ -62,56 +66,58 @@ public sealed class AgentRegistrationGenerator : IIncrementalGenerator
         return null;
     }
 
-    private static void Execute(Compilation compilation, ImmutableArray<ClassDeclarationSyntax?> classes, SourceProductionContext context)
+    private static void Execute(Compilation compilation, ImmutableArray<ClassDeclarationSyntax?> classes,
+        SourceProductionContext context)
     {
         if (classes.IsDefaultOrEmpty)
         {
             return;
         }
 
-        foreach (var classDeclaration in classes.Distinct())
+        foreach (ClassDeclarationSyntax? classDeclaration in classes.Distinct())
         {
             if (classDeclaration is null)
             {
                 continue;
             }
 
-            var semanticModel = compilation.GetSemanticModel(classDeclaration.SyntaxTree);
-            var classSymbol = semanticModel.GetDeclaredSymbol(classDeclaration);
+            SemanticModel semanticModel = compilation.GetSemanticModel(classDeclaration.SyntaxTree);
+            INamedTypeSymbol? classSymbol = semanticModel.GetDeclaredSymbol(classDeclaration);
 
             if (classSymbol is null)
             {
                 continue;
             }
 
-            var agentProperties = GetAgentProperties(classSymbol, compilation);
+            List<AgentPropertyInfo> agentProperties = GetAgentProperties(classSymbol, compilation);
             if (agentProperties.Count > 0)
             {
-                var source = GenerateAgentRegistrationExtension(classSymbol, agentProperties);
-                context.AddSource($"{classSymbol.Name}AgentRegistrationExtensions.g.cs", SourceText.From(source, Encoding.UTF8));
+                string source = GenerateAgentRegistrationExtension(classSymbol, agentProperties);
+                context.AddSource($"{classSymbol.Name}AgentRegistrationExtensions.g.cs",
+                    SourceText.From(source, Encoding.UTF8));
             }
         }
     }
 
     private static List<AgentPropertyInfo> GetAgentProperties(INamedTypeSymbol classSymbol, Compilation compilation)
     {
-        var properties = new List<AgentPropertyInfo>();
-        var claudeAgentAttrSymbol = compilation.GetTypeByMetadataName(ClaudeAgentAttribute);
-        var agentToolsAttrSymbol = compilation.GetTypeByMetadataName(AgentToolsAttribute);
+        List<AgentPropertyInfo> properties = [];
+        INamedTypeSymbol? claudeAgentAttrSymbol = compilation.GetTypeByMetadataName(ClaudeAgentAttribute);
+        INamedTypeSymbol? agentToolsAttrSymbol = compilation.GetTypeByMetadataName(AgentToolsAttribute);
 
         if (claudeAgentAttrSymbol is null)
         {
             return properties;
         }
 
-        foreach (var member in classSymbol.GetMembers())
+        foreach (ISymbol? member in classSymbol.GetMembers())
         {
             if (member is not IPropertySymbol propertySymbol)
             {
                 continue;
             }
 
-            var claudeAgentAttr = propertySymbol.GetAttributes()
+            AttributeData? claudeAgentAttr = propertySymbol.GetAttributes()
                 .FirstOrDefault(a => SymbolEqualityComparer.Default.Equals(a.AttributeClass, claudeAgentAttrSymbol));
 
             if (claudeAgentAttr is null)
@@ -120,12 +126,12 @@ public sealed class AgentRegistrationGenerator : IIncrementalGenerator
             }
 
             // Get the name from the constructor argument
-            var name = claudeAgentAttr.ConstructorArguments[0].Value?.ToString() ?? propertySymbol.Name;
+            string name = claudeAgentAttr.ConstructorArguments[0].Value?.ToString() ?? propertySymbol.Name;
 
             string? description = null;
             string? model = null;
 
-            foreach (var namedArg in claudeAgentAttr.NamedArguments)
+            foreach (KeyValuePair<string, TypedConstant> namedArg in claudeAgentAttr.NamedArguments)
             {
                 switch (namedArg.Key)
                 {
@@ -139,18 +145,18 @@ public sealed class AgentRegistrationGenerator : IIncrementalGenerator
             }
 
             // Get tools from [AgentTools] attribute if present
-            var tools = new List<string>();
+            List<string> tools = [];
             if (agentToolsAttrSymbol is not null)
             {
-                var agentToolsAttr = propertySymbol.GetAttributes()
+                AttributeData? agentToolsAttr = propertySymbol.GetAttributes()
                     .FirstOrDefault(a => SymbolEqualityComparer.Default.Equals(a.AttributeClass, agentToolsAttrSymbol));
 
                 if (agentToolsAttr is not null && agentToolsAttr.ConstructorArguments.Length > 0)
                 {
-                    var toolsArg = agentToolsAttr.ConstructorArguments[0];
+                    TypedConstant toolsArg = agentToolsAttr.ConstructorArguments[0];
                     if (toolsArg.Kind == TypedConstantKind.Array)
                     {
-                        foreach (var toolArg in toolsArg.Values)
+                        foreach (TypedConstant toolArg in toolsArg.Values)
                         {
                             if (toolArg.Value is string toolName)
                             {
@@ -175,13 +181,14 @@ public sealed class AgentRegistrationGenerator : IIncrementalGenerator
         return properties;
     }
 
-    private static string GenerateAgentRegistrationExtension(INamedTypeSymbol classSymbol, List<AgentPropertyInfo> agentProperties)
+    private static string GenerateAgentRegistrationExtension(INamedTypeSymbol classSymbol,
+        List<AgentPropertyInfo> agentProperties)
     {
-        var className = classSymbol.Name;
-        var classNamespace = classSymbol.ContainingNamespace.ToDisplayString();
-        var fullClassName = classSymbol.ToDisplayString();
+        string className = classSymbol.Name;
+        string classNamespace = classSymbol.ContainingNamespace.ToDisplayString();
+        string fullClassName = classSymbol.ToDisplayString();
 
-        var sb = new StringBuilder();
+        StringBuilder sb = new();
         sb.AppendLine("// <auto-generated />");
         sb.AppendLine("#nullable enable");
         sb.AppendLine();
@@ -199,16 +206,18 @@ public sealed class AgentRegistrationGenerator : IIncrementalGenerator
         sb.AppendLine("    /// <summary>");
         sb.AppendLine($"    ///     Gets the compiled agent dictionary from <see cref=\"{className}\"/>.");
         sb.AppendLine("    /// </summary>");
-        sb.AppendLine("    /// <param name=\"_\">The agents instance (unused, required for extension method syntax).</param>");
+        sb.AppendLine(
+            "    /// <param name=\"_\">The agents instance (unused, required for extension method syntax).</param>");
         sb.AppendLine("    /// <returns>A dictionary of agents keyed by name.</returns>");
-        sb.AppendLine($"    public static IReadOnlyDictionary<string, AgentDefinition> GetAgentsCompiled(this {fullClassName} _)");
+        sb.AppendLine(
+            $"    public static IReadOnlyDictionary<string, AgentDefinition> GetAgentsCompiled(this {fullClassName} _)");
         sb.AppendLine("    {");
         sb.AppendLine("        return new Dictionary<string, AgentDefinition>");
         sb.AppendLine("        {");
 
-        foreach (var agent in agentProperties)
+        foreach (AgentPropertyInfo? agent in agentProperties)
         {
-            var promptExpression = agent.IsStatic
+            string promptExpression = agent.IsStatic
                 ? $"{fullClassName}.{agent.PropertyName}"
                 : $"_.{agent.PropertyName}";
 
@@ -219,7 +228,7 @@ public sealed class AgentRegistrationGenerator : IIncrementalGenerator
 
             if (agent.Tools.Count > 0)
             {
-                var toolsList = string.Join(", ", agent.Tools.Select(t => $"\"{EscapeString(t)}\""));
+                string toolsList = string.Join(", ", agent.Tools.Select(t => $"\"{EscapeString(t)}\""));
                 sb.AppendLine($"                Tools = new[] {{ {toolsList} }},");
             }
 

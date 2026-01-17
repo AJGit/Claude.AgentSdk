@@ -179,7 +179,7 @@ public static class ToolHelpers
     ///     [ClaudeTool("add", "Add two numbers")]
     ///     public string Add(AddArgs args) => $"Result: {args.A + args.B}";
     /// }
-    ///
+    /// 
     /// var server = ToolHelpers.FromType&lt;Calculator&gt;("calculator");
     /// </code>
     /// </example>

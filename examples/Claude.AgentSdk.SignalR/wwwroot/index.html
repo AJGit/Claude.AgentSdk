@@ -213,58 +213,58 @@
     </style>
 </head>
 <body>
-    <header>
-        <h1>Claude Agent SDK - SignalR Demo</h1>
-        <p>Real-time communication with Claude via SignalR</p>
-    </header>
+<header>
+    <h1>Claude Agent SDK - SignalR Demo</h1>
+    <p>Real-time communication with Claude via SignalR</p>
+</header>
 
-    <div class="container">
-        <aside class="sidebar">
-            <div class="status">
-                <div class="status-dot" id="statusDot"></div>
-                <span id="statusText">Disconnected</span>
+<div class="container">
+    <aside class="sidebar">
+        <div class="status">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">Disconnected</span>
+        </div>
+
+        <div class="mode-tabs">
+            <button class="mode-tab active" data-mode="query">Query</button>
+            <button class="mode-tab" data-mode="session">Session</button>
+        </div>
+
+        <div class="options">
+            <label>System Prompt (optional)</label>
+            <textarea id="systemPrompt" placeholder="You are a helpful assistant..."></textarea>
+
+            <label>Max Turns</label>
+            <input type="number" id="maxTurns" value="10" min="1" max="100">
+        </div>
+
+        <div class="actions" id="sessionActions" style="display: none;">
+            <button class="secondary" onclick="startSession()">Start Session</button>
+            <button class="secondary" onclick="endSession()">End Session</button>
+            <button class="secondary" onclick="interrupt()">Interrupt</button>
+        </div>
+
+        <div style="margin-top: 2rem; font-size: 0.8rem; color: #666;">
+            <p><strong>Query Mode:</strong> One-shot streaming query</p>
+            <p style="margin-top: 0.5rem;"><strong>Session Mode:</strong> Bidirectional conversation</p>
+        </div>
+    </aside>
+
+    <main class="main">
+        <div class="messages" id="messages">
+            <div class="message system">
+                <div class="message-content">Welcome! Enter a prompt below to start chatting with Claude.</div>
             </div>
+        </div>
 
-            <div class="mode-tabs">
-                <button class="mode-tab active" data-mode="query">Query</button>
-                <button class="mode-tab" data-mode="session">Session</button>
-            </div>
+        <div class="input-area">
+            <input type="text" id="promptInput" placeholder="Type your message..." onkeypress="handleKeyPress(event)">
+            <button id="sendBtn" onclick="send()">Send</button>
+        </div>
+    </main>
+</div>
 
-            <div class="options">
-                <label>System Prompt (optional)</label>
-                <textarea id="systemPrompt" placeholder="You are a helpful assistant..."></textarea>
-
-                <label>Max Turns</label>
-                <input type="number" id="maxTurns" value="10" min="1" max="100">
-            </div>
-
-            <div class="actions" id="sessionActions" style="display: none;">
-                <button class="secondary" onclick="startSession()">Start Session</button>
-                <button class="secondary" onclick="endSession()">End Session</button>
-                <button class="secondary" onclick="interrupt()">Interrupt</button>
-            </div>
-
-            <div style="margin-top: 2rem; font-size: 0.8rem; color: #666;">
-                <p><strong>Query Mode:</strong> One-shot streaming query</p>
-                <p style="margin-top: 0.5rem;"><strong>Session Mode:</strong> Bidirectional conversation</p>
-            </div>
-        </aside>
-
-        <main class="main">
-            <div class="messages" id="messages">
-                <div class="message system">
-                    <div class="message-content">Welcome! Enter a prompt below to start chatting with Claude.</div>
-                </div>
-            </div>
-
-            <div class="input-area">
-                <input type="text" id="promptInput" placeholder="Type your message..." onkeypress="handleKeyPress(event)">
-                <button id="sendBtn" onclick="send()">Send</button>
-            </div>
-        </main>
-    </div>
-
-    <script>
+<script>
         let connection = null;
         let currentMode = 'query';
         let isConnected = false;

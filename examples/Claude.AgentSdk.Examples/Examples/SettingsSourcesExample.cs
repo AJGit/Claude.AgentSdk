@@ -3,7 +3,7 @@ using Claude.AgentSdk.Messages;
 namespace Claude.AgentSdk.Examples.Examples;
 
 /// <summary>
-/// Demonstrates loading settings from CLAUDE.md files.
+///     Demonstrates loading settings from CLAUDE.md files.
 /// </summary>
 public class SettingsSourcesExample : IExample
 {
@@ -26,7 +26,7 @@ public class SettingsSourcesExample : IExample
         Console.WriteLine("Example 1: Loading Project Settings");
         Console.WriteLine("------------------------------------");
 
-        var projectOptions = new ClaudeAgentOptions
+        ClaudeAgentOptions projectOptions = new()
         {
             // Load project-level CLAUDE.md
             SettingSources = [SettingSource.Project],
@@ -42,7 +42,7 @@ public class SettingsSourcesExample : IExample
         Console.WriteLine("Example 2: Loading Project + User Settings");
         Console.WriteLine("-------------------------------------------");
 
-        var bothOptions = new ClaudeAgentOptions
+        ClaudeAgentOptions bothOptions = new()
         {
             // Load both project and user CLAUDE.md files
             SettingSources = [SettingSource.Project, SettingSource.User],
@@ -58,7 +58,7 @@ public class SettingsSourcesExample : IExample
         Console.WriteLine("Example 3: Local Settings Only");
         Console.WriteLine("-------------------------------");
 
-        var localOptions = new ClaudeAgentOptions
+        ClaudeAgentOptions localOptions = new()
         {
             // Only load from current directory, no parent traversal
             SettingSources = [SettingSource.Local],
@@ -76,7 +76,7 @@ public class SettingsSourcesExample : IExample
         Console.WriteLine("You can also specify additional paths to load CLAUDE.md-like files from:");
         Console.WriteLine();
 
-        var additionalPathsOptions = new ClaudeAgentOptions
+        ClaudeAgentOptions additionalPathsOptions = new()
         {
             SettingSources = [SettingSource.Project],
             AdditionalDataPaths =
@@ -89,9 +89,9 @@ public class SettingsSourcesExample : IExample
         };
 
         Console.WriteLine("Configuration:");
-        Console.WriteLine($"  SettingSources: [Project]");
-        Console.WriteLine($"  AdditionalDataPaths:");
-        foreach (var path in additionalPathsOptions.AdditionalDataPaths!)
+        Console.WriteLine("  SettingSources: [Project]");
+        Console.WriteLine("  AdditionalDataPaths:");
+        foreach (string path in additionalPathsOptions.AdditionalDataPaths!)
         {
             Console.WriteLine($"    - {path}");
         }
@@ -102,23 +102,25 @@ public class SettingsSourcesExample : IExample
         Console.WriteLine($"Loading settings from: {sourceName}");
         Console.WriteLine();
 
-        await using var client = new ClaudeAgentClient(options);
+        await using ClaudeAgentClient client = new(options);
 
         // Just ask about the settings to verify they're loaded
-        var prompt = "What special instructions or context do you have from CLAUDE.md files? If none, just say 'No CLAUDE.md loaded'.";
+        string prompt =
+            "What special instructions or context do you have from CLAUDE.md files? If none, just say 'No CLAUDE.md loaded'.";
 
-        await foreach (var message in client.QueryAsync(prompt))
+        await foreach (Message message in client.QueryAsync(prompt))
         {
             switch (message)
             {
                 case AssistantMessage assistant:
-                    foreach (var block in assistant.MessageContent.Content)
+                    foreach (ContentBlock block in assistant.MessageContent.Content)
                     {
                         if (block is TextBlock text)
                         {
                             Console.Write(text.Text);
                         }
                     }
+
                     break;
 
                 case ResultMessage result:

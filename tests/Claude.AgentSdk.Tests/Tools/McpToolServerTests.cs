@@ -1,8 +1,6 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Nodes;
 using Claude.AgentSdk.Tools;
-using Moq;
-using Xunit;
 
 namespace Claude.AgentSdk.Tests.Tools;
 
@@ -11,7 +9,33 @@ namespace Claude.AgentSdk.Tests.Tools;
 /// </summary>
 public class McpToolServerTests
 {
-    #region Test Input Types
+    [Fact]
+    public void RegisterTool_WithHandlerParameters_RegistersSuccessfully()
+    {
+        // Arrange
+        var server = new McpToolServer("test-server");
+        var schema = new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject
+            {
+                ["message"] = new JsonObject { ["type"] = "string" }
+            }
+        };
+
+        // Act
+        server.RegisterTool(
+            "echo",
+            "Echoes a message",
+            schema,
+            (input, _) => Task.FromResult(ToolResult.Text(input.GetProperty("message").GetString()!)));
+
+        // Assert
+        Assert.Single(server.Tools);
+        var tool = server.Tools.First();
+        Assert.Equal("echo", tool.Name);
+        Assert.Equal("Echoes a message", tool.Description);
+    }
 
     public class WeatherInput
     {
@@ -33,10 +57,6 @@ public class McpToolServerTests
         public bool? Optional { get; init; }
         public string[] Tags { get; init; } = [];
     }
-
-    #endregion
-
-    #region Test Tool Classes for Attribute-based Discovery
 
     public class SampleToolProvider
     {
@@ -93,10 +113,6 @@ public class McpToolServerTests
         }
     }
 
-    #endregion
-
-    #region Constructor and Initialization Tests
-
     [Fact]
     public void Constructor_SetsNameAndVersion()
     {
@@ -126,10 +142,6 @@ public class McpToolServerTests
         // Assert
         Assert.Empty(server.Tools);
     }
-
-    #endregion
-
-    #region RegisterTool with ToolDefinition Tests
 
     [Fact]
     public void RegisterTool_WithToolDefinition_RegistersSuccessfully()
@@ -209,42 +221,6 @@ public class McpToolServerTests
         Assert.Equal(2, server.Tools.Count);
     }
 
-    #endregion
-
-    #region RegisterTool with Handler Parameters Tests
-
-    [Fact]
-    public void RegisterTool_WithHandlerParameters_RegistersSuccessfully()
-    {
-        // Arrange
-        var server = new McpToolServer("test-server");
-        var schema = new JsonObject
-        {
-            ["type"] = "object",
-            ["properties"] = new JsonObject
-            {
-                ["message"] = new JsonObject { ["type"] = "string" }
-            }
-        };
-
-        // Act
-        server.RegisterTool(
-            "echo",
-            "Echoes a message",
-            schema,
-            (input, _) => Task.FromResult(ToolResult.Text(input.GetProperty("message").GetString()!)));
-
-        // Assert
-        Assert.Single(server.Tools);
-        var tool = server.Tools.First();
-        Assert.Equal("echo", tool.Name);
-        Assert.Equal("Echoes a message", tool.Description);
-    }
-
-    #endregion
-
-    #region RegisterTool<TInput> Generic Type Tests
-
     [Fact]
     public void RegisterTool_Generic_RegistersWithGeneratedSchema()
     {
@@ -304,16 +280,16 @@ public class McpToolServerTests
 
         // Create a request with null/invalid JSON that can't deserialize
         var requestJson = """
-        {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/call",
-            "params": {
-                "name": "get-weather",
-                "arguments": null
-            }
-        }
-        """;
+                          {
+                              "jsonrpc": "2.0",
+                              "id": 1,
+                              "method": "tools/call",
+                              "params": {
+                                  "name": "get-weather",
+                                  "arguments": null
+                              }
+                          }
+                          """;
         var request = JsonDocument.Parse(requestJson).RootElement;
 
         // Act
@@ -325,10 +301,6 @@ public class McpToolServerTests
         Assert.NotNull(result);
         Assert.True((bool)result["isError"]);
     }
-
-    #endregion
-
-    #region RegisterToolsFrom Attribute Discovery Tests
 
     [Fact]
     public void RegisterToolsFrom_DiscoversAttributedMethods()
@@ -583,10 +555,6 @@ public class McpToolServerTests
             $"Error message should contain expected text but was: {errorText}");
     }
 
-    #endregion
-
-    #region HandleRequestAsync JSON-RPC Dispatch Tests
-
     [Fact]
     public async Task HandleRequestAsync_Initialize_ReturnsServerInfo()
     {
@@ -750,14 +718,14 @@ public class McpToolServerTests
         // Assert
         Assert.NotNull(response);
         if (id is string strId)
+        {
             Assert.Equal(strId, response["id"]);
+        }
         else
+        {
             Assert.Equal((long)(int)id, response["id"]);
+        }
     }
-
-    #endregion
-
-    #region ToolResult Tests
 
     [Fact]
     public void ToolResult_Text_CreatesTextContent()
@@ -789,10 +757,6 @@ public class McpToolServerTests
         Assert.NotNull(content);
         Assert.Equal("Something went wrong", content.Text);
     }
-
-    #endregion
-
-    #region Schema Generation Tests
 
     [Fact]
     public void RegisterTool_Generic_GeneratesStringProperty()
@@ -904,16 +868,12 @@ public class McpToolServerTests
         Assert.Contains("location", required.Select(r => r?.ToString()));
     }
 
-    #endregion
-
-    #region Cancellation Token Tests
-
     [Fact]
     public async Task HandleRequestAsync_PassesCancellationToken()
     {
         // Arrange
         var server = new McpToolServer("test-server");
-        CancellationToken capturedToken = default;
+        CancellationToken capturedToken = CancellationToken.None;
 
         server.RegisterTool(
             "capture-token",
@@ -960,10 +920,6 @@ public class McpToolServerTests
             return $"Got: {message}, Token valid: {!cancellationToken.IsCancellationRequested}";
         }
     }
-
-    #endregion
-
-    #region ToolHelpers Tests
 
     [Fact]
     public void ToolHelpers_Tool_CreatesToolDefinition()
@@ -1073,10 +1029,6 @@ public class McpToolServerTests
         Assert.Equal(7, serverInstance.Tools.Count); // 1 + 6 from SampleToolProvider
     }
 
-    #endregion
-
-    #region Edge Case Tests
-
     [Fact]
     public async Task HandleRequestAsync_EmptyArguments_HandledGracefully()
     {
@@ -1089,15 +1041,15 @@ public class McpToolServerTests
             (_, _) => Task.FromResult(ToolResult.Text("No args needed")));
 
         var requestJson = """
-        {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/call",
-            "params": {
-                "name": "no-args"
-            }
-        }
-        """;
+                          {
+                              "jsonrpc": "2.0",
+                              "id": 1,
+                              "method": "tools/call",
+                              "params": {
+                                  "name": "no-args"
+                              }
+                          }
+                          """;
         var request = JsonDocument.Parse(requestJson).RootElement;
 
         // Act
@@ -1169,10 +1121,6 @@ public class McpToolServerTests
         Assert.NotNull(tool.Handler);
     }
 
-    #endregion
-
-    #region IMcpToolServer Interface Tests
-
     [Fact]
     public void McpToolServer_ImplementsIMcpToolServer()
     {
@@ -1187,7 +1135,7 @@ public class McpToolServerTests
     public async Task IMcpToolServer_HandleRequestAsync_WorksThroughInterface()
     {
         // Arrange
-        McpToolServer server = new McpToolServer("test-server");
+        McpToolServer server = new("test-server");
         var request = CreateJsonRpcRequest("initialize", 1);
 
         // Act
@@ -1197,10 +1145,6 @@ public class McpToolServerTests
         Assert.NotNull(response);
         Assert.Equal("test-server", server.Name);
     }
-
-    #endregion
-
-    #region Helper Methods
 
     private static JsonElement CreateJsonRpcRequest(string method, object? id)
     {
@@ -1213,11 +1157,17 @@ public class McpToolServerTests
         if (id is not null)
         {
             if (id is int intId)
+            {
                 request["id"] = intId;
+            }
             else if (id is long longId)
+            {
                 request["id"] = longId;
+            }
             else
+            {
                 request["id"] = id.ToString();
+            }
         }
 
         return JsonDocument.Parse(request.ToJsonString()).RootElement;
@@ -1237,6 +1187,4 @@ public class McpToolServerTests
         }}";
         return JsonDocument.Parse(requestJson).RootElement;
     }
-
-    #endregion
 }

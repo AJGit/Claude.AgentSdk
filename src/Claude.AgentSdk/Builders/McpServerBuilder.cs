@@ -7,12 +7,12 @@ namespace Claude.AgentSdk.Builders;
 /// </summary>
 /// <remarks>
 ///     <para>
-///     This builder provides a more ergonomic way to configure multiple MCP servers
-///     compared to manually constructing dictionaries.
+///         This builder provides a more ergonomic way to configure multiple MCP servers
+///         compared to manually constructing dictionaries.
 ///     </para>
 ///     <para>
-///     Example usage:
-///     <code>
+///         Example usage:
+///         <code>
 ///     var servers = new McpServerBuilder()
 ///         .AddStdio("file-tools", "python", "file_tools.py")
 ///             .WithEnvironment("DEBUG", "true")
@@ -20,16 +20,16 @@ namespace Claude.AgentSdk.Builders;
 ///             .WithHeaders("Authorization", "Bearer token")
 ///         .AddSdk("excel-tools", excelToolServer)
 ///         .Build();
-///
+/// 
 ///     var options = new ClaudeAgentOptions { McpServers = servers };
 ///     </code>
 ///     </para>
 /// </remarks>
 public sealed class McpServerBuilder
 {
-    private readonly Dictionary<string, McpServerConfig> _servers = new();
     private readonly Dictionary<string, Dictionary<string, string>> _envVars = new();
     private readonly Dictionary<string, Dictionary<string, string>> _headers = new();
+    private readonly Dictionary<string, McpServerConfig> _servers = new();
     private string? _currentServerName;
 
     /// <summary>

@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 
@@ -119,7 +119,7 @@ public sealed class ClaudeToolAttribute : Attribute
 /// </summary>
 public sealed class McpToolServer(string name, string version = "1.0.0") : IMcpToolServer
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
     };
@@ -203,7 +203,7 @@ public sealed class McpToolServer(string name, string version = "1.0.0") : IMcpT
             InputSchema = schema,
             Handler = async (input, ct) =>
             {
-                var typed = JsonSerializer.Deserialize<TInput>(input.GetRawText(), JsonOptions);
+                var typed = JsonSerializer.Deserialize<TInput>(input.GetRawText(), _jsonOptions);
                 if (typed is null)
                 {
                     return ToolResult.Error("Failed to deserialize input");
@@ -218,7 +218,7 @@ public sealed class McpToolServer(string name, string version = "1.0.0") : IMcpT
 
     /// <summary>
     ///     Register tools from an object with [ClaudeTool] attributes.
-    ///     When <paramref name="preferCompileTime"/> is true, attempts to use generated
+    ///     When <paramref name="preferCompileTime" /> is true, attempts to use generated
     ///     compile-time registration first, falling back to reflection.
     /// </summary>
     /// <param name="instance">The object containing tool methods.</param>
@@ -234,7 +234,7 @@ public sealed class McpToolServer(string name, string version = "1.0.0") : IMcpT
             var compiledMethod = FindCompiledRegistrationMethod(instance.GetType());
             if (compiledMethod != null)
             {
-                return (int)compiledMethod.Invoke(null, new object[] { this, instance })!;
+                return (int)compiledMethod.Invoke(null, [this, instance])!;
             }
         }
 

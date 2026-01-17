@@ -1,4 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 
 // Suppress CA1000: Static members on generic types are the standard pattern for functional types
 #pragma warning disable CA1000
@@ -12,21 +12,21 @@ namespace Claude.AgentSdk.Functional;
 /// <typeparam name="T">The type of the value.</typeparam>
 /// <remarks>
 ///     <para>
-///     Option&lt;T&gt; forces explicit handling of the "no value" case,
-///     eliminating null reference exceptions and making code intent clearer.
+///         Option&lt;T&gt; forces explicit handling of the "no value" case,
+///         eliminating null reference exceptions and making code intent clearer.
 ///     </para>
 ///     <para>
-///     Example usage:
-///     <code>
+///         Example usage:
+///         <code>
 ///     Option&lt;string&gt; FindUser(int id) =>
 ///         users.TryGetValue(id, out var user) ? Option.Some(user) : Option.None&lt;string&gt;();
-///
+/// 
 ///     // Pattern matching
 ///     var greeting = FindUser(123).Match(
 ///         some: user => $"Hello, {user}!",
 ///         none: () => "User not found"
 ///     );
-///
+/// 
 ///     // Chaining with Map and Bind
 ///     var upperName = FindUser(123)
 ///         .Map(u => u.ToUpper())
@@ -37,23 +37,22 @@ namespace Claude.AgentSdk.Functional;
 public readonly struct Option<T> : IEquatable<Option<T>>
 {
     private readonly T _value;
-    private readonly bool _hasValue;
 
     private Option(T value)
     {
         _value = value;
-        _hasValue = true;
+        IsSome = true;
     }
 
     /// <summary>
     ///     Gets whether this option contains a value.
     /// </summary>
-    public bool IsSome => _hasValue;
+    public bool IsSome { get; }
 
     /// <summary>
     ///     Gets whether this option is empty.
     /// </summary>
-    public bool IsNone => !_hasValue;
+    public bool IsNone => !IsSome;
 
     /// <summary>
     ///     Creates an Option containing the specified value.
@@ -69,7 +68,7 @@ public readonly struct Option<T> : IEquatable<Option<T>>
     ///     Gets the value if present, or throws InvalidOperationException.
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when the option is empty.</exception>
-    public T Value => _hasValue
+    public T Value => IsSome
         ? _value
         : throw new InvalidOperationException("Option has no value. Check IsSome before accessing Value.");
 
@@ -81,7 +80,7 @@ public readonly struct Option<T> : IEquatable<Option<T>>
     public bool TryGetValue([MaybeNullWhen(false)] out T value)
     {
         value = _value;
-        return _hasValue;
+        return IsSome;
     }
 
     /// <summary>
@@ -89,7 +88,7 @@ public readonly struct Option<T> : IEquatable<Option<T>>
     /// </summary>
     /// <param name="defaultValue">The default value to return if empty.</param>
     /// <returns>The value or the default.</returns>
-    public T GetValueOrDefault(T defaultValue = default!) => _hasValue ? _value : defaultValue;
+    public T GetValueOrDefault(T defaultValue = default!) => IsSome ? _value : defaultValue;
 
     /// <summary>
     ///     Gets the value or computes a default lazily.
@@ -99,7 +98,7 @@ public readonly struct Option<T> : IEquatable<Option<T>>
     public T GetValueOrElse(Func<T> defaultFactory)
     {
         ArgumentNullException.ThrowIfNull(defaultFactory);
-        return _hasValue ? _value : defaultFactory();
+        return IsSome ? _value : defaultFactory();
     }
 
     /// <summary>
@@ -113,7 +112,7 @@ public readonly struct Option<T> : IEquatable<Option<T>>
     {
         ArgumentNullException.ThrowIfNull(some);
         ArgumentNullException.ThrowIfNull(none);
-        return _hasValue ? some(_value) : none();
+        return IsSome ? some(_value) : none();
     }
 
     /// <summary>
@@ -126,10 +125,14 @@ public readonly struct Option<T> : IEquatable<Option<T>>
         ArgumentNullException.ThrowIfNull(some);
         ArgumentNullException.ThrowIfNull(none);
 
-        if (_hasValue)
+        if (IsSome)
+        {
             some(_value);
+        }
         else
+        {
             none();
+        }
     }
 
     /// <summary>
@@ -141,7 +144,7 @@ public readonly struct Option<T> : IEquatable<Option<T>>
     public Option<TResult> Map<TResult>(Func<T, TResult> mapper)
     {
         ArgumentNullException.ThrowIfNull(mapper);
-        return _hasValue ? Option<TResult>.Some(mapper(_value)) : Option<TResult>.None;
+        return IsSome ? Option<TResult>.Some(mapper(_value)) : Option<TResult>.None;
     }
 
     /// <summary>
@@ -153,7 +156,7 @@ public readonly struct Option<T> : IEquatable<Option<T>>
     public async Task<Option<TResult>> MapAsync<TResult>(Func<T, Task<TResult>> mapper)
     {
         ArgumentNullException.ThrowIfNull(mapper);
-        return _hasValue ? Option<TResult>.Some(await mapper(_value).ConfigureAwait(false)) : Option<TResult>.None;
+        return IsSome ? Option<TResult>.Some(await mapper(_value).ConfigureAwait(false)) : Option<TResult>.None;
     }
 
     /// <summary>
@@ -165,7 +168,7 @@ public readonly struct Option<T> : IEquatable<Option<T>>
     public Option<TResult> Bind<TResult>(Func<T, Option<TResult>> binder)
     {
         ArgumentNullException.ThrowIfNull(binder);
-        return _hasValue ? binder(_value) : Option<TResult>.None;
+        return IsSome ? binder(_value) : Option<TResult>.None;
     }
 
     /// <summary>
@@ -177,7 +180,7 @@ public readonly struct Option<T> : IEquatable<Option<T>>
     public async Task<Option<TResult>> BindAsync<TResult>(Func<T, Task<Option<TResult>>> binder)
     {
         ArgumentNullException.ThrowIfNull(binder);
-        return _hasValue ? await binder(_value).ConfigureAwait(false) : Option<TResult>.None;
+        return IsSome ? await binder(_value).ConfigureAwait(false) : Option<TResult>.None;
     }
 
     /// <summary>
@@ -188,7 +191,7 @@ public readonly struct Option<T> : IEquatable<Option<T>>
     public Option<T> Where(Func<T, bool> predicate)
     {
         ArgumentNullException.ThrowIfNull(predicate);
-        return _hasValue && predicate(_value) ? this : None;
+        return IsSome && predicate(_value) ? this : None;
     }
 
     /// <summary>
@@ -199,8 +202,11 @@ public readonly struct Option<T> : IEquatable<Option<T>>
     public Option<T> Do(Action<T> action)
     {
         ArgumentNullException.ThrowIfNull(action);
-        if (_hasValue)
+        if (IsSome)
+        {
             action(_value);
+        }
+
         return this;
     }
 
@@ -209,7 +215,7 @@ public readonly struct Option<T> : IEquatable<Option<T>>
     /// </summary>
     /// <param name="alternative">The alternative option.</param>
     /// <returns>This option or the alternative.</returns>
-    public Option<T> Or(Option<T> alternative) => _hasValue ? this : alternative;
+    public Option<T> Or(Option<T> alternative) => IsSome ? this : alternative;
 
     /// <summary>
     ///     Returns this option if it has a value, otherwise computes an alternative lazily.
@@ -219,14 +225,14 @@ public readonly struct Option<T> : IEquatable<Option<T>>
     public Option<T> OrElse(Func<Option<T>> alternativeFactory)
     {
         ArgumentNullException.ThrowIfNull(alternativeFactory);
-        return _hasValue ? this : alternativeFactory();
+        return IsSome ? this : alternativeFactory();
     }
 
     /// <summary>
     ///     Converts the option to a nullable reference (for reference types).
     /// </summary>
     /// <returns>The value or null.</returns>
-    public T? ToNullableRef() => _hasValue ? _value : default;
+    public T? ToNullableRef() => IsSome ? _value : default;
 
     /// <summary>
     ///     Converts the option to an enumerable (empty or single element).
@@ -234,21 +240,23 @@ public readonly struct Option<T> : IEquatable<Option<T>>
     /// <returns>An enumerable containing zero or one element.</returns>
     public IEnumerable<T> ToEnumerable()
     {
-        if (_hasValue)
+        if (IsSome)
+        {
             yield return _value;
+        }
     }
 
     /// <summary>
     ///     Converts the option to a list (empty or single element).
     /// </summary>
     /// <returns>A list containing zero or one element.</returns>
-    public List<T> ToList() => _hasValue ? [_value] : [];
+    public List<T> ToList() => IsSome ? [_value] : [];
 
     /// <summary>
     ///     Converts the option to an array (empty or single element).
     /// </summary>
     /// <returns>An array containing zero or one element.</returns>
-    public T[] ToArray() => _hasValue ? [_value] : [];
+    public T[] ToArray() => IsSome ? [_value] : [];
 
     /// <summary>
     ///     Converts to a Result, using the provided error if None.
@@ -257,7 +265,7 @@ public readonly struct Option<T> : IEquatable<Option<T>>
     /// <param name="error">The error to use if None.</param>
     /// <returns>A Result containing the value or the error.</returns>
     public Result<T, TError> ToResult<TError>(TError error) =>
-        _hasValue ? Result<T, TError>.Success(_value) : Result<T, TError>.Failure(error);
+        IsSome ? Result<T, TError>.Success(_value) : Result<T, TError>.Failure(error);
 
     /// <summary>
     ///     Converts to a Result, computing the error lazily if None.
@@ -268,18 +276,22 @@ public readonly struct Option<T> : IEquatable<Option<T>>
     public Result<T, TError> ToResult<TError>(Func<TError> errorFactory)
     {
         ArgumentNullException.ThrowIfNull(errorFactory);
-        return _hasValue ? Result<T, TError>.Success(_value) : Result<T, TError>.Failure(errorFactory());
+        return IsSome ? Result<T, TError>.Success(_value) : Result<T, TError>.Failure(errorFactory());
     }
-
-    #region Equality
 
     /// <inheritdoc />
     public bool Equals(Option<T> other)
     {
-        if (_hasValue != other._hasValue)
+        if (IsSome != other.IsSome)
+        {
             return false;
-        if (!_hasValue)
+        }
+
+        if (!IsSome)
+        {
             return true;
+        }
+
         return EqualityComparer<T>.Default.Equals(_value, other._value);
     }
 
@@ -287,7 +299,7 @@ public readonly struct Option<T> : IEquatable<Option<T>>
     public override bool Equals(object? obj) => obj is Option<T> other && Equals(other);
 
     /// <inheritdoc />
-    public override int GetHashCode() => _hasValue ? _value?.GetHashCode() ?? 0 : 0;
+    public override int GetHashCode() => IsSome ? _value?.GetHashCode() ?? 0 : 0;
 
     /// <summary>
     ///     Equality operator.
@@ -299,10 +311,8 @@ public readonly struct Option<T> : IEquatable<Option<T>>
     /// </summary>
     public static bool operator !=(Option<T> left, Option<T> right) => !left.Equals(right);
 
-    #endregion
-
     /// <inheritdoc />
-    public override string ToString() => _hasValue ? $"Some({_value})" : "None";
+    public override string ToString() => IsSome ? $"Some({_value})" : "None";
 
     /// <summary>
     ///     Implicitly converts a value to an Option containing that value.
@@ -321,15 +331,6 @@ public readonly struct Option<T> : IEquatable<Option<T>>
 /// </summary>
 public static class Option
 {
-    /// <summary>
-    ///     Represents the None value for implicit conversion.
-    /// </summary>
-    public readonly struct NoneType
-    {
-        /// <inheritdoc />
-        public override string ToString() => "None";
-    }
-
     /// <summary>
     ///     The None value that can be implicitly converted to any Option&lt;T&gt;.
     /// </summary>
@@ -404,7 +405,7 @@ public static class Option
     ///     Tries to parse a string to an enum, returning an Option.
     /// </summary>
     public static Option<TEnum> TryParseEnum<TEnum>(string? s) where TEnum : struct, Enum =>
-        Enum.TryParse<TEnum>(s, ignoreCase: true, out var result) ? Some(result) : NoneOf<TEnum>();
+        Enum.TryParse<TEnum>(s, true, out var result) ? Some(result) : NoneOf<TEnum>();
 
     /// <summary>
     ///     Converts an enumerable of Options to an Option of enumerable,
@@ -416,9 +417,13 @@ public static class Option
         foreach (var option in options)
         {
             if (option.IsNone)
+            {
                 return NoneOf<IReadOnlyList<T>>();
+            }
+
             list.Add(option.Value);
         }
+
         return Some<IReadOnlyList<T>>(list);
     }
 
@@ -436,9 +441,22 @@ public static class Option
         {
             var result = mapper(item);
             if (result.IsNone)
+            {
                 return NoneOf<IReadOnlyList<TResult>>();
+            }
+
             list.Add(result.Value);
         }
+
         return Some<IReadOnlyList<TResult>>(list);
+    }
+
+    /// <summary>
+    ///     Represents the None value for implicit conversion.
+    /// </summary>
+    public readonly struct NoneType
+    {
+        /// <inheritdoc />
+        public override string ToString() => "None";
     }
 }

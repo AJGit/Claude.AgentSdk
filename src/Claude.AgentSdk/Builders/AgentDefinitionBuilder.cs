@@ -1,18 +1,18 @@
-using Claude.AgentSdk.Types;
+﻿using Claude.AgentSdk.Types;
 
 namespace Claude.AgentSdk.Builders;
 
 /// <summary>
-///     Fluent builder for configuring <see cref="AgentDefinition"/> instances.
+///     Fluent builder for configuring <see cref="AgentDefinition" /> instances.
 /// </summary>
 /// <remarks>
 ///     <para>
-///     This builder provides a more ergonomic way to configure subagent definitions
-///     compared to using object initializers.
+///         This builder provides a more ergonomic way to configure subagent definitions
+///         compared to using object initializers.
 ///     </para>
 ///     <para>
-///     Example usage:
-///     <code>
+///         Example usage:
+///         <code>
 ///     var agent = new AgentDefinitionBuilder()
 ///         .WithDescription("Expert code reviewer")
 ///         .WithPrompt("You are a code review specialist...")
@@ -24,10 +24,10 @@ namespace Claude.AgentSdk.Builders;
 /// </remarks>
 public sealed class AgentDefinitionBuilder
 {
+    private readonly List<string> _tools = [];
     private string? _description;
-    private string? _prompt;
-    private readonly List<string> _tools = new();
     private string? _model;
+    private string? _prompt;
 
     /// <summary>
     ///     Sets the description of when to use this agent.
@@ -146,17 +146,21 @@ public sealed class AgentDefinitionBuilder
     }
 
     /// <summary>
-    ///     Builds the <see cref="AgentDefinition"/> instance.
+    ///     Builds the <see cref="AgentDefinition" /> instance.
     /// </summary>
     /// <returns>The configured agent definition.</returns>
     /// <exception cref="InvalidOperationException">Thrown when required properties are not set.</exception>
     public AgentDefinition Build()
     {
         if (string.IsNullOrEmpty(_description))
+        {
             throw new InvalidOperationException("Description is required. Call WithDescription() before Build().");
+        }
 
         if (string.IsNullOrEmpty(_prompt))
+        {
             throw new InvalidOperationException("Prompt is required. Call WithPrompt() before Build().");
+        }
 
         return new AgentDefinition
         {

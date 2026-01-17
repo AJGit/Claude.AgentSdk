@@ -26,7 +26,7 @@ public sealed class DangerousPermissionAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeAssignment(SyntaxNodeAnalysisContext context)
     {
-        var assignment = (AssignmentExpressionSyntax)context.Node;
+        AssignmentExpressionSyntax assignment = (AssignmentExpressionSyntax)context.Node;
 
         // Check if assigning to DangerouslySkipPermissions
         string? propertyName = null;
@@ -40,7 +40,9 @@ public sealed class DangerousPermissionAnalyzer : DiagnosticAnalyzer
         }
 
         if (propertyName != "DangerouslySkipPermissions")
+        {
             return;
+        }
 
         // Check if value is true
         if (assignment.Right is LiteralExpressionSyntax literal &&
@@ -54,11 +56,13 @@ public sealed class DangerousPermissionAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
     {
-        var invocation = (InvocationExpressionSyntax)context.Node;
+        InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
 
         // Check for builder method calls like .DangerouslySkipAllPermissions()
         if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
+        {
             return;
+        }
 
         if (memberAccess.Name.Identifier.Text == "DangerouslySkipAllPermissions")
         {

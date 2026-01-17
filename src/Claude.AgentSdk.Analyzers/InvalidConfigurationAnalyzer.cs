@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -29,7 +29,7 @@ public sealed class InvalidConfigurationAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeAssignment(SyntaxNodeAnalysisContext context)
     {
-        var assignment = (AssignmentExpressionSyntax)context.Node;
+        AssignmentExpressionSyntax assignment = (AssignmentExpressionSyntax)context.Node;
 
         // Get property name
         string? propertyName = null;
@@ -43,7 +43,9 @@ public sealed class InvalidConfigurationAnalyzer : DiagnosticAnalyzer
         }
 
         if (propertyName is null)
+        {
             return;
+        }
 
         switch (propertyName)
         {
@@ -61,12 +63,14 @@ public sealed class InvalidConfigurationAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
     {
-        var invocation = (InvocationExpressionSyntax)context.Node;
+        InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
 
         if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
+        {
             return;
+        }
 
-        var methodName = memberAccess.Name.Identifier.Text;
+        string methodName = memberAccess.Name.Identifier.Text;
 
         switch (methodName)
         {
@@ -81,6 +85,7 @@ public sealed class InvalidConfigurationAnalyzer : DiagnosticAnalyzer
                 {
                     AnalyzeSystemPrompt(context, literal);
                 }
+
                 break;
         }
     }
@@ -88,11 +93,13 @@ public sealed class InvalidConfigurationAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeMaxTurns(SyntaxNodeAnalysisContext context, ExpressionSyntax expression)
     {
         // Handle both literal values and unary expressions (e.g., -5)
-        var constantValue = context.SemanticModel.GetConstantValue(expression);
+        Optional<object?> constantValue = context.SemanticModel.GetConstantValue(expression);
         if (!constantValue.HasValue)
+        {
             return;
+        }
 
-        if (constantValue.Value is int intValue && intValue <= 0)
+        if (constantValue.Value is int intValue and <= 0)
         {
             context.ReportDiagnostic(Diagnostic.Create(
                 DiagnosticDescriptors.InvalidMaxTurns,
@@ -104,19 +111,21 @@ public sealed class InvalidConfigurationAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeMaxBudget(SyntaxNodeAnalysisContext context, ExpressionSyntax expression)
     {
         // Handle both literal values and unary expressions (e.g., -1.5)
-        var constantValue = context.SemanticModel.GetConstantValue(expression);
+        Optional<object?> constantValue = context.SemanticModel.GetConstantValue(expression);
         if (!constantValue.HasValue)
+        {
             return;
+        }
 
-        var value = constantValue.Value switch
+        double? value = constantValue.Value switch
         {
             double d => d,
             float f => (double)f,
             int i => (double)i,
-            _ => (double?)null
+            _ => null
         };
 
-        if (value.HasValue && value.Value <= 0)
+        if (value is <= 0)
         {
             context.ReportDiagnostic(Diagnostic.Create(
                 DiagnosticDescriptors.InvalidMaxBudget,
@@ -128,9 +137,11 @@ public sealed class InvalidConfigurationAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeSystemPrompt(SyntaxNodeAnalysisContext context, LiteralExpressionSyntax literal)
     {
         if (literal.Kind() != SyntaxKind.StringLiteralExpression)
+        {
             return;
+        }
 
-        var value = literal.Token.ValueText;
+        string value = literal.Token.ValueText;
         if (string.IsNullOrWhiteSpace(value))
         {
             context.ReportDiagnostic(Diagnostic.Create(

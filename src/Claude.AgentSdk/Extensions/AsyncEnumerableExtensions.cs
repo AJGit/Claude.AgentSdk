@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using Claude.AgentSdk.Functional;
 using Claude.AgentSdk.Messages;
 using Claude.AgentSdk.Types;
@@ -11,12 +11,12 @@ namespace Claude.AgentSdk.Extensions;
 /// </summary>
 /// <remarks>
 ///     <para>
-///     These extensions provide a fluent API for filtering, transforming, and aggregating
-///     message streams from Claude agent sessions.
+///         These extensions provide a fluent API for filtering, transforming, and aggregating
+///         message streams from Claude agent sessions.
 ///     </para>
 ///     <para>
-///     Example usage:
-///     <code>
+///         Example usage:
+///         <code>
 ///     await foreach (var text in session.StreamAsync(prompt)
 ///         .OfType&lt;AssistantMessage&gt;()
 ///         .SelectText()
@@ -24,7 +24,7 @@ namespace Claude.AgentSdk.Extensions;
 ///     {
 ///         Console.Write(text);
 ///     }
-///
+/// 
 ///     // Or aggregate all text:
 ///     var fullResponse = await session.StreamAsync(prompt)
 ///         .OfType&lt;AssistantMessage&gt;()
@@ -34,951 +34,945 @@ namespace Claude.AgentSdk.Extensions;
 /// </remarks>
 public static class AsyncEnumerableExtensions
 {
-    #region Filtering
-
-    /// <summary>
-    ///     Filters elements by type.
-    /// </summary>
-    public static async IAsyncEnumerable<T> OfType<T>(
-        this IAsyncEnumerable<object> source,
-        [EnumeratorCancellation] CancellationToken ct = default)
+    extension(IAsyncEnumerable<object> source)
     {
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+        /// <summary>
+        ///     Filters elements by type.
+        /// </summary>
+        public async IAsyncEnumerable<T> OfType<T>([EnumeratorCancellation] CancellationToken ct = default)
         {
-            if (item is T typed)
-                yield return typed;
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                if (item is T typed)
+                {
+                    yield return typed;
+                }
+            }
         }
     }
 
-    /// <summary>
-    ///     Filters messages by type.
-    /// </summary>
-    public static async IAsyncEnumerable<T> OfType<T>(
-        this IAsyncEnumerable<Message> source,
-        [EnumeratorCancellation] CancellationToken ct = default)
-        where T : Message
+    extension(IAsyncEnumerable<Message> source)
     {
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+        /// <summary>
+        ///     Filters messages by type.
+        /// </summary>
+        public async IAsyncEnumerable<T> OfType<T>([EnumeratorCancellation] CancellationToken ct = default)
+            where T : Message
         {
-            if (item is T typed)
-                yield return typed;
-        }
-    }
-
-    /// <summary>
-    ///     Filters based on a predicate.
-    /// </summary>
-    public static async IAsyncEnumerable<T> Where<T>(
-        this IAsyncEnumerable<T> source,
-        Func<T, bool> predicate,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(predicate);
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            if (predicate(item))
-                yield return item;
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                if (item is T typed)
+                {
+                    yield return typed;
+                }
+            }
         }
     }
 
     /// <summary>
     ///     Filters based on an async predicate.
     /// </summary>
-    public static async IAsyncEnumerable<T> WhereAsync<T>(
-        this IAsyncEnumerable<T> source,
-        Func<T, Task<bool>> predicate,
+    public static async IAsyncEnumerable<T> WhereAsync<T>(this IAsyncEnumerable<T> source, Func<T, Task<bool>> predicate,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(predicate);
         await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
         {
             if (await predicate(item).ConfigureAwait(false))
+            {
                 yield return item;
+            }
         }
     }
 
-    /// <summary>
-    ///     Filters out null values.
-    /// </summary>
-    public static async IAsyncEnumerable<T> WhereNotNull<T>(
-        this IAsyncEnumerable<T?> source,
-        [EnumeratorCancellation] CancellationToken ct = default)
-        where T : class
+    extension<T>(IAsyncEnumerable<T> source)
     {
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+        /// <summary>
+        ///     Filters based on a predicate.
+        /// </summary>
+        public async IAsyncEnumerable<T> Where(Func<T, bool> predicate,
+            [EnumeratorCancellation] CancellationToken ct = default)
         {
-            if (item is not null)
-                yield return item;
+            ArgumentNullException.ThrowIfNull(predicate);
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                if (predicate(item))
+                {
+                    yield return item;
+                }
+            }
         }
     }
 
-    /// <summary>
-    ///     Filters out empty strings.
-    /// </summary>
-    public static async IAsyncEnumerable<string> WhereNotEmpty(
-        this IAsyncEnumerable<string?> source,
-        [EnumeratorCancellation] CancellationToken ct = default)
+    extension<T>(IAsyncEnumerable<T?> source) where T : class
     {
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+        /// <summary>
+        ///     Filters out null values.
+        /// </summary>
+        public async IAsyncEnumerable<T> WhereNotNull([EnumeratorCancellation] CancellationToken ct = default)
         {
-            if (!string.IsNullOrEmpty(item))
-                yield return item;
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                if (item is not null)
+                {
+                    yield return item;
+                }
+            }
         }
     }
 
-    /// <summary>
-    ///     Takes the first n elements.
-    /// </summary>
-    public static async IAsyncEnumerable<T> Take<T>(
-        this IAsyncEnumerable<T> source,
-        int count,
-        [EnumeratorCancellation] CancellationToken ct = default)
+    extension(IAsyncEnumerable<string?> source)
     {
-        if (count <= 0)
-            yield break;
-
-        var taken = 0;
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+        /// <summary>
+        ///     Filters out empty strings.
+        /// </summary>
+        public async IAsyncEnumerable<string> WhereNotEmpty([EnumeratorCancellation] CancellationToken ct = default)
         {
-            yield return item;
-            if (++taken >= count)
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                if (!string.IsNullOrEmpty(item))
+                {
+                    yield return item;
+                }
+            }
+        }
+    }
+
+    extension<T>(IAsyncEnumerable<T> source)
+    {
+        /// <summary>
+        ///     Takes the first n elements.
+        /// </summary>
+        public async IAsyncEnumerable<T> Take(int count,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            if (count <= 0)
+            {
                 yield break;
-        }
-    }
+            }
 
-    /// <summary>
-    ///     Skips the first n elements.
-    /// </summary>
-    public static async IAsyncEnumerable<T> Skip<T>(
-        this IAsyncEnumerable<T> source,
-        int count,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        var skipped = 0;
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            if (skipped >= count)
-                yield return item;
-            else
-                skipped++;
-        }
-    }
-
-    /// <summary>
-    ///     Takes elements while a condition is true.
-    /// </summary>
-    public static async IAsyncEnumerable<T> TakeWhile<T>(
-        this IAsyncEnumerable<T> source,
-        Func<T, bool> predicate,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(predicate);
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            if (!predicate(item))
-                yield break;
-            yield return item;
-        }
-    }
-
-    /// <summary>
-    ///     Skips elements while a condition is true.
-    /// </summary>
-    public static async IAsyncEnumerable<T> SkipWhile<T>(
-        this IAsyncEnumerable<T> source,
-        Func<T, bool> predicate,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(predicate);
-        var yielding = false;
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            if (!yielding && !predicate(item))
-                yielding = true;
-
-            if (yielding)
-                yield return item;
-        }
-    }
-
-    /// <summary>
-    ///     Returns distinct elements.
-    /// </summary>
-    public static async IAsyncEnumerable<T> Distinct<T>(
-        this IAsyncEnumerable<T> source,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        var seen = new HashSet<T>();
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            if (seen.Add(item))
-                yield return item;
-        }
-    }
-
-    /// <summary>
-    ///     Returns distinct elements by key.
-    /// </summary>
-    public static async IAsyncEnumerable<T> DistinctBy<T, TKey>(
-        this IAsyncEnumerable<T> source,
-        Func<T, TKey> keySelector,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(keySelector);
-        var seen = new HashSet<TKey>();
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            if (seen.Add(keySelector(item)))
-                yield return item;
-        }
-    }
-
-    #endregion
-
-    #region Transformation
-
-    /// <summary>
-    ///     Projects each element.
-    /// </summary>
-    public static async IAsyncEnumerable<TResult> Select<T, TResult>(
-        this IAsyncEnumerable<T> source,
-        Func<T, TResult> selector,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(selector);
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            yield return selector(item);
-        }
-    }
-
-    /// <summary>
-    ///     Projects each element with an async selector.
-    /// </summary>
-    public static async IAsyncEnumerable<TResult> SelectAsync<T, TResult>(
-        this IAsyncEnumerable<T> source,
-        Func<T, Task<TResult>> selector,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(selector);
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            yield return await selector(item).ConfigureAwait(false);
-        }
-    }
-
-    /// <summary>
-    ///     Projects each element to a sequence and flattens.
-    /// </summary>
-    public static async IAsyncEnumerable<TResult> SelectMany<T, TResult>(
-        this IAsyncEnumerable<T> source,
-        Func<T, IEnumerable<TResult>> selector,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(selector);
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            foreach (var inner in selector(item))
+            var taken = 0;
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
             {
-                yield return inner;
+                yield return item;
+                if (++taken >= count)
+                {
+                    yield break;
+                }
+            }
+        }
+
+        /// <summary>
+        ///     Skips the first n elements.
+        /// </summary>
+        public async IAsyncEnumerable<T> Skip(int count,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            var skipped = 0;
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                if (skipped >= count)
+                {
+                    yield return item;
+                }
+                else
+                {
+                    skipped++;
+                }
+            }
+        }
+
+        /// <summary>
+        ///     Takes elements while a condition is true.
+        /// </summary>
+        public async IAsyncEnumerable<T> TakeWhile(Func<T, bool> predicate,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            ArgumentNullException.ThrowIfNull(predicate);
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                if (!predicate(item))
+                {
+                    yield break;
+                }
+
+                yield return item;
+            }
+        }
+
+        /// <summary>
+        ///     Skips elements while a condition is true.
+        /// </summary>
+        public async IAsyncEnumerable<T> SkipWhile(Func<T, bool> predicate,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            ArgumentNullException.ThrowIfNull(predicate);
+            var yielding = false;
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                if (!yielding && !predicate(item))
+                {
+                    yielding = true;
+                }
+
+                if (yielding)
+                {
+                    yield return item;
+                }
+            }
+        }
+
+        /// <summary>
+        ///     Returns distinct elements.
+        /// </summary>
+        public async IAsyncEnumerable<T> Distinct([EnumeratorCancellation] CancellationToken ct = default)
+        {
+            var seen = new HashSet<T>();
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                if (seen.Add(item))
+                {
+                    yield return item;
+                }
+            }
+        }
+
+        /// <summary>
+        ///     Returns distinct elements by key.
+        /// </summary>
+        public async IAsyncEnumerable<T> DistinctBy<TKey>(Func<T, TKey> keySelector,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            ArgumentNullException.ThrowIfNull(keySelector);
+            var seen = new HashSet<TKey>();
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                if (seen.Add(keySelector(item)))
+                {
+                    yield return item;
+                }
             }
         }
     }
 
-    /// <summary>
-    ///     Projects each element to an async sequence and flattens.
-    /// </summary>
-    public static async IAsyncEnumerable<TResult> SelectMany<T, TResult>(
-        this IAsyncEnumerable<T> source,
-        Func<T, IAsyncEnumerable<TResult>> selector,
-        [EnumeratorCancellation] CancellationToken ct = default)
+    extension<T>(IAsyncEnumerable<T> source)
     {
-        ArgumentNullException.ThrowIfNull(selector);
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+        /// <summary>
+        ///     Projects each element.
+        /// </summary>
+        public async IAsyncEnumerable<TResult> Select<TResult>(Func<T, TResult> selector,
+            [EnumeratorCancellation] CancellationToken ct = default)
         {
-            await foreach (var inner in selector(item).WithCancellation(ct).ConfigureAwait(false))
+            ArgumentNullException.ThrowIfNull(selector);
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
             {
-                yield return inner;
+                yield return selector(item);
+            }
+        }
+
+        /// <summary>
+        ///     Projects each element with an async selector.
+        /// </summary>
+        public async IAsyncEnumerable<TResult> SelectAsync<TResult>(Func<T, Task<TResult>> selector,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            ArgumentNullException.ThrowIfNull(selector);
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                yield return await selector(item).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        ///     Projects each element to a sequence and flattens.
+        /// </summary>
+        public async IAsyncEnumerable<TResult> SelectMany<TResult>(Func<T, IEnumerable<TResult>> selector,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            ArgumentNullException.ThrowIfNull(selector);
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                foreach (var inner in selector(item))
+                {
+                    yield return inner;
+                }
+            }
+        }
+
+        /// <summary>
+        ///     Projects each element to an async sequence and flattens.
+        /// </summary>
+        public async IAsyncEnumerable<TResult> SelectMany<TResult>(Func<T, IAsyncEnumerable<TResult>> selector,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            ArgumentNullException.ThrowIfNull(selector);
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                await foreach (var inner in selector(item).WithCancellation(ct).ConfigureAwait(false))
+                {
+                    yield return inner;
+                }
             }
         }
     }
 
-    /// <summary>
-    ///     Casts each element to a type.
-    /// </summary>
-    public static async IAsyncEnumerable<TResult> Cast<TResult>(
-        this IAsyncEnumerable<object> source,
-        [EnumeratorCancellation] CancellationToken ct = default)
+    extension(IAsyncEnumerable<object> source)
     {
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+        /// <summary>
+        ///     Casts each element to a type.
+        /// </summary>
+        public async IAsyncEnumerable<TResult> Cast<TResult>([EnumeratorCancellation] CancellationToken ct = default)
         {
-            yield return (TResult)item;
-        }
-    }
-
-    #endregion
-
-    #region Message-Specific Transformations
-
-    /// <summary>
-    ///     Extracts text from assistant messages.
-    /// </summary>
-    public static async IAsyncEnumerable<string> SelectText(
-        this IAsyncEnumerable<AssistantMessage> source,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        await foreach (var message in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            yield return message.GetText();
-        }
-    }
-
-    /// <summary>
-    ///     Extracts tool uses from assistant messages.
-    /// </summary>
-    public static async IAsyncEnumerable<ToolUseBlock> SelectToolUses(
-        this IAsyncEnumerable<AssistantMessage> source,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        await foreach (var message in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            foreach (var toolUse in message.GetToolUses())
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
             {
-                yield return toolUse;
+                yield return (TResult)item;
             }
         }
     }
 
-    /// <summary>
-    ///     Filters to tool uses of a specific tool.
-    /// </summary>
-    public static async IAsyncEnumerable<ToolUseBlock> WhereTool(
-        this IAsyncEnumerable<ToolUseBlock> source,
-        ToolName toolName,
-        [EnumeratorCancellation] CancellationToken ct = default)
+    extension(IAsyncEnumerable<AssistantMessage> source)
     {
-        await foreach (var toolUse in source.WithCancellation(ct).ConfigureAwait(false))
+        /// <summary>
+        ///     Extracts text from assistant messages.
+        /// </summary>
+        public async IAsyncEnumerable<string> SelectText([EnumeratorCancellation] CancellationToken ct = default)
         {
-            if (toolUse.IsTool(toolName))
-                yield return toolUse;
-        }
-    }
-
-    /// <summary>
-    ///     Extracts thinking blocks from assistant messages.
-    /// </summary>
-    public static async IAsyncEnumerable<ThinkingBlock> SelectThinking(
-        this IAsyncEnumerable<AssistantMessage> source,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        await foreach (var message in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            foreach (var thinking in message.GetThinking())
+            await foreach (var message in source.WithCancellation(ct).ConfigureAwait(false))
             {
-                yield return thinking;
+                yield return message.GetText();
+            }
+        }
+
+        /// <summary>
+        ///     Extracts tool uses from assistant messages.
+        /// </summary>
+        public async IAsyncEnumerable<ToolUseBlock> SelectToolUses([EnumeratorCancellation] CancellationToken ct = default)
+        {
+            await foreach (var message in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                foreach (var toolUse in message.GetToolUses())
+                {
+                    yield return toolUse;
+                }
+            }
+        }
+
+        /// <summary>
+        ///     Extracts thinking blocks from assistant messages.
+        /// </summary>
+        public async IAsyncEnumerable<ThinkingBlock> SelectThinking([EnumeratorCancellation] CancellationToken ct = default)
+        {
+            await foreach (var message in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                foreach (var thinking in message.GetThinking())
+                {
+                    yield return thinking;
+                }
             }
         }
     }
 
-    #endregion
-
-    #region Side Effects
-
-    /// <summary>
-    ///     Executes an action for each element without transforming.
-    /// </summary>
-    public static async IAsyncEnumerable<T> Do<T>(
-        this IAsyncEnumerable<T> source,
-        Action<T> action,
-        [EnumeratorCancellation] CancellationToken ct = default)
+    extension(IAsyncEnumerable<ToolUseBlock> source)
     {
-        ArgumentNullException.ThrowIfNull(action);
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+        /// <summary>
+        ///     Filters to tool uses of a specific tool.
+        /// </summary>
+        public async IAsyncEnumerable<ToolUseBlock> WhereTool(ToolName toolName,
+            [EnumeratorCancellation] CancellationToken ct = default)
         {
-            action(item);
-            yield return item;
-        }
-    }
-
-    /// <summary>
-    ///     Executes an async action for each element without transforming.
-    /// </summary>
-    public static async IAsyncEnumerable<T> DoAsync<T>(
-        this IAsyncEnumerable<T> source,
-        Func<T, Task> action,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(action);
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            await action(item).ConfigureAwait(false);
-            yield return item;
-        }
-    }
-
-    /// <summary>
-    ///     Logs each element (for debugging).
-    /// </summary>
-    public static IAsyncEnumerable<T> Log<T>(
-        this IAsyncEnumerable<T> source,
-        Action<string> logger,
-        string? prefix = null,
-        CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(logger);
-        var actualPrefix = string.IsNullOrEmpty(prefix) ? "" : $"{prefix}: ";
-        return source.Do(item => logger($"{actualPrefix}{item}"), ct);
-    }
-
-    #endregion
-
-    #region Aggregation
-
-    /// <summary>
-    ///     Aggregates all text from assistant messages into a single string.
-    /// </summary>
-    public static async Task<string> AggregateTextAsync(
-        this IAsyncEnumerable<AssistantMessage> source,
-        string separator = "",
-        CancellationToken ct = default)
-    {
-        var texts = new List<string>();
-        await foreach (var message in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            var text = message.GetText();
-            if (!string.IsNullOrEmpty(text))
-                texts.Add(text);
-        }
-        return string.Join(separator, texts);
-    }
-
-    /// <summary>
-    ///     Aggregates all text from messages into a single string.
-    /// </summary>
-    public static async Task<string> AggregateTextAsync(
-        this IAsyncEnumerable<Message> source,
-        string separator = "",
-        CancellationToken ct = default)
-    {
-        var texts = new List<string>();
-        await foreach (var message in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            if (message is AssistantMessage assistant)
+            await foreach (var toolUse in source.WithCancellation(ct).ConfigureAwait(false))
             {
-                var text = assistant.GetText();
+                if (toolUse.IsTool(toolName))
+                {
+                    yield return toolUse;
+                }
+            }
+        }
+    }
+
+    extension<T>(IAsyncEnumerable<T> source)
+    {
+        /// <summary>
+        ///     Executes an action for each element without transforming.
+        /// </summary>
+        public async IAsyncEnumerable<T> Do(Action<T> action,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            ArgumentNullException.ThrowIfNull(action);
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                action(item);
+                yield return item;
+            }
+        }
+
+        /// <summary>
+        ///     Executes an async action for each element without transforming.
+        /// </summary>
+        public async IAsyncEnumerable<T> DoAsync(Func<T, Task> action,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            ArgumentNullException.ThrowIfNull(action);
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                await action(item).ConfigureAwait(false);
+                yield return item;
+            }
+        }
+
+        /// <summary>
+        ///     Logs each element (for debugging).
+        /// </summary>
+        public IAsyncEnumerable<T> Log(Action<string> logger,
+            string? prefix = null,
+            CancellationToken ct = default)
+        {
+            ArgumentNullException.ThrowIfNull(logger);
+            var actualPrefix = string.IsNullOrEmpty(prefix) ? "" : $"{prefix}: ";
+            return source.Do(item => logger($"{actualPrefix}{item}"), ct);
+        }
+    }
+
+    extension(IAsyncEnumerable<AssistantMessage> source)
+    {
+        /// <summary>
+        ///     Aggregates all text from assistant messages into a single string.
+        /// </summary>
+        public async Task<string> AggregateTextAsync(string separator = "",
+            CancellationToken ct = default)
+        {
+            var texts = new List<string>();
+            await foreach (var message in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                var text = message.GetText();
                 if (!string.IsNullOrEmpty(text))
+                {
                     texts.Add(text);
+                }
             }
+
+            return string.Join(separator, texts);
         }
-        return string.Join(separator, texts);
     }
 
-    /// <summary>
-    ///     Collects all elements into a list.
-    /// </summary>
-    public static async Task<List<T>> ToListAsync<T>(
-        this IAsyncEnumerable<T> source,
-        CancellationToken ct = default)
+    extension(IAsyncEnumerable<Message> source)
     {
-        var list = new List<T>();
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+        /// <summary>
+        ///     Aggregates all text from messages into a single string.
+        /// </summary>
+        public async Task<string> AggregateTextAsync(string separator = "",
+            CancellationToken ct = default)
         {
-            list.Add(item);
+            var texts = new List<string>();
+            await foreach (var message in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                if (message is AssistantMessage assistant)
+                {
+                    var text = assistant.GetText();
+                    if (!string.IsNullOrEmpty(text))
+                    {
+                        texts.Add(text);
+                    }
+                }
+            }
+
+            return string.Join(separator, texts);
         }
-        return list;
     }
 
-    /// <summary>
-    ///     Collects all elements into an array.
-    /// </summary>
-    public static async Task<T[]> ToArrayAsync<T>(
-        this IAsyncEnumerable<T> source,
-        CancellationToken ct = default) =>
-        (await source.ToListAsync(ct).ConfigureAwait(false)).ToArray();
-
-    /// <summary>
-    ///     Collects all elements into a dictionary.
-    /// </summary>
-    public static async Task<Dictionary<TKey, T>> ToDictionaryAsync<T, TKey>(
-        this IAsyncEnumerable<T> source,
-        Func<T, TKey> keySelector,
-        CancellationToken ct = default)
-        where TKey : notnull
+    extension<T>(IAsyncEnumerable<T> source)
     {
-        ArgumentNullException.ThrowIfNull(keySelector);
-        var dict = new Dictionary<TKey, T>();
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+        /// <summary>
+        ///     Collects all elements into a list.
+        /// </summary>
+        public async Task<List<T>> ToListAsync(CancellationToken ct = default)
         {
-            dict[keySelector(item)] = item;
+            var list = new List<T>();
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                list.Add(item);
+            }
+
+            return list;
         }
-        return dict;
-    }
 
-    /// <summary>
-    ///     Counts elements.
-    /// </summary>
-    public static async Task<int> CountAsync<T>(
-        this IAsyncEnumerable<T> source,
-        CancellationToken ct = default)
-    {
-        var count = 0;
-        await foreach (var _ in source.WithCancellation(ct).ConfigureAwait(false))
+        /// <summary>
+        ///     Collects all elements into an array.
+        /// </summary>
+        public async Task<T[]> ToArrayAsync(CancellationToken ct = default) =>
+            (await source.ToListAsync(ct).ConfigureAwait(false)).ToArray();
+
+        /// <summary>
+        ///     Collects all elements into a dictionary.
+        /// </summary>
+        public async Task<Dictionary<TKey, T>> ToDictionaryAsync<TKey>(Func<T, TKey> keySelector,
+            CancellationToken ct = default)
+            where TKey : notnull
         {
-            count++;
+            ArgumentNullException.ThrowIfNull(keySelector);
+            var dict = new Dictionary<TKey, T>();
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                dict[keySelector(item)] = item;
+            }
+
+            return dict;
         }
-        return count;
-    }
 
-    /// <summary>
-    ///     Counts elements matching a predicate.
-    /// </summary>
-    public static async Task<int> CountAsync<T>(
-        this IAsyncEnumerable<T> source,
-        Func<T, bool> predicate,
-        CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(predicate);
-        var count = 0;
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+        /// <summary>
+        ///     Counts elements.
+        /// </summary>
+        public async Task<int> CountAsync(CancellationToken ct = default)
         {
-            if (predicate(item))
+            var count = 0;
+            await foreach (var _ in source.WithCancellation(ct).ConfigureAwait(false))
+            {
                 count++;
+            }
+
+            return count;
         }
-        return count;
+
+        /// <summary>
+        ///     Counts elements matching a predicate.
+        /// </summary>
+        public async Task<int> CountAsync(Func<T, bool> predicate,
+            CancellationToken ct = default)
+        {
+            ArgumentNullException.ThrowIfNull(predicate);
+            var count = 0;
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                if (predicate(item))
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        /// <summary>
+        ///     Aggregates elements using a custom aggregator.
+        /// </summary>
+        public async Task<TAccumulate> AggregateAsync<TAccumulate>(TAccumulate seed,
+            Func<TAccumulate, T, TAccumulate> accumulator,
+            CancellationToken ct = default)
+        {
+            ArgumentNullException.ThrowIfNull(accumulator);
+            var result = seed;
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                result = accumulator(result, item);
+            }
+
+            return result;
+        }
     }
 
-    /// <summary>
-    ///     Aggregates elements using a custom aggregator.
-    /// </summary>
-    public static async Task<TAccumulate> AggregateAsync<T, TAccumulate>(
-        this IAsyncEnumerable<T> source,
-        TAccumulate seed,
-        Func<TAccumulate, T, TAccumulate> accumulator,
-        CancellationToken ct = default)
+    extension<T>(IAsyncEnumerable<T> source)
     {
-        ArgumentNullException.ThrowIfNull(accumulator);
-        var result = seed;
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+        /// <summary>
+        ///     Returns the first element.
+        /// </summary>
+        public async Task<T> FirstAsync(CancellationToken ct = default)
         {
-            result = accumulator(result, item);
-        }
-        return result;
-    }
-
-    #endregion
-
-    #region First/Last/Single
-
-    /// <summary>
-    ///     Returns the first element.
-    /// </summary>
-    public static async Task<T> FirstAsync<T>(
-        this IAsyncEnumerable<T> source,
-        CancellationToken ct = default)
-    {
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            return item;
-        }
-        throw new InvalidOperationException("Sequence contains no elements.");
-    }
-
-    /// <summary>
-    ///     Returns the first element, or default if empty.
-    /// </summary>
-    public static async Task<T?> FirstOrDefaultAsync<T>(
-        this IAsyncEnumerable<T> source,
-        CancellationToken ct = default)
-    {
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            return item;
-        }
-        return default;
-    }
-
-    /// <summary>
-    ///     Returns the first element matching a predicate.
-    /// </summary>
-    public static async Task<T> FirstAsync<T>(
-        this IAsyncEnumerable<T> source,
-        Func<T, bool> predicate,
-        CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(predicate);
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            if (predicate(item))
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
                 return item;
-        }
-        throw new InvalidOperationException("Sequence contains no matching element.");
-    }
+            }
 
-    /// <summary>
-    ///     Returns the first element matching a predicate, or default.
-    /// </summary>
-    public static async Task<T?> FirstOrDefaultAsync<T>(
-        this IAsyncEnumerable<T> source,
-        Func<T, bool> predicate,
-        CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(predicate);
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            throw new InvalidOperationException("Sequence contains no elements.");
+        }
+
+        /// <summary>
+        ///     Returns the first element, or default if empty.
+        /// </summary>
+        public async Task<T?> FirstOrDefaultAsync(CancellationToken ct = default)
         {
-            if (predicate(item))
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
                 return item;
+            }
+
+            return default;
         }
-        return default;
+
+        /// <summary>
+        ///     Returns the first element matching a predicate.
+        /// </summary>
+        public async Task<T> FirstAsync(Func<T, bool> predicate,
+            CancellationToken ct = default)
+        {
+            ArgumentNullException.ThrowIfNull(predicate);
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                if (predicate(item))
+                {
+                    return item;
+                }
+            }
+
+            throw new InvalidOperationException("Sequence contains no matching element.");
+        }
+
+        /// <summary>
+        ///     Returns the first element matching a predicate, or default.
+        /// </summary>
+        public async Task<T?> FirstOrDefaultAsync(Func<T, bool> predicate,
+            CancellationToken ct = default)
+        {
+            ArgumentNullException.ThrowIfNull(predicate);
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                if (predicate(item))
+                {
+                    return item;
+                }
+            }
+
+            return default;
+        }
+
+        /// <summary>
+        ///     Returns the first element as an Option.
+        /// </summary>
+        public async Task<Option<T>> FirstOptionAsync(CancellationToken ct = default)
+        {
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                return Option.Some(item);
+            }
+
+            return Option.NoneOf<T>();
+        }
+
+        /// <summary>
+        ///     Returns the last element.
+        /// </summary>
+        public async Task<T> LastAsync(CancellationToken ct = default)
+        {
+            var hasValue = false;
+            T last = default!;
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                hasValue = true;
+                last = item;
+            }
+
+            return hasValue ? last : throw new InvalidOperationException("Sequence contains no elements.");
+        }
+
+        /// <summary>
+        ///     Returns the last element, or default if empty.
+        /// </summary>
+        public async Task<T?> LastOrDefaultAsync(CancellationToken ct = default)
+        {
+            T? last = default;
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                last = item;
+            }
+
+            return last;
+        }
+
+        /// <summary>
+        ///     Returns the single element.
+        /// </summary>
+        public async Task<T> SingleAsync(CancellationToken ct = default)
+        {
+            var hasValue = false;
+            T result = default!;
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                if (hasValue)
+                {
+                    throw new InvalidOperationException("Sequence contains more than one element.");
+                }
+
+                hasValue = true;
+                result = item;
+            }
+
+            return hasValue ? result : throw new InvalidOperationException("Sequence contains no elements.");
+        }
+
+        /// <summary>
+        ///     Returns the single element, or default.
+        /// </summary>
+        public async Task<T?> SingleOrDefaultAsync(CancellationToken ct = default)
+        {
+            var hasValue = false;
+            T? result = default;
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                if (hasValue)
+                {
+                    throw new InvalidOperationException("Sequence contains more than one element.");
+                }
+
+                hasValue = true;
+                result = item;
+            }
+
+            return result;
+        }
     }
 
-    /// <summary>
-    ///     Returns the first element as an Option.
-    /// </summary>
-    public static async Task<Option<T>> FirstOptionAsync<T>(
-        this IAsyncEnumerable<T> source,
-        CancellationToken ct = default)
+    extension<T>(IAsyncEnumerable<T> source)
     {
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+        /// <summary>
+        ///     Returns true if any element matches the predicate.
+        /// </summary>
+        public async Task<bool> AnyAsync(Func<T, bool> predicate,
+            CancellationToken ct = default)
         {
-            return Option.Some(item);
+            ArgumentNullException.ThrowIfNull(predicate);
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                if (predicate(item))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
-        return Option.NoneOf<T>();
     }
 
-    /// <summary>
-    ///     Returns the last element.
-    /// </summary>
-    public static async Task<T> LastAsync<T>(
-        this IAsyncEnumerable<T> source,
-        CancellationToken ct = default)
+    extension<T>(IAsyncEnumerable<T> source)
     {
-        var hasValue = false;
-        T last = default!;
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+        /// <summary>
+        ///     Returns true if the sequence has any elements.
+        /// </summary>
+        public async Task<bool> AnyAsync(CancellationToken ct = default)
         {
-            hasValue = true;
-            last = item;
-        }
-        return hasValue ? last : throw new InvalidOperationException("Sequence contains no elements.");
-    }
-
-    /// <summary>
-    ///     Returns the last element, or default if empty.
-    /// </summary>
-    public static async Task<T?> LastOrDefaultAsync<T>(
-        this IAsyncEnumerable<T> source,
-        CancellationToken ct = default)
-    {
-        T? last = default;
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            last = item;
-        }
-        return last;
-    }
-
-    /// <summary>
-    ///     Returns the single element.
-    /// </summary>
-    public static async Task<T> SingleAsync<T>(
-        this IAsyncEnumerable<T> source,
-        CancellationToken ct = default)
-    {
-        var hasValue = false;
-        T result = default!;
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            if (hasValue)
-                throw new InvalidOperationException("Sequence contains more than one element.");
-            hasValue = true;
-            result = item;
-        }
-        return hasValue ? result : throw new InvalidOperationException("Sequence contains no elements.");
-    }
-
-    /// <summary>
-    ///     Returns the single element, or default.
-    /// </summary>
-    public static async Task<T?> SingleOrDefaultAsync<T>(
-        this IAsyncEnumerable<T> source,
-        CancellationToken ct = default)
-    {
-        var hasValue = false;
-        T? result = default;
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            if (hasValue)
-                throw new InvalidOperationException("Sequence contains more than one element.");
-            hasValue = true;
-            result = item;
-        }
-        return result;
-    }
-
-    #endregion
-
-    #region Predicates
-
-    /// <summary>
-    ///     Returns true if any element matches the predicate.
-    /// </summary>
-    public static async Task<bool> AnyAsync<T>(
-        this IAsyncEnumerable<T> source,
-        Func<T, bool> predicate,
-        CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(predicate);
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            if (predicate(item))
+            await foreach (var _ in source.WithCancellation(ct).ConfigureAwait(false))
+            {
                 return true;
-        }
-        return false;
-    }
+            }
 
-    /// <summary>
-    ///     Returns true if the sequence has any elements.
-    /// </summary>
-    public static async Task<bool> AnyAsync<T>(
-        this IAsyncEnumerable<T> source,
-        CancellationToken ct = default)
-    {
-        await foreach (var _ in source.WithCancellation(ct).ConfigureAwait(false))
+            return false;
+        }
+
+        /// <summary>
+        ///     Returns true if all elements match the predicate.
+        /// </summary>
+        public async Task<bool> AllAsync(Func<T, bool> predicate,
+            CancellationToken ct = default)
         {
+            ArgumentNullException.ThrowIfNull(predicate);
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                if (!predicate(item))
+                {
+                    return false;
+                }
+            }
+
             return true;
         }
-        return false;
-    }
 
-    /// <summary>
-    ///     Returns true if all elements match the predicate.
-    /// </summary>
-    public static async Task<bool> AllAsync<T>(
-        this IAsyncEnumerable<T> source,
-        Func<T, bool> predicate,
-        CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(predicate);
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+        /// <summary>
+        ///     Returns true if the sequence contains the specified element.
+        /// </summary>
+        public async Task<bool> ContainsAsync(T value,
+            CancellationToken ct = default)
         {
-            if (!predicate(item))
-                return false;
-        }
-        return true;
-    }
-
-    /// <summary>
-    ///     Returns true if the sequence contains the specified element.
-    /// </summary>
-    public static async Task<bool> ContainsAsync<T>(
-        this IAsyncEnumerable<T> source,
-        T value,
-        CancellationToken ct = default)
-    {
-        var comparer = EqualityComparer<T>.Default;
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            if (comparer.Equals(item, value))
-                return true;
-        }
-        return false;
-    }
-
-    #endregion
-
-    #region Combination
-
-    /// <summary>
-    ///     Concatenates two sequences.
-    /// </summary>
-    public static async IAsyncEnumerable<T> Concat<T>(
-        this IAsyncEnumerable<T> first,
-        IAsyncEnumerable<T> second,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        await foreach (var item in first.WithCancellation(ct).ConfigureAwait(false))
-        {
-            yield return item;
-        }
-        await foreach (var item in second.WithCancellation(ct).ConfigureAwait(false))
-        {
-            yield return item;
-        }
-    }
-
-    /// <summary>
-    ///     Prepends an element to the sequence.
-    /// </summary>
-    public static async IAsyncEnumerable<T> Prepend<T>(
-        this IAsyncEnumerable<T> source,
-        T element,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        yield return element;
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            yield return item;
-        }
-    }
-
-    /// <summary>
-    ///     Appends an element to the sequence.
-    /// </summary>
-    public static async IAsyncEnumerable<T> Append<T>(
-        this IAsyncEnumerable<T> source,
-        T element,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            yield return item;
-        }
-        yield return element;
-    }
-
-    /// <summary>
-    ///     Zips two sequences together.
-    /// </summary>
-    public static async IAsyncEnumerable<(T1, T2)> Zip<T1, T2>(
-        this IAsyncEnumerable<T1> first,
-        IAsyncEnumerable<T2> second,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        await using var e1 = first.GetAsyncEnumerator(ct);
-        await using var e2 = second.GetAsyncEnumerator(ct);
-
-        while (await e1.MoveNextAsync().ConfigureAwait(false) &&
-               await e2.MoveNextAsync().ConfigureAwait(false))
-        {
-            yield return (e1.Current, e2.Current);
-        }
-    }
-
-    /// <summary>
-    ///     Zips with a result selector.
-    /// </summary>
-    public static async IAsyncEnumerable<TResult> Zip<T1, T2, TResult>(
-        this IAsyncEnumerable<T1> first,
-        IAsyncEnumerable<T2> second,
-        Func<T1, T2, TResult> resultSelector,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(resultSelector);
-        await using var e1 = first.GetAsyncEnumerator(ct);
-        await using var e2 = second.GetAsyncEnumerator(ct);
-
-        while (await e1.MoveNextAsync().ConfigureAwait(false) &&
-               await e2.MoveNextAsync().ConfigureAwait(false))
-        {
-            yield return resultSelector(e1.Current, e2.Current);
-        }
-    }
-
-    #endregion
-
-    #region Buffering
-
-    /// <summary>
-    ///     Buffers elements into chunks.
-    /// </summary>
-    public static async IAsyncEnumerable<IReadOnlyList<T>> Buffer<T>(
-        this IAsyncEnumerable<T> source,
-        int size,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        if (size <= 0)
-            throw new ArgumentOutOfRangeException(nameof(size), "Buffer size must be positive.");
-
-        var buffer = new List<T>(size);
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
-        {
-            buffer.Add(item);
-            if (buffer.Count >= size)
+            var comparer = EqualityComparer<T>.Default;
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
             {
-                yield return buffer;
-                buffer = new List<T>(size);
+                if (comparer.Equals(item, value))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    extension<T>(IAsyncEnumerable<T> first)
+    {
+        /// <summary>
+        ///     Concatenates two sequences.
+        /// </summary>
+        public async IAsyncEnumerable<T> Concat(IAsyncEnumerable<T> second,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            await foreach (var item in first.WithCancellation(ct).ConfigureAwait(false))
+            {
+                yield return item;
+            }
+
+            await foreach (var item in second.WithCancellation(ct).ConfigureAwait(false))
+            {
+                yield return item;
             }
         }
 
-        if (buffer.Count > 0)
-            yield return buffer;
-    }
-
-    /// <summary>
-    ///     Buffers elements by time window.
-    /// </summary>
-    public static async IAsyncEnumerable<IReadOnlyList<T>> BufferByTime<T>(
-        this IAsyncEnumerable<T> source,
-        TimeSpan timeSpan,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        var buffer = new List<T>();
-        var lastFlush = DateTime.UtcNow;
-
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+        /// <summary>
+        ///     Prepends an element to the sequence.
+        /// </summary>
+        public async IAsyncEnumerable<T> Prepend(T element,
+            [EnumeratorCancellation] CancellationToken ct = default)
         {
-            buffer.Add(item);
-            if (DateTime.UtcNow - lastFlush >= timeSpan)
+            yield return element;
+            await foreach (var item in first.WithCancellation(ct).ConfigureAwait(false))
             {
-                yield return buffer;
-                buffer = new List<T>();
-                lastFlush = DateTime.UtcNow;
+                yield return item;
             }
         }
 
-        if (buffer.Count > 0)
-            yield return buffer;
-    }
-
-    #endregion
-
-    #region ForEach
-
-    /// <summary>
-    ///     Executes an action for each element.
-    /// </summary>
-    public static async Task ForEachAsync<T>(
-        this IAsyncEnumerable<T> source,
-        Action<T> action,
-        CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(action);
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+        /// <summary>
+        ///     Appends an element to the sequence.
+        /// </summary>
+        public async IAsyncEnumerable<T> Append(T element,
+            [EnumeratorCancellation] CancellationToken ct = default)
         {
-            action(item);
+            await foreach (var item in first.WithCancellation(ct).ConfigureAwait(false))
+            {
+                yield return item;
+            }
+
+            yield return element;
+        }
+
+        /// <summary>
+        ///     Zips two sequences together.
+        /// </summary>
+        public async IAsyncEnumerable<(T, T2)> Zip<T2>(IAsyncEnumerable<T2> second,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            await using var e1 = first.GetAsyncEnumerator(ct);
+            await using var e2 = second.GetAsyncEnumerator(ct);
+
+            while (await e1.MoveNextAsync().ConfigureAwait(false) &&
+                   await e2.MoveNextAsync().ConfigureAwait(false))
+            {
+                yield return (e1.Current, e2.Current);
+            }
+        }
+
+        /// <summary>
+        ///     Zips with a result selector.
+        /// </summary>
+        public async IAsyncEnumerable<TResult> Zip<T2, TResult>(IAsyncEnumerable<T2> second,
+            Func<T, T2, TResult> resultSelector,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            ArgumentNullException.ThrowIfNull(resultSelector);
+            await using var e1 = first.GetAsyncEnumerator(ct);
+            await using var e2 = second.GetAsyncEnumerator(ct);
+
+            while (await e1.MoveNextAsync().ConfigureAwait(false) &&
+                   await e2.MoveNextAsync().ConfigureAwait(false))
+            {
+                yield return resultSelector(e1.Current, e2.Current);
+            }
         }
     }
 
-    /// <summary>
-    ///     Executes an async action for each element.
-    /// </summary>
-    public static async Task ForEachAsync<T>(
-        this IAsyncEnumerable<T> source,
-        Func<T, Task> action,
-        CancellationToken ct = default)
+    extension<T>(IAsyncEnumerable<T> source)
     {
-        ArgumentNullException.ThrowIfNull(action);
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+        /// <summary>
+        ///     Buffers elements into chunks.
+        /// </summary>
+        public async IAsyncEnumerable<IReadOnlyList<T>> Buffer(int size,
+            [EnumeratorCancellation] CancellationToken ct = default)
         {
-            await action(item).ConfigureAwait(false);
+            if (size <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(size), "Buffer size must be positive.");
+            }
+
+            var buffer = new List<T>(size);
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                buffer.Add(item);
+                if (buffer.Count >= size)
+                {
+                    yield return buffer;
+                    buffer = new List<T>(size);
+                }
+            }
+
+            if (buffer.Count > 0)
+            {
+                yield return buffer;
+            }
+        }
+
+        /// <summary>
+        ///     Buffers elements by time window.
+        /// </summary>
+        public async IAsyncEnumerable<IReadOnlyList<T>> BufferByTime(TimeSpan timeSpan,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            var buffer = new List<T>();
+            var lastFlush = DateTime.UtcNow;
+
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                buffer.Add(item);
+                if (DateTime.UtcNow - lastFlush >= timeSpan)
+                {
+                    yield return buffer;
+                    buffer = [];
+                    lastFlush = DateTime.UtcNow;
+                }
+            }
+
+            if (buffer.Count > 0)
+            {
+                yield return buffer;
+            }
         }
     }
 
-    /// <summary>
-    ///     Executes an action for each element with its index.
-    /// </summary>
-    public static async Task ForEachAsync<T>(
-        this IAsyncEnumerable<T> source,
-        Action<T, int> action,
-        CancellationToken ct = default)
+    extension<T>(IAsyncEnumerable<T> source)
     {
-        ArgumentNullException.ThrowIfNull(action);
-        var index = 0;
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+        /// <summary>
+        ///     Executes an action for each element.
+        /// </summary>
+        public async Task ForEachAsync(Action<T> action,
+            CancellationToken ct = default)
         {
-            action(item, index++);
+            ArgumentNullException.ThrowIfNull(action);
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                action(item);
+            }
+        }
+
+        /// <summary>
+        ///     Executes an async action for each element.
+        /// </summary>
+        public async Task ForEachAsync(Func<T, Task> action,
+            CancellationToken ct = default)
+        {
+            ArgumentNullException.ThrowIfNull(action);
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                await action(item).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        ///     Executes an action for each element with its index.
+        /// </summary>
+        public async Task ForEachAsync(Action<T, int> action,
+            CancellationToken ct = default)
+        {
+            ArgumentNullException.ThrowIfNull(action);
+            var index = 0;
+            await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
+            {
+                action(item, index++);
+            }
         }
     }
 
-    #endregion
+    
 }

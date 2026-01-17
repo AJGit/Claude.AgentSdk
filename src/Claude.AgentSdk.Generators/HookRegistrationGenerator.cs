@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -14,23 +14,27 @@ namespace Claude.AgentSdk.Generators;
 [Generator]
 public sealed class HookRegistrationGenerator : IIncrementalGenerator
 {
-    private const string GenerateHookRegistrationAttribute = "Claude.AgentSdk.Attributes.GenerateHookRegistrationAttribute";
+    private const string GenerateHookRegistrationAttribute =
+        "Claude.AgentSdk.Attributes.GenerateHookRegistrationAttribute";
+
     private const string HookHandlerAttribute = "Claude.AgentSdk.Attributes.HookHandlerAttribute";
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         // Find all classes with [GenerateHookRegistration]
-        var classDeclarations = context.SyntaxProvider
+        IncrementalValuesProvider<ClassDeclarationSyntax?> classDeclarations = context.SyntaxProvider
             .CreateSyntaxProvider(
-                predicate: static (s, _) => IsCandidateClass(s),
-                transform: static (ctx, _) => GetSemanticTargetForGeneration(ctx))
+                static (s, _) => IsCandidateClass(s),
+                static (ctx, _) => GetSemanticTargetForGeneration(ctx))
             .Where(static m => m is not null);
 
         // Combine with compilation
-        var compilationAndClasses = context.CompilationProvider.Combine(classDeclarations.Collect());
+        IncrementalValueProvider<(Compilation Left, ImmutableArray<ClassDeclarationSyntax?> Right)>
+            compilationAndClasses = context.CompilationProvider.Combine(classDeclarations.Collect());
 
         // Generate source
-        context.RegisterSourceOutput(compilationAndClasses, static (spc, source) => Execute(source.Left, source.Right!, spc));
+        context.RegisterSourceOutput(compilationAndClasses,
+            static (spc, source) => Execute(source.Left, source.Right!, spc));
     }
 
     private static bool IsCandidateClass(SyntaxNode node)
@@ -40,16 +44,16 @@ public sealed class HookRegistrationGenerator : IIncrementalGenerator
 
     private static ClassDeclarationSyntax? GetSemanticTargetForGeneration(GeneratorSyntaxContext context)
     {
-        var classDeclaration = (ClassDeclarationSyntax)context.Node;
+        ClassDeclarationSyntax classDeclaration = (ClassDeclarationSyntax)context.Node;
 
-        foreach (var attributeList in classDeclaration.AttributeLists)
+        foreach (AttributeListSyntax attributeList in classDeclaration.AttributeLists)
         {
-            foreach (var attribute in attributeList.Attributes)
+            foreach (AttributeSyntax attribute in attributeList.Attributes)
             {
-                var symbol = context.SemanticModel.GetSymbolInfo(attribute).Symbol;
+                ISymbol? symbol = context.SemanticModel.GetSymbolInfo(attribute).Symbol;
                 if (symbol is IMethodSymbol methodSymbol)
                 {
-                    var attributeType = methodSymbol.ContainingType.ToDisplayString();
+                    string attributeType = methodSymbol.ContainingType.ToDisplayString();
                     if (attributeType == GenerateHookRegistrationAttribute)
                     {
                         return classDeclaration;
@@ -61,55 +65,57 @@ public sealed class HookRegistrationGenerator : IIncrementalGenerator
         return null;
     }
 
-    private static void Execute(Compilation compilation, ImmutableArray<ClassDeclarationSyntax?> classes, SourceProductionContext context)
+    private static void Execute(Compilation compilation, ImmutableArray<ClassDeclarationSyntax?> classes,
+        SourceProductionContext context)
     {
         if (classes.IsDefaultOrEmpty)
         {
             return;
         }
 
-        foreach (var classDeclaration in classes.Distinct())
+        foreach (ClassDeclarationSyntax? classDeclaration in classes.Distinct())
         {
             if (classDeclaration is null)
             {
                 continue;
             }
 
-            var semanticModel = compilation.GetSemanticModel(classDeclaration.SyntaxTree);
-            var classSymbol = semanticModel.GetDeclaredSymbol(classDeclaration);
+            SemanticModel semanticModel = compilation.GetSemanticModel(classDeclaration.SyntaxTree);
+            INamedTypeSymbol? classSymbol = semanticModel.GetDeclaredSymbol(classDeclaration);
 
             if (classSymbol is null)
             {
                 continue;
             }
 
-            var hookMethods = GetHookMethods(classSymbol, compilation);
+            List<HookMethodInfo> hookMethods = GetHookMethods(classSymbol, compilation);
             if (hookMethods.Count > 0)
             {
-                var source = GenerateHookRegistrationExtension(classSymbol, hookMethods);
-                context.AddSource($"{classSymbol.Name}HookRegistrationExtensions.g.cs", SourceText.From(source, Encoding.UTF8));
+                string source = GenerateHookRegistrationExtension(classSymbol, hookMethods);
+                context.AddSource($"{classSymbol.Name}HookRegistrationExtensions.g.cs",
+                    SourceText.From(source, Encoding.UTF8));
             }
         }
     }
 
     private static List<HookMethodInfo> GetHookMethods(INamedTypeSymbol classSymbol, Compilation compilation)
     {
-        var methods = new List<HookMethodInfo>();
-        var hookHandlerAttrSymbol = compilation.GetTypeByMetadataName(HookHandlerAttribute);
+        List<HookMethodInfo> methods = [];
+        INamedTypeSymbol? hookHandlerAttrSymbol = compilation.GetTypeByMetadataName(HookHandlerAttribute);
 
         if (hookHandlerAttrSymbol is null)
         {
             return methods;
         }
 
-        foreach (var member in classSymbol.GetMembers())
+        foreach (ISymbol? member in classSymbol.GetMembers())
         {
             if (member is not IMethodSymbol methodSymbol)
             {
                 continue;
             }
 
-            var hookAttributes = methodSymbol.GetAttributes()
+            List<AttributeData> hookAttributes = methodSymbol.GetAttributes()
                 .Where(a => SymbolEqualityComparer.Default.Equals(a.AttributeClass, hookHandlerAttrSymbol))
                 .ToList();
 
@@ -118,7 +124,7 @@ public sealed class HookRegistrationGenerator : IIncrementalGenerator
                 continue;
             }
 
-            foreach (var attr in hookAttributes)
+            foreach (AttributeData? attr in hookAttributes)
             {
                 // Get the HookEvent from the constructor argument
                 if (attr.ConstructorArguments.Length < 1)
@@ -126,7 +132,7 @@ public sealed class HookRegistrationGenerator : IIncrementalGenerator
                     continue;
                 }
 
-                var hookEventValue = attr.ConstructorArguments[0].Value;
+                object? hookEventValue = attr.ConstructorArguments[0].Value;
                 if (hookEventValue is not int hookEventInt)
                 {
                     continue;
@@ -135,7 +141,7 @@ public sealed class HookRegistrationGenerator : IIncrementalGenerator
                 string? matcher = null;
                 double timeout = 0;
 
-                foreach (var namedArg in attr.NamedArguments)
+                foreach (KeyValuePair<string, TypedConstant> namedArg in attr.NamedArguments)
                 {
                     switch (namedArg.Key)
                     {
@@ -161,13 +167,14 @@ public sealed class HookRegistrationGenerator : IIncrementalGenerator
         return methods;
     }
 
-    private static string GenerateHookRegistrationExtension(INamedTypeSymbol classSymbol, List<HookMethodInfo> hookMethods)
+    private static string GenerateHookRegistrationExtension(INamedTypeSymbol classSymbol,
+        List<HookMethodInfo> hookMethods)
     {
-        var className = classSymbol.Name;
-        var classNamespace = classSymbol.ContainingNamespace.ToDisplayString();
-        var fullClassName = classSymbol.ToDisplayString();
+        string className = classSymbol.Name;
+        string classNamespace = classSymbol.ContainingNamespace.ToDisplayString();
+        string fullClassName = classSymbol.ToDisplayString();
 
-        var sb = new StringBuilder();
+        StringBuilder sb = new();
         sb.AppendLine("// <auto-generated />");
         sb.AppendLine("#nullable enable");
         sb.AppendLine();
@@ -187,30 +194,32 @@ public sealed class HookRegistrationGenerator : IIncrementalGenerator
         sb.AppendLine("    /// </summary>");
         sb.AppendLine("    /// <param name=\"instance\">The hooks instance.</param>");
         sb.AppendLine("    /// <returns>A dictionary of hooks keyed by HookEvent.</returns>");
-        sb.AppendLine($"    public static IReadOnlyDictionary<Claude.AgentSdk.Protocol.HookEvent, IReadOnlyList<HookMatcher>> GetHooksCompiled(this {fullClassName} instance)");
+        sb.AppendLine(
+            $"    public static IReadOnlyDictionary<Claude.AgentSdk.Protocol.HookEvent, IReadOnlyList<HookMatcher>> GetHooksCompiled(this {fullClassName} instance)");
         sb.AppendLine("    {");
-        sb.AppendLine("        var hooks = new Dictionary<Claude.AgentSdk.Protocol.HookEvent, IReadOnlyList<HookMatcher>>();");
+        sb.AppendLine(
+            "        var hooks = new Dictionary<Claude.AgentSdk.Protocol.HookEvent, IReadOnlyList<HookMatcher>>();");
         sb.AppendLine();
 
         // Group hooks by event type
-        var hooksByEvent = hookMethods.GroupBy(h => h.HookEvent).ToList();
+        List<IGrouping<int, HookMethodInfo>> hooksByEvent = hookMethods.GroupBy(h => h.HookEvent).ToList();
 
-        foreach (var group in hooksByEvent)
+        foreach (IGrouping<int, HookMethodInfo>? group in hooksByEvent)
         {
-            var hookEventName = GetHookEventName(group.Key);
+            string hookEventName = GetHookEventName(group.Key);
 
             sb.AppendLine($"        // {hookEventName} hooks");
             sb.AppendLine($"        hooks[Claude.AgentSdk.Protocol.HookEvent.{hookEventName}] = new List<HookMatcher>");
             sb.AppendLine("        {");
 
             // Group by matcher within this event
-            var matcherGroups = group.GroupBy(h => h.Matcher ?? "").ToList();
+            List<IGrouping<string, HookMethodInfo>> matcherGroups = group.GroupBy(h => h.Matcher ?? "").ToList();
 
-            foreach (var matcherGroup in matcherGroups)
+            foreach (IGrouping<string, HookMethodInfo>? matcherGroup in matcherGroups)
             {
-                var matcher = matcherGroup.Key;
-                var hasTimeout = matcherGroup.Any(m => m.Timeout > 0);
-                var timeout = matcherGroup.Max(m => m.Timeout);
+                string? matcher = matcherGroup.Key;
+                bool hasTimeout = matcherGroup.Any(m => m.Timeout > 0);
+                double timeout = matcherGroup.Max(m => m.Timeout);
 
                 sb.AppendLine("            new HookMatcher");
                 sb.AppendLine("            {");
@@ -228,7 +237,7 @@ public sealed class HookRegistrationGenerator : IIncrementalGenerator
                 sb.AppendLine("                Hooks = new HookCallback[]");
                 sb.AppendLine("                {");
 
-                foreach (var method in matcherGroup)
+                foreach (HookMethodInfo? method in matcherGroup)
                 {
                     sb.AppendLine($"                    instance.{method.MethodName},");
                 }

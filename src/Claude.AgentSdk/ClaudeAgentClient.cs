@@ -16,7 +16,7 @@ namespace Claude.AgentSdk;
 /// </remarks>
 public sealed class ClaudeAgentClient : IAsyncDisposable
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -24,9 +24,9 @@ public sealed class ClaudeAgentClient : IAsyncDisposable
 
     private readonly ILogger<ClaudeAgentClient>? _logger;
     private readonly ILoggerFactory? _loggerFactory;
-    private readonly Func<ClaudeAgentOptions, string?, ITransport>? _transportFactory;
 
     private readonly ClaudeAgentOptions _options;
+    private readonly Func<ClaudeAgentOptions, string?, ITransport>? _transportFactory;
     private bool _disposed;
 
     /// <summary>
@@ -53,6 +53,19 @@ public sealed class ClaudeAgentClient : IAsyncDisposable
         _logger = loggerFactory?.CreateLogger<ClaudeAgentClient>();
     }
 
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+
+        // ClaudeAgentClient is stateless - sessions own their own lifecycle
+        await ValueTask.CompletedTask.ConfigureAwait(false);
+    }
+
     /// <summary>
     ///     Create a client configured for testing with a mock transport.
     /// </summary>
@@ -76,13 +89,13 @@ public sealed class ClaudeAgentClient : IAsyncDisposable
     /// var transport = new MockTransport();
     /// transport.EnqueueMessage("""{"type":"system","subtype":"init"}""");
     /// transport.EnqueueMessage("""{"type":"result","subtype":"success","is_error":false,"session_id":"test"}""");
-    ///
+    /// 
     /// var client = ClaudeAgentClient.CreateForTesting(transport: transport);
     /// await foreach (var message in client.QueryAsync("Test"))
     /// {
     ///     // Process messages
     /// }
-    ///
+    /// 
     /// // Verify what was sent
     /// var sent = transport.WrittenMessages;
     /// </code>
@@ -95,19 +108,6 @@ public sealed class ClaudeAgentClient : IAsyncDisposable
         var opts = options ?? new ClaudeAgentOptions();
         var mock = transport ?? new MockTransport();
         return new ClaudeAgentClient(opts, (_, _) => mock, loggerFactory);
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        _disposed = true;
-
-        // ClaudeAgentClient is stateless - sessions own their own lifecycle
-        await ValueTask.CompletedTask.ConfigureAwait(false);
     }
 
     /// <summary>
@@ -254,9 +254,9 @@ public sealed class ClaudeAgentClient : IAsyncDisposable
         return _options with
         {
             Tools = overrides.Tools ?? _options.Tools,
-            AllowedTools = overrides.AllowedTools?.Count > 0 ? overrides.AllowedTools : _options.AllowedTools,
+            AllowedTools = overrides.AllowedTools.Count > 0 ? overrides.AllowedTools : _options.AllowedTools,
             DisallowedTools =
-            overrides.DisallowedTools?.Count > 0 ? overrides.DisallowedTools : _options.DisallowedTools,
+            overrides.DisallowedTools.Count > 0 ? overrides.DisallowedTools : _options.DisallowedTools,
             SystemPrompt = overrides.SystemPrompt ?? _options.SystemPrompt,
             SettingSources = overrides.SettingSources ?? _options.SettingSources,
             McpServers = overrides.McpServers ?? _options.McpServers,
@@ -271,9 +271,9 @@ public sealed class ClaudeAgentClient : IAsyncDisposable
             FallbackModel = overrides.FallbackModel ?? _options.FallbackModel,
             WorkingDirectory = overrides.WorkingDirectory ?? _options.WorkingDirectory,
             CliPath = overrides.CliPath ?? _options.CliPath,
-            AddDirectories = overrides.AddDirectories?.Count > 0 ? overrides.AddDirectories : _options.AddDirectories,
-            Environment = overrides.Environment?.Count > 0 ? overrides.Environment : _options.Environment,
-            ExtraArgs = overrides.ExtraArgs?.Count > 0 ? overrides.ExtraArgs : _options.ExtraArgs,
+            AddDirectories = overrides.AddDirectories.Count > 0 ? overrides.AddDirectories : _options.AddDirectories,
+            Environment = overrides.Environment.Count > 0 ? overrides.Environment : _options.Environment,
+            ExtraArgs = overrides.ExtraArgs.Count > 0 ? overrides.ExtraArgs : _options.ExtraArgs,
             CanUseTool = overrides.CanUseTool ?? _options.CanUseTool,
             Hooks = overrides.Hooks ?? _options.Hooks,
             IncludePartialMessages = overrides.IncludePartialMessages || _options.IncludePartialMessages,

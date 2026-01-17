@@ -1,5 +1,4 @@
 ﻿using System.Runtime.CompilerServices;
-using System.Text.Json;
 using System.Threading.Channels;
 
 namespace Claude.AgentSdk.Transport;
@@ -22,13 +21,13 @@ namespace Claude.AgentSdk.Transport;
 /// var transport = new MockTransport();
 /// transport.EnqueueMessage("""{"type":"system","subtype":"init"}""");
 /// transport.EnqueueMessage("""{"type":"result","subtype":"success","is_error":false,"session_id":"test"}""");
-///
+/// 
 /// // Use with ClaudeAgentClient.CreateForTesting(transport: transport)
 /// </code>
 /// </example>
 internal class MockTransport : ITransport
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
     };
@@ -119,7 +118,7 @@ internal class MockTransport : ITransport
         ThrowIfNotConnected();
         lock (_lock)
         {
-            var json = JsonSerializer.Serialize(message, JsonOptions);
+            var json = JsonSerializer.Serialize(message, _jsonOptions);
             _writtenMessages.Add(JsonDocument.Parse(json).RootElement.Clone());
         }
 

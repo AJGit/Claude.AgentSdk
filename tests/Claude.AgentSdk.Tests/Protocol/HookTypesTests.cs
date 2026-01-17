@@ -1,6 +1,5 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Claude.AgentSdk.Protocol;
-using Xunit;
 
 namespace Claude.AgentSdk.Tests.Protocol;
 
@@ -14,8 +13,6 @@ public class HookTypesTests
         PropertyNameCaseInsensitive = true,
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
     };
-
-    #region HookEvent Enum Tests
 
     [Theory]
     [InlineData(HookEvent.PreToolUse, 0)]
@@ -38,7 +35,7 @@ public class HookTypesTests
     [Fact]
     public void HookEvent_HasAllExpectedValues()
     {
-        var values = Enum.GetValues<HookEvent>();
+        HookEvent[] values = Enum.GetValues<HookEvent>();
         Assert.Equal(12, values.Length);
     }
 
@@ -66,19 +63,15 @@ public class HookTypesTests
     [InlineData("Notification", HookEvent.Notification)]
     public void HookEvent_CanBeParsedFromString(string name, HookEvent expected)
     {
-        var parsed = Enum.Parse<HookEvent>(name);
+        HookEvent parsed = Enum.Parse<HookEvent>(name);
         Assert.Equal(expected, parsed);
     }
-
-    #endregion
-
-    #region HookMatcher Tests
 
     [Fact]
     public void HookMatcher_RequiredHooksProperty_MustBeSet()
     {
-        var hooks = new List<HookCallback>();
-        var matcher = new HookMatcher { Hooks = hooks };
+        List<HookCallback> hooks = new();
+        HookMatcher matcher = new() { Hooks = hooks };
 
         Assert.NotNull(matcher.Hooks);
         Assert.Empty(matcher.Hooks);
@@ -87,7 +80,7 @@ public class HookTypesTests
     [Fact]
     public void HookMatcher_OptionalProperties_AreNullByDefault()
     {
-        var matcher = new HookMatcher { Hooks = Array.Empty<HookCallback>() };
+        HookMatcher matcher = new() { Hooks = Array.Empty<HookCallback>() };
 
         Assert.Null(matcher.Matcher);
         Assert.Null(matcher.Timeout);
@@ -97,7 +90,7 @@ public class HookTypesTests
     public void HookMatcher_WithAllProperties_MapsCorrectly()
     {
         HookCallback callback = (input, toolUseId, context, ct) => Task.FromResult<HookOutput>(new SyncHookOutput());
-        var matcher = new HookMatcher
+        HookMatcher matcher = new()
         {
             Matcher = "Bash|Write",
             Hooks = new List<HookCallback> { callback },
@@ -117,7 +110,7 @@ public class HookTypesTests
     [InlineData(null)]
     public void HookMatcher_MatcherPatterns_AcceptsVariousPatterns(string? pattern)
     {
-        var matcher = new HookMatcher
+        HookMatcher matcher = new()
         {
             Matcher = pattern,
             Hooks = Array.Empty<HookCallback>()
@@ -133,7 +126,7 @@ public class HookTypesTests
     [InlineData(120.5)]
     public void HookMatcher_TimeoutValues_AcceptsVariousValues(double timeout)
     {
-        var matcher = new HookMatcher
+        HookMatcher matcher = new()
         {
             Hooks = Array.Empty<HookCallback>(),
             Timeout = timeout
@@ -145,14 +138,14 @@ public class HookTypesTests
     [Fact]
     public void HookMatcher_Record_SupportsEquality()
     {
-        var matcher1 = new HookMatcher
+        HookMatcher matcher1 = new()
         {
             Matcher = "Bash",
             Hooks = Array.Empty<HookCallback>(),
             Timeout = 30.0
         };
 
-        var matcher2 = new HookMatcher
+        HookMatcher matcher2 = new()
         {
             Matcher = "Bash",
             Hooks = Array.Empty<HookCallback>(),
@@ -160,9 +153,9 @@ public class HookTypesTests
         };
 
         // Records with same reference for Hooks will be equal
-        var sameHooks = Array.Empty<HookCallback>();
-        var matcher3 = matcher1 with { Hooks = sameHooks };
-        var matcher4 = matcher1 with { Hooks = sameHooks };
+        HookCallback[] sameHooks = Array.Empty<HookCallback>();
+        HookMatcher matcher3 = matcher1 with { Hooks = sameHooks };
+        HookMatcher matcher4 = matcher1 with { Hooks = sameHooks };
 
         Assert.Equal(matcher3, matcher4);
     }
@@ -170,48 +163,40 @@ public class HookTypesTests
     [Fact]
     public void HookMatcher_WithExpression_CreatesNewInstance()
     {
-        var original = new HookMatcher
+        HookMatcher original = new()
         {
             Matcher = "Bash",
             Hooks = Array.Empty<HookCallback>(),
             Timeout = 30.0
         };
 
-        var modified = original with { Timeout = 60.0 };
+        HookMatcher modified = original with { Timeout = 60.0 };
 
         Assert.Equal(30.0, original.Timeout);
         Assert.Equal(60.0, modified.Timeout);
         Assert.Equal("Bash", modified.Matcher);
     }
 
-    #endregion
-
-    #region HookContext Tests
-
     [Fact]
     public void HookContext_CanBeCreated()
     {
-        var context = new HookContext();
+        HookContext context = new();
         Assert.NotNull(context);
     }
 
     [Fact]
     public void HookContext_Record_SupportsEquality()
     {
-        var context1 = new HookContext();
-        var context2 = new HookContext();
+        HookContext context1 = new();
+        HookContext context2 = new();
 
         Assert.Equal(context1, context2);
     }
 
-    #endregion
-
-    #region PreToolUseHookInput Tests
-
     [Fact]
     public void PreToolUseHookInput_HookEventName_ReturnsPreToolUse()
     {
-        var input = new PreToolUseHookInput
+        PreToolUseHookInput input = new()
         {
             SessionId = "session-123",
             TranscriptPath = "/path/to/transcript",
@@ -227,17 +212,17 @@ public class HookTypesTests
     public void Deserialize_PreToolUseHookInput_MapsAllProperties()
     {
         const string json = """
-            {
-                "session_id": "session-abc123",
-                "transcript_path": "/home/user/.claude/transcripts/session.json",
-                "cwd": "/home/user/project",
-                "permission_mode": "default",
-                "tool_name": "Bash",
-                "tool_input": { "command": "ls -la" }
-            }
-            """;
+                            {
+                                "session_id": "session-abc123",
+                                "transcript_path": "/home/user/.claude/transcripts/session.json",
+                                "cwd": "/home/user/project",
+                                "permission_mode": "default",
+                                "tool_name": "Bash",
+                                "tool_input": { "command": "ls -la" }
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<PreToolUseHookInput>(json, JsonOptions);
+        PreToolUseHookInput? input = JsonSerializer.Deserialize<PreToolUseHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Equal("session-abc123", input.SessionId);
@@ -252,23 +237,23 @@ public class HookTypesTests
     public void Deserialize_PreToolUseHookInput_WithComplexToolInput()
     {
         const string json = """
-            {
-                "session_id": "session-123",
-                "transcript_path": "/path/to/transcript",
-                "cwd": "/cwd",
-                "tool_name": "Write",
-                "tool_input": {
-                    "file_path": "/src/file.cs",
-                    "content": "public class Test { }",
-                    "options": {
-                        "create_if_missing": true,
-                        "backup": false
-                    }
-                }
-            }
-            """;
+                            {
+                                "session_id": "session-123",
+                                "transcript_path": "/path/to/transcript",
+                                "cwd": "/cwd",
+                                "tool_name": "Write",
+                                "tool_input": {
+                                    "file_path": "/src/file.cs",
+                                    "content": "public class Test { }",
+                                    "options": {
+                                        "create_if_missing": true,
+                                        "backup": false
+                                    }
+                                }
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<PreToolUseHookInput>(json, JsonOptions);
+        PreToolUseHookInput? input = JsonSerializer.Deserialize<PreToolUseHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Equal("Write", input.ToolName);
@@ -287,7 +272,7 @@ public class HookTypesTests
     [InlineData("mcp__file-server__read")]
     public void PreToolUseHookInput_AcceptsVariousToolNames(string toolName)
     {
-        var input = new PreToolUseHookInput
+        PreToolUseHookInput input = new()
         {
             SessionId = "session",
             TranscriptPath = "/path",
@@ -299,14 +284,10 @@ public class HookTypesTests
         Assert.Equal(toolName, input.ToolName);
     }
 
-    #endregion
-
-    #region PostToolUseHookInput Tests
-
     [Fact]
     public void PostToolUseHookInput_HookEventName_ReturnsPostToolUse()
     {
-        var input = new PostToolUseHookInput
+        PostToolUseHookInput input = new()
         {
             SessionId = "session-123",
             TranscriptPath = "/path/to/transcript",
@@ -322,20 +303,20 @@ public class HookTypesTests
     public void Deserialize_PostToolUseHookInput_WithToolResponse()
     {
         const string json = """
-            {
-                "session_id": "session-456",
-                "transcript_path": "/transcripts/session.json",
-                "cwd": "/project",
-                "tool_name": "Read",
-                "tool_input": { "file_path": "/src/test.cs" },
-                "tool_response": {
-                    "content": "file contents here",
-                    "lines": 50
-                }
-            }
-            """;
+                            {
+                                "session_id": "session-456",
+                                "transcript_path": "/transcripts/session.json",
+                                "cwd": "/project",
+                                "tool_name": "Read",
+                                "tool_input": { "file_path": "/src/test.cs" },
+                                "tool_response": {
+                                    "content": "file contents here",
+                                    "lines": 50
+                                }
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<PostToolUseHookInput>(json, JsonOptions);
+        PostToolUseHookInput? input = JsonSerializer.Deserialize<PostToolUseHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Equal("PostToolUse", input.HookEventName);
@@ -349,17 +330,17 @@ public class HookTypesTests
     public void Deserialize_PostToolUseHookInput_WithNullToolResponse()
     {
         const string json = """
-            {
-                "session_id": "session-789",
-                "transcript_path": "/transcripts/session.json",
-                "cwd": "/project",
-                "tool_name": "Bash",
-                "tool_input": { "command": "echo test" },
-                "tool_response": null
-            }
-            """;
+                            {
+                                "session_id": "session-789",
+                                "transcript_path": "/transcripts/session.json",
+                                "cwd": "/project",
+                                "tool_name": "Bash",
+                                "tool_input": { "command": "echo test" },
+                                "tool_response": null
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<PostToolUseHookInput>(json, JsonOptions);
+        PostToolUseHookInput? input = JsonSerializer.Deserialize<PostToolUseHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Null(input.ToolResponse);
@@ -369,29 +350,25 @@ public class HookTypesTests
     public void Deserialize_PostToolUseHookInput_WithoutToolResponse()
     {
         const string json = """
-            {
-                "session_id": "session-101",
-                "transcript_path": "/transcripts/session.json",
-                "cwd": "/project",
-                "tool_name": "Write",
-                "tool_input": { "file_path": "/test.txt", "content": "hello" }
-            }
-            """;
+                            {
+                                "session_id": "session-101",
+                                "transcript_path": "/transcripts/session.json",
+                                "cwd": "/project",
+                                "tool_name": "Write",
+                                "tool_input": { "file_path": "/test.txt", "content": "hello" }
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<PostToolUseHookInput>(json, JsonOptions);
+        PostToolUseHookInput? input = JsonSerializer.Deserialize<PostToolUseHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Null(input.ToolResponse);
     }
 
-    #endregion
-
-    #region PostToolUseFailureHookInput Tests
-
     [Fact]
     public void PostToolUseFailureHookInput_HookEventName_ReturnsPostToolUseFailure()
     {
-        var input = new PostToolUseFailureHookInput
+        PostToolUseFailureHookInput input = new()
         {
             SessionId = "session-123",
             TranscriptPath = "/path/to/transcript",
@@ -408,19 +385,19 @@ public class HookTypesTests
     public void Deserialize_PostToolUseFailureHookInput_MapsAllProperties()
     {
         const string json = """
-            {
-                "session_id": "session-error-123",
-                "transcript_path": "/transcripts/error-session.json",
-                "cwd": "/project",
-                "permission_mode": "strict",
-                "tool_name": "Bash",
-                "tool_input": { "command": "rm -rf /" },
-                "error": "Permission denied: Cannot execute destructive command",
-                "is_interrupt": true
-            }
-            """;
+                            {
+                                "session_id": "session-error-123",
+                                "transcript_path": "/transcripts/error-session.json",
+                                "cwd": "/project",
+                                "permission_mode": "strict",
+                                "tool_name": "Bash",
+                                "tool_input": { "command": "rm -rf /" },
+                                "error": "Permission denied: Cannot execute destructive command",
+                                "is_interrupt": true
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<PostToolUseFailureHookInput>(json, JsonOptions);
+        PostToolUseFailureHookInput? input = JsonSerializer.Deserialize<PostToolUseFailureHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Equal("PostToolUseFailure", input.HookEventName);
@@ -433,17 +410,17 @@ public class HookTypesTests
     public void Deserialize_PostToolUseFailureHookInput_IsInterruptDefaultsFalse()
     {
         const string json = """
-            {
-                "session_id": "session-fail-456",
-                "transcript_path": "/transcripts/session.json",
-                "cwd": "/project",
-                "tool_name": "Read",
-                "tool_input": { "file_path": "/nonexistent/file.txt" },
-                "error": "File not found"
-            }
-            """;
+                            {
+                                "session_id": "session-fail-456",
+                                "transcript_path": "/transcripts/session.json",
+                                "cwd": "/project",
+                                "tool_name": "Read",
+                                "tool_input": { "file_path": "/nonexistent/file.txt" },
+                                "error": "File not found"
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<PostToolUseFailureHookInput>(json, JsonOptions);
+        PostToolUseFailureHookInput? input = JsonSerializer.Deserialize<PostToolUseFailureHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.False(input.IsInterrupt);
@@ -454,7 +431,7 @@ public class HookTypesTests
     [InlineData(false)]
     public void PostToolUseFailureHookInput_IsInterrupt_AcceptsBothValues(bool isInterrupt)
     {
-        var input = new PostToolUseFailureHookInput
+        PostToolUseFailureHookInput input = new()
         {
             SessionId = "session",
             TranscriptPath = "/path",
@@ -468,14 +445,10 @@ public class HookTypesTests
         Assert.Equal(isInterrupt, input.IsInterrupt);
     }
 
-    #endregion
-
-    #region UserPromptSubmitHookInput Tests
-
     [Fact]
     public void UserPromptSubmitHookInput_HookEventName_ReturnsUserPromptSubmit()
     {
-        var input = new UserPromptSubmitHookInput
+        UserPromptSubmitHookInput input = new()
         {
             SessionId = "session-123",
             TranscriptPath = "/path/to/transcript",
@@ -490,16 +463,16 @@ public class HookTypesTests
     public void Deserialize_UserPromptSubmitHookInput_MapsAllProperties()
     {
         const string json = """
-            {
-                "session_id": "session-prompt-123",
-                "transcript_path": "/transcripts/prompt-session.json",
-                "cwd": "/home/user/project",
-                "permission_mode": "auto",
-                "prompt": "Please review this code and suggest improvements."
-            }
-            """;
+                            {
+                                "session_id": "session-prompt-123",
+                                "transcript_path": "/transcripts/prompt-session.json",
+                                "cwd": "/home/user/project",
+                                "permission_mode": "auto",
+                                "prompt": "Please review this code and suggest improvements."
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<UserPromptSubmitHookInput>(json, JsonOptions);
+        UserPromptSubmitHookInput? input = JsonSerializer.Deserialize<UserPromptSubmitHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Equal("UserPromptSubmit", input.HookEventName);
@@ -512,15 +485,15 @@ public class HookTypesTests
     public void Deserialize_UserPromptSubmitHookInput_WithEmptyPrompt()
     {
         const string json = """
-            {
-                "session_id": "session-empty",
-                "transcript_path": "/transcripts/session.json",
-                "cwd": "/project",
-                "prompt": ""
-            }
-            """;
+                            {
+                                "session_id": "session-empty",
+                                "transcript_path": "/transcripts/session.json",
+                                "cwd": "/project",
+                                "prompt": ""
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<UserPromptSubmitHookInput>(json, JsonOptions);
+        UserPromptSubmitHookInput? input = JsonSerializer.Deserialize<UserPromptSubmitHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Equal("", input.Prompt);
@@ -530,28 +503,24 @@ public class HookTypesTests
     public void Deserialize_UserPromptSubmitHookInput_WithUnicodePrompt()
     {
         const string json = """
-            {
-                "session_id": "session-unicode",
-                "transcript_path": "/transcripts/session.json",
-                "cwd": "/project",
-                "prompt": "\u4f60\u597d\uff01 \ud83d\ude00 Please help."
-            }
-            """;
+                            {
+                                "session_id": "session-unicode",
+                                "transcript_path": "/transcripts/session.json",
+                                "cwd": "/project",
+                                "prompt": "\u4f60\u597d\uff01 \ud83d\ude00 Please help."
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<UserPromptSubmitHookInput>(json, JsonOptions);
+        UserPromptSubmitHookInput? input = JsonSerializer.Deserialize<UserPromptSubmitHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Contains("\u4f60\u597d", input.Prompt);
     }
 
-    #endregion
-
-    #region StopHookInput Tests
-
     [Fact]
     public void StopHookInput_HookEventName_ReturnsStop()
     {
-        var input = new StopHookInput
+        StopHookInput input = new()
         {
             SessionId = "session-123",
             TranscriptPath = "/path/to/transcript",
@@ -566,15 +535,15 @@ public class HookTypesTests
     public void Deserialize_StopHookInput_MapsAllProperties()
     {
         const string json = """
-            {
-                "session_id": "session-stop-123",
-                "transcript_path": "/transcripts/stop-session.json",
-                "cwd": "/project",
-                "stop_hook_active": true
-            }
-            """;
+                            {
+                                "session_id": "session-stop-123",
+                                "transcript_path": "/transcripts/stop-session.json",
+                                "cwd": "/project",
+                                "stop_hook_active": true
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<StopHookInput>(json, JsonOptions);
+        StopHookInput? input = JsonSerializer.Deserialize<StopHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Equal("Stop", input.HookEventName);
@@ -587,29 +556,25 @@ public class HookTypesTests
     [InlineData(false)]
     public void Deserialize_StopHookInput_WithVariousStopHookActiveValues(bool stopHookActive)
     {
-        var json = $$"""
-            {
-                "session_id": "session-stop",
-                "transcript_path": "/transcripts/session.json",
-                "cwd": "/project",
-                "stop_hook_active": {{stopHookActive.ToString().ToLower()}}
-            }
-            """;
+        string json = $$"""
+                        {
+                            "session_id": "session-stop",
+                            "transcript_path": "/transcripts/session.json",
+                            "cwd": "/project",
+                            "stop_hook_active": {{stopHookActive.ToString().ToLower()}}
+                        }
+                        """;
 
-        var input = JsonSerializer.Deserialize<StopHookInput>(json, JsonOptions);
+        StopHookInput? input = JsonSerializer.Deserialize<StopHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Equal(stopHookActive, input.StopHookActive);
     }
 
-    #endregion
-
-    #region SubagentStartHookInput Tests
-
     [Fact]
     public void SubagentStartHookInput_HookEventName_ReturnsSubagentStart()
     {
-        var input = new SubagentStartHookInput
+        SubagentStartHookInput input = new()
         {
             SessionId = "session-123",
             TranscriptPath = "/path/to/transcript",
@@ -625,16 +590,16 @@ public class HookTypesTests
     public void Deserialize_SubagentStartHookInput_MapsAllProperties()
     {
         const string json = """
-            {
-                "session_id": "parent-session-123",
-                "transcript_path": "/transcripts/parent.json",
-                "cwd": "/project",
-                "agent_id": "subagent-abc123",
-                "agent_type": "worker"
-            }
-            """;
+                            {
+                                "session_id": "parent-session-123",
+                                "transcript_path": "/transcripts/parent.json",
+                                "cwd": "/project",
+                                "agent_id": "subagent-abc123",
+                                "agent_type": "worker"
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<SubagentStartHookInput>(json, JsonOptions);
+        SubagentStartHookInput? input = JsonSerializer.Deserialize<SubagentStartHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Equal("SubagentStart", input.HookEventName);
@@ -650,7 +615,7 @@ public class HookTypesTests
     [InlineData("custom")]
     public void SubagentStartHookInput_AcceptsVariousAgentTypes(string agentType)
     {
-        var input = new SubagentStartHookInput
+        SubagentStartHookInput input = new()
         {
             SessionId = "session",
             TranscriptPath = "/path",
@@ -662,14 +627,10 @@ public class HookTypesTests
         Assert.Equal(agentType, input.AgentType);
     }
 
-    #endregion
-
-    #region SubagentStopHookInput Tests
-
     [Fact]
     public void SubagentStopHookInput_HookEventName_ReturnsSubagentStop()
     {
-        var input = new SubagentStopHookInput
+        SubagentStopHookInput input = new()
         {
             SessionId = "session-123",
             TranscriptPath = "/path/to/transcript",
@@ -684,17 +645,17 @@ public class HookTypesTests
     public void Deserialize_SubagentStopHookInput_MapsAllProperties()
     {
         const string json = """
-            {
-                "session_id": "parent-session-456",
-                "transcript_path": "/transcripts/parent.json",
-                "cwd": "/project",
-                "stop_hook_active": true,
-                "agent_id": "subagent-xyz789",
-                "agent_transcript_path": "/transcripts/subagent-xyz789.json"
-            }
-            """;
+                            {
+                                "session_id": "parent-session-456",
+                                "transcript_path": "/transcripts/parent.json",
+                                "cwd": "/project",
+                                "stop_hook_active": true,
+                                "agent_id": "subagent-xyz789",
+                                "agent_transcript_path": "/transcripts/subagent-xyz789.json"
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<SubagentStopHookInput>(json, JsonOptions);
+        SubagentStopHookInput? input = JsonSerializer.Deserialize<SubagentStopHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Equal("SubagentStop", input.HookEventName);
@@ -707,15 +668,15 @@ public class HookTypesTests
     public void Deserialize_SubagentStopHookInput_WithNullOptionalProperties()
     {
         const string json = """
-            {
-                "session_id": "session-789",
-                "transcript_path": "/transcripts/session.json",
-                "cwd": "/project",
-                "stop_hook_active": false
-            }
-            """;
+                            {
+                                "session_id": "session-789",
+                                "transcript_path": "/transcripts/session.json",
+                                "cwd": "/project",
+                                "stop_hook_active": false
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<SubagentStopHookInput>(json, JsonOptions);
+        SubagentStopHookInput? input = JsonSerializer.Deserialize<SubagentStopHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.False(input.StopHookActive);
@@ -723,14 +684,10 @@ public class HookTypesTests
         Assert.Null(input.AgentTranscriptPath);
     }
 
-    #endregion
-
-    #region PreCompactHookInput Tests
-
     [Fact]
     public void PreCompactHookInput_HookEventName_ReturnsPreCompact()
     {
-        var input = new PreCompactHookInput
+        PreCompactHookInput input = new()
         {
             SessionId = "session-123",
             TranscriptPath = "/path/to/transcript",
@@ -745,16 +702,16 @@ public class HookTypesTests
     public void Deserialize_PreCompactHookInput_MapsAllProperties()
     {
         const string json = """
-            {
-                "session_id": "session-compact-123",
-                "transcript_path": "/transcripts/compact.json",
-                "cwd": "/project",
-                "trigger": "manual",
-                "custom_instructions": "Preserve all code changes and key decisions"
-            }
-            """;
+                            {
+                                "session_id": "session-compact-123",
+                                "transcript_path": "/transcripts/compact.json",
+                                "cwd": "/project",
+                                "trigger": "manual",
+                                "custom_instructions": "Preserve all code changes and key decisions"
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<PreCompactHookInput>(json, JsonOptions);
+        PreCompactHookInput? input = JsonSerializer.Deserialize<PreCompactHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Equal("PreCompact", input.HookEventName);
@@ -766,15 +723,15 @@ public class HookTypesTests
     public void Deserialize_PreCompactHookInput_WithNullCustomInstructions()
     {
         const string json = """
-            {
-                "session_id": "session-456",
-                "transcript_path": "/transcripts/session.json",
-                "cwd": "/project",
-                "trigger": "token_limit"
-            }
-            """;
+                            {
+                                "session_id": "session-456",
+                                "transcript_path": "/transcripts/session.json",
+                                "cwd": "/project",
+                                "trigger": "token_limit"
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<PreCompactHookInput>(json, JsonOptions);
+        PreCompactHookInput? input = JsonSerializer.Deserialize<PreCompactHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Equal("token_limit", input.Trigger);
@@ -788,7 +745,7 @@ public class HookTypesTests
     [InlineData("time_based")]
     public void PreCompactHookInput_AcceptsVariousTriggers(string trigger)
     {
-        var input = new PreCompactHookInput
+        PreCompactHookInput input = new()
         {
             SessionId = "session",
             TranscriptPath = "/path",
@@ -799,14 +756,10 @@ public class HookTypesTests
         Assert.Equal(trigger, input.Trigger);
     }
 
-    #endregion
-
-    #region PermissionRequestHookInput Tests
-
     [Fact]
     public void PermissionRequestHookInput_HookEventName_ReturnsPermissionRequest()
     {
-        var input = new PermissionRequestHookInput
+        PermissionRequestHookInput input = new()
         {
             SessionId = "session-123",
             TranscriptPath = "/path/to/transcript",
@@ -822,22 +775,22 @@ public class HookTypesTests
     public void Deserialize_PermissionRequestHookInput_MapsAllProperties()
     {
         const string json = """
-            {
-                "session_id": "session-perm-123",
-                "transcript_path": "/transcripts/perm.json",
-                "cwd": "/project",
-                "permission_mode": "strict",
-                "tool_name": "Write",
-                "tool_input": { "file_path": "/etc/config", "content": "data" },
-                "permission_suggestions": {
-                    "allow_once": true,
-                    "allow_always": false,
-                    "reason": "Modifying system configuration"
-                }
-            }
-            """;
+                            {
+                                "session_id": "session-perm-123",
+                                "transcript_path": "/transcripts/perm.json",
+                                "cwd": "/project",
+                                "permission_mode": "strict",
+                                "tool_name": "Write",
+                                "tool_input": { "file_path": "/etc/config", "content": "data" },
+                                "permission_suggestions": {
+                                    "allow_once": true,
+                                    "allow_always": false,
+                                    "reason": "Modifying system configuration"
+                                }
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<PermissionRequestHookInput>(json, JsonOptions);
+        PermissionRequestHookInput? input = JsonSerializer.Deserialize<PermissionRequestHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Equal("PermissionRequest", input.HookEventName);
@@ -851,29 +804,25 @@ public class HookTypesTests
     public void Deserialize_PermissionRequestHookInput_WithNullPermissionSuggestions()
     {
         const string json = """
-            {
-                "session_id": "session-perm-456",
-                "transcript_path": "/transcripts/perm.json",
-                "cwd": "/project",
-                "tool_name": "Bash",
-                "tool_input": { "command": "ls" }
-            }
-            """;
+                            {
+                                "session_id": "session-perm-456",
+                                "transcript_path": "/transcripts/perm.json",
+                                "cwd": "/project",
+                                "tool_name": "Bash",
+                                "tool_input": { "command": "ls" }
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<PermissionRequestHookInput>(json, JsonOptions);
+        PermissionRequestHookInput? input = JsonSerializer.Deserialize<PermissionRequestHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Null(input.PermissionSuggestions);
     }
 
-    #endregion
-
-    #region SessionStartHookInput Tests
-
     [Fact]
     public void SessionStartHookInput_HookEventName_ReturnsSessionStart()
     {
-        var input = new SessionStartHookInput
+        SessionStartHookInput input = new()
         {
             SessionId = "session-123",
             TranscriptPath = "/path/to/transcript",
@@ -888,16 +837,16 @@ public class HookTypesTests
     public void Deserialize_SessionStartHookInput_MapsAllProperties()
     {
         const string json = """
-            {
-                "session_id": "new-session-123",
-                "transcript_path": "/transcripts/new.json",
-                "cwd": "/home/user/project",
-                "permission_mode": "default",
-                "source": "startup"
-            }
-            """;
+                            {
+                                "session_id": "new-session-123",
+                                "transcript_path": "/transcripts/new.json",
+                                "cwd": "/home/user/project",
+                                "permission_mode": "default",
+                                "source": "startup"
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<SessionStartHookInput>(json, JsonOptions);
+        SessionStartHookInput? input = JsonSerializer.Deserialize<SessionStartHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Equal("SessionStart", input.HookEventName);
@@ -912,7 +861,7 @@ public class HookTypesTests
     [InlineData("compact")]
     public void SessionStartHookInput_AcceptsVariousSources(string source)
     {
-        var input = new SessionStartHookInput
+        SessionStartHookInput input = new()
         {
             SessionId = "session",
             TranscriptPath = "/path",
@@ -923,14 +872,10 @@ public class HookTypesTests
         Assert.Equal(source, input.Source);
     }
 
-    #endregion
-
-    #region SessionEndHookInput Tests
-
     [Fact]
     public void SessionEndHookInput_HookEventName_ReturnsSessionEnd()
     {
-        var input = new SessionEndHookInput
+        SessionEndHookInput input = new()
         {
             SessionId = "session-123",
             TranscriptPath = "/path/to/transcript",
@@ -945,15 +890,15 @@ public class HookTypesTests
     public void Deserialize_SessionEndHookInput_MapsAllProperties()
     {
         const string json = """
-            {
-                "session_id": "ending-session-123",
-                "transcript_path": "/transcripts/ending.json",
-                "cwd": "/home/user/project",
-                "reason": "logout"
-            }
-            """;
+                            {
+                                "session_id": "ending-session-123",
+                                "transcript_path": "/transcripts/ending.json",
+                                "cwd": "/home/user/project",
+                                "reason": "logout"
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<SessionEndHookInput>(json, JsonOptions);
+        SessionEndHookInput? input = JsonSerializer.Deserialize<SessionEndHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Equal("SessionEnd", input.HookEventName);
@@ -969,7 +914,7 @@ public class HookTypesTests
     [InlineData("other")]
     public void SessionEndHookInput_AcceptsVariousReasons(string reason)
     {
-        var input = new SessionEndHookInput
+        SessionEndHookInput input = new()
         {
             SessionId = "session",
             TranscriptPath = "/path",
@@ -980,14 +925,10 @@ public class HookTypesTests
         Assert.Equal(reason, input.Reason);
     }
 
-    #endregion
-
-    #region NotificationHookInput Tests
-
     [Fact]
     public void NotificationHookInput_HookEventName_ReturnsNotification()
     {
-        var input = new NotificationHookInput
+        NotificationHookInput input = new()
         {
             SessionId = "session-123",
             TranscriptPath = "/path/to/transcript",
@@ -1003,17 +944,17 @@ public class HookTypesTests
     public void Deserialize_NotificationHookInput_MapsAllProperties()
     {
         const string json = """
-            {
-                "session_id": "notif-session-123",
-                "transcript_path": "/transcripts/notif.json",
-                "cwd": "/project",
-                "message": "Waiting for user input",
-                "notification_type": "idle_prompt",
-                "title": "Input Required"
-            }
-            """;
+                            {
+                                "session_id": "notif-session-123",
+                                "transcript_path": "/transcripts/notif.json",
+                                "cwd": "/project",
+                                "message": "Waiting for user input",
+                                "notification_type": "idle_prompt",
+                                "title": "Input Required"
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<NotificationHookInput>(json, JsonOptions);
+        NotificationHookInput? input = JsonSerializer.Deserialize<NotificationHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Equal("Notification", input.HookEventName);
@@ -1026,16 +967,16 @@ public class HookTypesTests
     public void Deserialize_NotificationHookInput_WithNullTitle()
     {
         const string json = """
-            {
-                "session_id": "notif-session-456",
-                "transcript_path": "/transcripts/notif.json",
-                "cwd": "/project",
-                "message": "Authentication successful",
-                "notification_type": "auth_success"
-            }
-            """;
+                            {
+                                "session_id": "notif-session-456",
+                                "transcript_path": "/transcripts/notif.json",
+                                "cwd": "/project",
+                                "message": "Authentication successful",
+                                "notification_type": "auth_success"
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<NotificationHookInput>(json, JsonOptions);
+        NotificationHookInput? input = JsonSerializer.Deserialize<NotificationHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Equal("auth_success", input.NotificationType);
@@ -1049,7 +990,7 @@ public class HookTypesTests
     [InlineData("elicitation_dialog")]
     public void NotificationHookInput_AcceptsVariousNotificationTypes(string notificationType)
     {
-        var input = new NotificationHookInput
+        NotificationHookInput input = new()
         {
             SessionId = "session",
             TranscriptPath = "/path",
@@ -1061,14 +1002,10 @@ public class HookTypesTests
         Assert.Equal(notificationType, input.NotificationType);
     }
 
-    #endregion
-
-    #region HookOutput Tests
-
     [Fact]
     public void SyncHookOutput_AllPropertiesAreOptional()
     {
-        var output = new SyncHookOutput();
+        SyncHookOutput output = new();
 
         Assert.Null(output.Continue);
         Assert.Null(output.SuppressOutput);
@@ -1082,7 +1019,7 @@ public class HookTypesTests
     [Fact]
     public void SyncHookOutput_AllowContinue_SetsContinueTrue()
     {
-        var output = new SyncHookOutput { Continue = true };
+        SyncHookOutput output = new() { Continue = true };
 
         Assert.True(output.Continue);
     }
@@ -1090,7 +1027,7 @@ public class HookTypesTests
     [Fact]
     public void SyncHookOutput_DenyContinue_SetsContinueFalseWithReason()
     {
-        var output = new SyncHookOutput
+        SyncHookOutput output = new()
         {
             Continue = false,
             StopReason = "Operation blocked by security policy",
@@ -1105,7 +1042,7 @@ public class HookTypesTests
     [Fact]
     public void SyncHookOutput_WithSystemMessage_MapsCorrectly()
     {
-        var output = new SyncHookOutput
+        SyncHookOutput output = new()
         {
             Continue = true,
             SystemMessage = "Warning: This operation may take a long time"
@@ -1117,7 +1054,7 @@ public class HookTypesTests
     [Fact]
     public void SyncHookOutput_WithReason_MapsCorrectly()
     {
-        var output = new SyncHookOutput
+        SyncHookOutput output = new()
         {
             Continue = true,
             Reason = "Operation approved by hook"
@@ -1129,7 +1066,7 @@ public class HookTypesTests
     [Fact]
     public void SyncHookOutput_WithSuppressOutput_MapsCorrectly()
     {
-        var output = new SyncHookOutput
+        SyncHookOutput output = new()
         {
             Continue = true,
             SuppressOutput = true
@@ -1141,28 +1078,30 @@ public class HookTypesTests
     [Fact]
     public void SyncHookOutput_WithHookSpecificOutput_MapsJsonElement()
     {
-        var specificOutput = JsonDocument.Parse("""{ "modified_input": { "command": "safe-command" } }""").RootElement;
-        var output = new SyncHookOutput
+        JsonElement specificOutput =
+            JsonDocument.Parse("""{ "modified_input": { "command": "safe-command" } }""").RootElement;
+        SyncHookOutput output = new()
         {
             Continue = true,
             HookSpecificOutput = specificOutput
         };
 
         Assert.NotNull(output.HookSpecificOutput);
-        Assert.Equal("safe-command", output.HookSpecificOutput.Value.GetProperty("modified_input").GetProperty("command").GetString());
+        Assert.Equal("safe-command",
+            output.HookSpecificOutput.Value.GetProperty("modified_input").GetProperty("command").GetString());
     }
 
     [Fact]
     public void Serialize_SyncHookOutput_ProducesValidJson()
     {
-        var output = new SyncHookOutput
+        SyncHookOutput output = new()
         {
             Continue = true,
             Decision = "allow",
             Reason = "Approved"
         };
 
-        var json = JsonSerializer.Serialize(output, JsonOptions);
+        string json = JsonSerializer.Serialize(output, JsonOptions);
 
         Assert.Contains("continue", json);
         Assert.Contains("decision", json);
@@ -1172,7 +1111,7 @@ public class HookTypesTests
     [Fact]
     public void AsyncHookOutput_DefaultTimeout_IsNull()
     {
-        var output = new AsyncHookOutput();
+        AsyncHookOutput output = new();
 
         Assert.Null(output.AsyncTimeout);
     }
@@ -1180,7 +1119,7 @@ public class HookTypesTests
     [Fact]
     public void AsyncHookOutput_WithTimeout_MapsCorrectly()
     {
-        var output = new AsyncHookOutput { AsyncTimeout = 5000 };
+        AsyncHookOutput output = new() { AsyncTimeout = 5000 };
 
         Assert.Equal(5000, output.AsyncTimeout);
     }
@@ -1192,7 +1131,7 @@ public class HookTypesTests
     [InlineData(600000)]
     public void AsyncHookOutput_AcceptsVariousTimeouts(int timeout)
     {
-        var output = new AsyncHookOutput { AsyncTimeout = timeout };
+        AsyncHookOutput output = new() { AsyncTimeout = timeout };
 
         Assert.Equal(timeout, output.AsyncTimeout);
     }
@@ -1200,9 +1139,9 @@ public class HookTypesTests
     [Fact]
     public void Serialize_AsyncHookOutput_ProducesValidJson()
     {
-        var output = new AsyncHookOutput { AsyncTimeout = 10000 };
+        AsyncHookOutput output = new() { AsyncTimeout = 10000 };
 
-        var json = JsonSerializer.Serialize(output, JsonOptions);
+        string json = JsonSerializer.Serialize(output, JsonOptions);
 
         // Note: asyncTimeout property name is specified with camelCase in JsonPropertyName attribute
         Assert.Contains("asyncTimeout", json);
@@ -1224,10 +1163,6 @@ public class HookTypesTests
 
         Assert.IsType<AsyncHookOutput>(output);
     }
-
-    #endregion
-
-    #region HookInput Base Class Tests
 
     [Theory]
     [InlineData(typeof(PreToolUseHookInput), "PreToolUse")]
@@ -1346,7 +1281,7 @@ public class HookTypesTests
     [Fact]
     public void HookInput_BaseProperties_AreRequiredOnAllDerivedTypes()
     {
-        var input = new PreToolUseHookInput
+        PreToolUseHookInput input = new()
         {
             SessionId = "test-session",
             TranscriptPath = "/test/transcript.json",
@@ -1363,7 +1298,7 @@ public class HookTypesTests
     [Fact]
     public void HookInput_PermissionMode_IsOptional()
     {
-        var input = new UserPromptSubmitHookInput
+        UserPromptSubmitHookInput input = new()
         {
             SessionId = "session",
             TranscriptPath = "/path",
@@ -1373,7 +1308,7 @@ public class HookTypesTests
 
         Assert.Null(input.PermissionMode);
 
-        var inputWithMode = new UserPromptSubmitHookInput
+        UserPromptSubmitHookInput inputWithMode = new()
         {
             SessionId = "session",
             TranscriptPath = "/path",
@@ -1385,25 +1320,21 @@ public class HookTypesTests
         Assert.Equal("strict", inputWithMode.PermissionMode);
     }
 
-    #endregion
-
-    #region Deserialization Edge Cases
-
     [Fact]
     public void Deserialize_HookInput_WithExtraProperties_IgnoresUnknown()
     {
         const string json = """
-            {
-                "session_id": "session-extra",
-                "transcript_path": "/path",
-                "cwd": "/cwd",
-                "unknown_property": "should be ignored",
-                "another_unknown": { "nested": true },
-                "prompt": "Hello"
-            }
-            """;
+                            {
+                                "session_id": "session-extra",
+                                "transcript_path": "/path",
+                                "cwd": "/cwd",
+                                "unknown_property": "should be ignored",
+                                "another_unknown": { "nested": true },
+                                "prompt": "Hello"
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<UserPromptSubmitHookInput>(json, JsonOptions);
+        UserPromptSubmitHookInput? input = JsonSerializer.Deserialize<UserPromptSubmitHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Equal("session-extra", input.SessionId);
@@ -1414,16 +1345,16 @@ public class HookTypesTests
     public void Deserialize_HookInput_WithNullOptionalProperties_AllowsNull()
     {
         const string json = """
-            {
-                "session_id": "session-null",
-                "transcript_path": "/path",
-                "cwd": "/cwd",
-                "permission_mode": null,
-                "prompt": "Hello"
-            }
-            """;
+                            {
+                                "session_id": "session-null",
+                                "transcript_path": "/path",
+                                "cwd": "/cwd",
+                                "permission_mode": null,
+                                "prompt": "Hello"
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<UserPromptSubmitHookInput>(json, JsonOptions);
+        UserPromptSubmitHookInput? input = JsonSerializer.Deserialize<UserPromptSubmitHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Null(input.PermissionMode);
@@ -1433,16 +1364,16 @@ public class HookTypesTests
     public void Deserialize_ToolInput_WithEmptyObject_MapsCorrectly()
     {
         const string json = """
-            {
-                "session_id": "session",
-                "transcript_path": "/path",
-                "cwd": "/cwd",
-                "tool_name": "Test",
-                "tool_input": {}
-            }
-            """;
+                            {
+                                "session_id": "session",
+                                "transcript_path": "/path",
+                                "cwd": "/cwd",
+                                "tool_name": "Test",
+                                "tool_input": {}
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<PreToolUseHookInput>(json, JsonOptions);
+        PreToolUseHookInput? input = JsonSerializer.Deserialize<PreToolUseHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Equal(JsonValueKind.Object, input.ToolInput.ValueKind);
@@ -1452,16 +1383,16 @@ public class HookTypesTests
     public void Deserialize_ToolInput_WithArrayValue_MapsCorrectly()
     {
         const string json = """
-            {
-                "session_id": "session",
-                "transcript_path": "/path",
-                "cwd": "/cwd",
-                "tool_name": "Test",
-                "tool_input": { "files": ["a.txt", "b.txt", "c.txt"] }
-            }
-            """;
+                            {
+                                "session_id": "session",
+                                "transcript_path": "/path",
+                                "cwd": "/cwd",
+                                "tool_name": "Test",
+                                "tool_input": { "files": ["a.txt", "b.txt", "c.txt"] }
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<PreToolUseHookInput>(json, JsonOptions);
+        PreToolUseHookInput? input = JsonSerializer.Deserialize<PreToolUseHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Equal(3, input.ToolInput.GetProperty("files").GetArrayLength());
@@ -1471,24 +1402,24 @@ public class HookTypesTests
     public void Deserialize_ToolInput_WithNestedObjects_MapsCorrectly()
     {
         const string json = """
-            {
-                "session_id": "session",
-                "transcript_path": "/path",
-                "cwd": "/cwd",
-                "tool_name": "ComplexTool",
-                "tool_input": {
-                    "level1": {
-                        "level2": {
-                            "level3": {
-                                "value": 42
+                            {
+                                "session_id": "session",
+                                "transcript_path": "/path",
+                                "cwd": "/cwd",
+                                "tool_name": "ComplexTool",
+                                "tool_input": {
+                                    "level1": {
+                                        "level2": {
+                                            "level3": {
+                                                "value": 42
+                                            }
+                                        }
+                                    }
+                                }
                             }
-                        }
-                    }
-                }
-            }
-            """;
+                            """;
 
-        var input = JsonSerializer.Deserialize<PreToolUseHookInput>(json, JsonOptions);
+        PreToolUseHookInput? input = JsonSerializer.Deserialize<PreToolUseHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Equal(42, input.ToolInput
@@ -1503,37 +1434,33 @@ public class HookTypesTests
     public void Deserialize_WithUnicodePaths_MapsCorrectly()
     {
         const string json = """
-            {
-                "session_id": "session-unicode",
-                "transcript_path": "/home/\u7528\u6237/transcripts/session.json",
-                "cwd": "/home/\u7528\u6237/\u9879\u76ee",
-                "prompt": "Test"
-            }
-            """;
+                            {
+                                "session_id": "session-unicode",
+                                "transcript_path": "/home/\u7528\u6237/transcripts/session.json",
+                                "cwd": "/home/\u7528\u6237/\u9879\u76ee",
+                                "prompt": "Test"
+                            }
+                            """;
 
-        var input = JsonSerializer.Deserialize<UserPromptSubmitHookInput>(json, JsonOptions);
+        UserPromptSubmitHookInput? input = JsonSerializer.Deserialize<UserPromptSubmitHookInput>(json, JsonOptions);
 
         Assert.NotNull(input);
         Assert.Contains("\u7528\u6237", input.TranscriptPath);
         Assert.Contains("\u9879\u76ee", input.Cwd);
     }
 
-    #endregion
-
-    #region Record Functionality Tests
-
     [Fact]
     public void HookMatcher_WithExpression_SupportsImmutableModification()
     {
-        var hooks = Array.Empty<HookCallback>();
-        var original = new HookMatcher
+        HookCallback[] hooks = Array.Empty<HookCallback>();
+        HookMatcher original = new()
         {
             Matcher = "Bash",
             Hooks = hooks,
             Timeout = 30.0
         };
 
-        var modified = original with { Matcher = "Write" };
+        HookMatcher modified = original with { Matcher = "Write" };
 
         Assert.Equal("Bash", original.Matcher);
         Assert.Equal("Write", modified.Matcher);
@@ -1543,13 +1470,13 @@ public class HookTypesTests
     [Fact]
     public void SyncHookOutput_WithExpression_SupportsImmutableModification()
     {
-        var original = new SyncHookOutput
+        SyncHookOutput original = new()
         {
             Continue = true,
             Decision = "allow"
         };
 
-        var modified = original with { Decision = "deny", Continue = false };
+        SyncHookOutput modified = original with { Decision = "deny", Continue = false };
 
         Assert.True(original.Continue);
         Assert.Equal("allow", original.Decision);
@@ -1560,8 +1487,8 @@ public class HookTypesTests
     [Fact]
     public void PreToolUseHookInput_RecordEquality_WorksCorrectly()
     {
-        var toolInput = JsonDocument.Parse("{}").RootElement;
-        var input1 = new PreToolUseHookInput
+        JsonElement toolInput = JsonDocument.Parse("{}").RootElement;
+        PreToolUseHookInput input1 = new()
         {
             SessionId = "session",
             TranscriptPath = "/path",
@@ -1570,7 +1497,7 @@ public class HookTypesTests
             ToolInput = toolInput
         };
 
-        var input2 = new PreToolUseHookInput
+        PreToolUseHookInput input2 = new()
         {
             SessionId = "session",
             TranscriptPath = "/path",
@@ -1583,10 +1510,6 @@ public class HookTypesTests
         Assert.Equal(input1, input2);
     }
 
-    #endregion
-
-    #region Callback Delegate Tests
-
     [Fact]
     public async Task HookCallback_CanBeInvoked()
     {
@@ -1595,7 +1518,7 @@ public class HookTypesTests
             return Task.FromResult<HookOutput>(new SyncHookOutput { Continue = true });
         };
 
-        var hookInput = new PreToolUseHookInput
+        PreToolUseHookInput hookInput = new()
         {
             SessionId = "session",
             TranscriptPath = "/path",
@@ -1604,10 +1527,10 @@ public class HookTypesTests
             ToolInput = JsonDocument.Parse("{}").RootElement
         };
 
-        var result = await callback(hookInput, "tool-use-123", new HookContext());
+        HookOutput result = await callback(hookInput, "tool-use-123", new HookContext());
 
         Assert.NotNull(result);
-        var syncResult = Assert.IsType<SyncHookOutput>(result);
+        SyncHookOutput syncResult = Assert.IsType<SyncHookOutput>(result);
         Assert.True(syncResult.Continue);
     }
 
@@ -1626,7 +1549,7 @@ public class HookTypesTests
             return Task.FromResult<HookOutput>(new SyncHookOutput());
         };
 
-        var hookInput = new UserPromptSubmitHookInput
+        UserPromptSubmitHookInput hookInput = new()
         {
             SessionId = "test-session",
             TranscriptPath = "/test/path",
@@ -1634,7 +1557,7 @@ public class HookTypesTests
             Prompt = "Test prompt"
         };
 
-        var hookContext = new HookContext();
+        HookContext hookContext = new();
 
         await callback(hookInput, "test-tool-use-id", hookContext);
 
@@ -1651,7 +1574,7 @@ public class HookTypesTests
             return Task.FromResult<HookOutput>(new AsyncHookOutput { AsyncTimeout = 10000 });
         };
 
-        var hookInput = new StopHookInput
+        StopHookInput hookInput = new()
         {
             SessionId = "session",
             TranscriptPath = "/path",
@@ -1659,7 +1582,7 @@ public class HookTypesTests
             StopHookActive = true
         };
 
-        var result = await callback(hookInput, null, new HookContext());
+        HookOutput result = await callback(hookInput, null, new HookContext());
 
         Assert.IsType<AsyncHookOutput>(result);
         Assert.Equal(10000, ((AsyncHookOutput)result).AsyncTimeout);
@@ -1668,8 +1591,8 @@ public class HookTypesTests
     [Fact]
     public async Task HookCallback_SupportsCancellation()
     {
-        var cts = new CancellationTokenSource();
-        var wasCancellationTokenPassed = false;
+        CancellationTokenSource cts = new();
+        bool wasCancellationTokenPassed = false;
 
         HookCallback callback = (input, toolUseId, context, ct) =>
         {
@@ -1677,7 +1600,7 @@ public class HookTypesTests
             return Task.FromResult<HookOutput>(new SyncHookOutput());
         };
 
-        var hookInput = new NotificationHookInput
+        NotificationHookInput hookInput = new()
         {
             SessionId = "session",
             TranscriptPath = "/path",
@@ -1702,7 +1625,7 @@ public class HookTypesTests
             return Task.FromResult<HookOutput>(new SyncHookOutput());
         };
 
-        var hookInput = new SessionStartHookInput
+        SessionStartHookInput hookInput = new()
         {
             SessionId = "session",
             TranscriptPath = "/path",
@@ -1715,14 +1638,10 @@ public class HookTypesTests
         Assert.Null(receivedToolUseId);
     }
 
-    #endregion
-
-    #region Serialization Round-Trip Tests
-
     [Fact]
     public void RoundTrip_SyncHookOutput_PreservesData()
     {
-        var original = new SyncHookOutput
+        SyncHookOutput original = new()
         {
             Continue = true,
             SuppressOutput = false,
@@ -1731,8 +1650,8 @@ public class HookTypesTests
             SystemMessage = "Test message"
         };
 
-        var json = JsonSerializer.Serialize(original, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<SyncHookOutput>(json, JsonOptions);
+        string json = JsonSerializer.Serialize(original, JsonOptions);
+        SyncHookOutput? deserialized = JsonSerializer.Deserialize<SyncHookOutput>(json, JsonOptions);
 
         Assert.NotNull(deserialized);
         Assert.Equal(original.Continue, deserialized.Continue);
@@ -1745,10 +1664,10 @@ public class HookTypesTests
     [Fact]
     public void RoundTrip_AsyncHookOutput_PreservesData()
     {
-        var original = new AsyncHookOutput { AsyncTimeout = 30000 };
+        AsyncHookOutput original = new() { AsyncTimeout = 30000 };
 
-        var json = JsonSerializer.Serialize(original, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<AsyncHookOutput>(json, JsonOptions);
+        string json = JsonSerializer.Serialize(original, JsonOptions);
+        AsyncHookOutput? deserialized = JsonSerializer.Deserialize<AsyncHookOutput>(json, JsonOptions);
 
         Assert.NotNull(deserialized);
         Assert.Equal(original.AsyncTimeout, deserialized.AsyncTimeout);
@@ -1757,7 +1676,7 @@ public class HookTypesTests
     [Fact]
     public void RoundTrip_HookMatcher_PreservesData()
     {
-        var original = new HookMatcher
+        HookMatcher original = new()
         {
             Matcher = "Bash|Write",
             Hooks = Array.Empty<HookCallback>(),
@@ -1765,11 +1684,9 @@ public class HookTypesTests
         };
 
         // Note: Hooks (delegates) cannot be serialized, so we only test serializable properties
-        var json = JsonSerializer.Serialize(new { original.Matcher, original.Timeout }, JsonOptions);
+        string json = JsonSerializer.Serialize(new { original.Matcher, original.Timeout }, JsonOptions);
 
         Assert.Contains("\"matcher\":", json);
         Assert.Contains("\"timeout\":", json);
     }
-
-    #endregion
 }

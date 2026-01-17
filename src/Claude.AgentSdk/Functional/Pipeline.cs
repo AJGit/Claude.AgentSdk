@@ -8,12 +8,12 @@ namespace Claude.AgentSdk.Functional;
 /// <typeparam name="TOutput">The output type.</typeparam>
 /// <remarks>
 ///     <para>
-///     Pipeline enables composing multiple operations that may fail,
-///     with automatic short-circuiting on errors.
+///         Pipeline enables composing multiple operations that may fail,
+///         with automatic short-circuiting on errors.
 ///     </para>
 ///     <para>
-///     Example usage:
-///     <code>
+///         Example usage:
+///         <code>
 ///     var pipeline = Pipeline
 ///         .Start&lt;string&gt;()
 ///         .Then(ValidateInput)
@@ -21,7 +21,7 @@ namespace Claude.AgentSdk.Functional;
 ///         .Then(TransformData)
 ///         .ThenTap(LogSuccess)
 ///         .Catch(error => $"Pipeline failed: {error}");
-///
+/// 
 ///     Result&lt;OutputData&gt; result = pipeline.Run(inputString);
 ///     </code>
 ///     </para>
@@ -83,7 +83,10 @@ public sealed class Pipeline<TInput, TOutput>
         {
             var result = _execute(input);
             if (result.IsFailure)
+            {
                 return result;
+            }
+
             return predicate(result.Value)
                 ? result
                 : Result.Failure<TOutput>(errorFactory(result.Value));
@@ -113,7 +116,10 @@ public sealed class Pipeline<TInput, TOutput>
         {
             var result = _execute(input);
             if (result.IsFailure)
+            {
                 return result;
+            }
+
             return condition(result.Value)
                 ? Result.Success(transform(result.Value))
                 : result;
@@ -280,7 +286,10 @@ public sealed class PipelineAsync<TInput, TOutput>
         {
             var result = await _execute(input).ConfigureAwait(false);
             if (result.IsFailure)
+            {
                 return result;
+            }
+
             return await predicate(result.Value).ConfigureAwait(false)
                 ? result
                 : Result.Failure<TOutput>(errorIfFalse);
@@ -310,7 +319,10 @@ public sealed class PipelineAsync<TInput, TOutput>
         {
             var result = await _execute(input).ConfigureAwait(false);
             if (result.IsSuccess)
+            {
                 await action(result.Value).ConfigureAwait(false);
+            }
+
             return result;
         });
     }
@@ -465,7 +477,10 @@ public static class Pipeline
             {
                 var result = pipeline.Run(input);
                 if (result.IsSuccess)
+                {
                     return result;
+                }
+
                 errors.Add(result.Error);
             }
 

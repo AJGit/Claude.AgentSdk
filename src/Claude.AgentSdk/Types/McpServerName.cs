@@ -1,4 +1,4 @@
-namespace Claude.AgentSdk.Types;
+﻿namespace Claude.AgentSdk.Types;
 
 /// <summary>
 ///     Strongly-typed MCP server name identifier.
@@ -6,15 +6,15 @@ namespace Claude.AgentSdk.Types;
 /// </summary>
 /// <remarks>
 ///     <para>
-///     SDK servers can be created using the <see cref="Sdk"/> factory method.
-///     Implicit conversions allow seamless migration from string-based server names.
+///         SDK servers can be created using the <see cref="Sdk" /> factory method.
+///         Implicit conversions allow seamless migration from string-based server names.
 ///     </para>
 ///     <para>
-///     Example usage:
-///     <code>
+///         Example usage:
+///         <code>
 ///     // Old way (still works)
 ///     var serverName = "excel-tools";
-///
+/// 
 ///     // New strongly-typed way
 ///     var serverName = McpServerName.Sdk("excel-tools");
 ///     </code>
@@ -38,8 +38,6 @@ public readonly struct McpServerName : IEquatable<McpServerName>
     /// </summary>
     public string Value => _value ?? string.Empty;
 
-    #region Factory Methods
-
     /// <summary>
     ///     Creates a server name for an SDK-defined MCP server.
     /// </summary>
@@ -48,7 +46,9 @@ public readonly struct McpServerName : IEquatable<McpServerName>
     public static McpServerName Sdk(string name)
     {
         if (string.IsNullOrEmpty(name))
+        {
             throw new ArgumentException("Server name cannot be null or empty.", nameof(name));
+        }
 
         return new McpServerName(name);
     }
@@ -68,10 +68,6 @@ public readonly struct McpServerName : IEquatable<McpServerName>
     public static McpServerName? FromNullable(string? name) =>
         name is null ? (McpServerName?)null : new McpServerName(name);
 
-    #endregion
-
-    #region Tool Name Helpers
-
     /// <summary>
     ///     Creates a tool name for a tool on this MCP server.
     /// </summary>
@@ -80,7 +76,9 @@ public readonly struct McpServerName : IEquatable<McpServerName>
     public ToolName Tool(string toolName)
     {
         if (string.IsNullOrEmpty(toolName))
+        {
             throw new ArgumentException("Tool name cannot be null or empty.", nameof(toolName));
+        }
 
         return ToolName.Mcp(this, toolName);
     }
@@ -93,19 +91,18 @@ public readonly struct McpServerName : IEquatable<McpServerName>
     public ToolName[] Tools(params string[] toolNames)
     {
         if (toolNames is null)
+        {
             throw new ArgumentNullException(nameof(toolNames));
+        }
 
         var result = new ToolName[toolNames.Length];
         for (var i = 0; i < toolNames.Length; i++)
         {
             result[i] = Tool(toolNames[i]);
         }
+
         return result;
     }
-
-    #endregion
-
-    #region Implicit Conversions
 
     /// <summary>
     ///     Implicitly converts a string to an McpServerName for backward compatibility.
@@ -116,10 +113,6 @@ public readonly struct McpServerName : IEquatable<McpServerName>
     ///     Implicitly converts an McpServerName to a string.
     /// </summary>
     public static implicit operator string(McpServerName server) => server.Value;
-
-    #endregion
-
-    #region Equality
 
     /// <inheritdoc />
     public bool Equals(McpServerName other) =>
@@ -144,8 +137,6 @@ public readonly struct McpServerName : IEquatable<McpServerName>
     /// </summary>
     public static bool operator !=(McpServerName left, McpServerName right) =>
         !left.Equals(right);
-
-    #endregion
 
     /// <inheritdoc />
     public override string ToString() => _value ?? string.Empty;

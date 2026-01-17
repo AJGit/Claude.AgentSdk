@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -19,17 +19,19 @@ public sealed class SchemaSourceGenerator : IIncrementalGenerator
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         // Find all types with [GenerateSchema]
-        var typeDeclarations = context.SyntaxProvider
+        IncrementalValuesProvider<TypeDeclarationSyntax?> typeDeclarations = context.SyntaxProvider
             .CreateSyntaxProvider(
-                predicate: static (s, _) => IsCandidateType(s),
-                transform: static (ctx, _) => GetSemanticTargetForGeneration(ctx))
+                static (s, _) => IsCandidateType(s),
+                static (ctx, _) => GetSemanticTargetForGeneration(ctx))
             .Where(static m => m is not null);
 
         // Combine with compilation
-        var compilationAndTypes = context.CompilationProvider.Combine(typeDeclarations.Collect());
+        IncrementalValueProvider<(Compilation Left, ImmutableArray<TypeDeclarationSyntax?> Right)> compilationAndTypes =
+            context.CompilationProvider.Combine(typeDeclarations.Collect());
 
         // Generate source
-        context.RegisterSourceOutput(compilationAndTypes, static (spc, source) => Execute(source.Left, source.Right!, spc));
+        context.RegisterSourceOutput(compilationAndTypes,
+            static (spc, source) => Execute(source.Left, source.Right!, spc));
     }
 
     private static bool IsCandidateType(SyntaxNode node)
@@ -39,16 +41,16 @@ public sealed class SchemaSourceGenerator : IIncrementalGenerator
 
     private static TypeDeclarationSyntax? GetSemanticTargetForGeneration(GeneratorSyntaxContext context)
     {
-        var typeDeclaration = (TypeDeclarationSyntax)context.Node;
+        TypeDeclarationSyntax typeDeclaration = (TypeDeclarationSyntax)context.Node;
 
-        foreach (var attributeList in typeDeclaration.AttributeLists)
+        foreach (AttributeListSyntax attributeList in typeDeclaration.AttributeLists)
         {
-            foreach (var attribute in attributeList.Attributes)
+            foreach (AttributeSyntax attribute in attributeList.Attributes)
             {
-                var symbol = context.SemanticModel.GetSymbolInfo(attribute).Symbol;
+                ISymbol? symbol = context.SemanticModel.GetSymbolInfo(attribute).Symbol;
                 if (symbol is IMethodSymbol methodSymbol)
                 {
-                    var attributeType = methodSymbol.ContainingType.ToDisplayString();
+                    string attributeType = methodSymbol.ContainingType.ToDisplayString();
                     if (attributeType == GenerateSchemaAttribute)
                     {
                         return typeDeclaration;
@@ -60,42 +62,43 @@ public sealed class SchemaSourceGenerator : IIncrementalGenerator
         return null;
     }
 
-    private static void Execute(Compilation compilation, ImmutableArray<TypeDeclarationSyntax?> types, SourceProductionContext context)
+    private static void Execute(Compilation compilation, ImmutableArray<TypeDeclarationSyntax?> types,
+        SourceProductionContext context)
     {
         if (types.IsDefaultOrEmpty)
         {
             return;
         }
 
-        foreach (var typeDeclaration in types.Distinct())
+        foreach (TypeDeclarationSyntax? typeDeclaration in types.Distinct())
         {
             if (typeDeclaration is null)
             {
                 continue;
             }
 
-            var semanticModel = compilation.GetSemanticModel(typeDeclaration.SyntaxTree);
-            var typeSymbol = semanticModel.GetDeclaredSymbol(typeDeclaration);
+            SemanticModel semanticModel = compilation.GetSemanticModel(typeDeclaration.SyntaxTree);
+            INamedTypeSymbol? typeSymbol = semanticModel.GetDeclaredSymbol(typeDeclaration);
 
             if (typeSymbol is null)
             {
                 continue;
             }
 
-            var source = GenerateSchemaExtension(typeSymbol);
+            string source = GenerateSchemaExtension(typeSymbol);
             context.AddSource($"{typeSymbol.Name}SchemaExtensions.g.cs", SourceText.From(source, Encoding.UTF8));
         }
     }
 
     private static string GenerateSchemaExtension(INamedTypeSymbol typeSymbol)
     {
-        var typeName = typeSymbol.Name;
-        var typeNamespace = typeSymbol.ContainingNamespace.ToDisplayString();
-        var fullTypeName = typeSymbol.ToDisplayString();
+        string typeName = typeSymbol.Name;
+        string typeNamespace = typeSymbol.ContainingNamespace.ToDisplayString();
+        string fullTypeName = typeSymbol.ToDisplayString();
 
-        var schemaJson = GenerateSchemaJson(typeSymbol);
+        string schemaJson = GenerateSchemaJson(typeSymbol);
 
-        var sb = new StringBuilder();
+        StringBuilder sb = new();
         sb.AppendLine("// <auto-generated />");
         sb.AppendLine("#nullable enable");
         sb.AppendLine();
@@ -126,7 +129,8 @@ public sealed class SchemaSourceGenerator : IIncrementalGenerator
         sb.AppendLine("    }");
         sb.AppendLine();
         sb.AppendLine("    /// <summary>");
-        sb.AppendLine($"    ///     Gets the JSON schema for <see cref=\"{typeName}\"/> as a JsonElement (static version).");
+        sb.AppendLine(
+            $"    ///     Gets the JSON schema for <see cref=\"{typeName}\"/> as a JsonElement (static version).");
         sb.AppendLine("    /// </summary>");
         sb.AppendLine("    public static JsonElement GetSchemaElement()");
         sb.AppendLine("    {");
@@ -140,64 +144,65 @@ public sealed class SchemaSourceGenerator : IIncrementalGenerator
 
     private static string GenerateSchemaJson(INamedTypeSymbol typeSymbol)
     {
-        var properties = new List<(string name, string type, bool required)>();
+        List<(string name, string type, bool required)> properties = [];
 
         // Check if it's a record with primary constructor
         if (typeSymbol.IsRecord)
         {
             // For records, get parameters from the primary constructor
-            var primaryConstructor = typeSymbol.InstanceConstructors
+            IMethodSymbol? primaryConstructor = typeSymbol.InstanceConstructors
                 .FirstOrDefault(c => c.Parameters.Length > 0 && !c.IsImplicitlyDeclared);
 
             if (primaryConstructor != null)
             {
-                foreach (var param in primaryConstructor.Parameters)
+                foreach (IParameterSymbol? param in primaryConstructor.Parameters)
                 {
-                    var jsonType = GetJsonSchemaType(param.Type);
-                    var required = !param.HasExplicitDefaultValue &&
-                                   param.Type.NullableAnnotation != NullableAnnotation.Annotated;
+                    string jsonType = GetJsonSchemaType(param.Type);
+                    bool required = !param.HasExplicitDefaultValue &&
+                                    param.Type.NullableAnnotation != NullableAnnotation.Annotated;
                     properties.Add((ToCamelCase(param.Name), jsonType, required));
                 }
             }
         }
 
         // Also get public properties
-        foreach (var member in typeSymbol.GetMembers())
+        foreach (ISymbol? member in typeSymbol.GetMembers())
         {
-            if (member is IPropertySymbol property &&
-                property.DeclaredAccessibility == Accessibility.Public &&
-                !property.IsStatic &&
-                property.GetMethod != null)
+            if (member is IPropertySymbol { DeclaredAccessibility: Accessibility.Public, IsStatic: false, GetMethod: not null } property)
             {
                 // Skip if already added from constructor
-                var camelName = ToCamelCase(property.Name);
+                string camelName = ToCamelCase(property.Name);
                 if (properties.Any(p => p.name == camelName))
                 {
                     continue;
                 }
 
-                var jsonType = GetJsonSchemaType(property.Type);
-                var required = property.Type.NullableAnnotation != NullableAnnotation.Annotated &&
-                               !property.Type.IsValueType;
+                string jsonType = GetJsonSchemaType(property.Type);
+                bool required = property.Type.NullableAnnotation != NullableAnnotation.Annotated &&
+                                !property.Type.IsValueType;
                 properties.Add((camelName, jsonType, required));
             }
         }
 
         // Build JSON schema
-        var sb = new StringBuilder();
+        StringBuilder sb = new();
         sb.Append("{\"type\":\"object\",\"properties\":{");
 
-        var first = true;
-        foreach (var (name, type, _) in properties)
+        bool first = true;
+        foreach ((string name, string type, bool _) in properties)
         {
-            if (!first) sb.Append(',');
+            if (!first)
+            {
+                sb.Append(',');
+            }
+
             sb.Append($"\"{name}\":{{\"type\":\"{type}\"}}");
             first = false;
         }
 
         sb.Append("},\"required\":[");
 
-        var requiredProps = properties.Where(p => p.required).Select(p => $"\"{p.name}\"");
+        IEnumerable<string> requiredProps = properties.Where(p => p.required).Select(p => $"\"{p.name}\"");
         sb.Append(string.Join(",", requiredProps));
 
         sb.Append("]}");
@@ -210,14 +215,13 @@ public sealed class SchemaSourceGenerator : IIncrementalGenerator
         // Handle nullable types
         if (type.NullableAnnotation == NullableAnnotation.Annotated)
         {
-            if (type is INamedTypeSymbol { IsGenericType: true } namedType &&
-                namedType.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T)
+            if (type is INamedTypeSymbol { IsGenericType: true, OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } namedType)
             {
                 return GetJsonSchemaType(namedType.TypeArguments[0]);
             }
         }
 
-        var typeName = type.ToDisplayString();
+        string typeName = type.ToDisplayString();
 
         return typeName switch
         {
@@ -240,13 +244,14 @@ public sealed class SchemaSourceGenerator : IIncrementalGenerator
     {
         if (type is INamedTypeSymbol namedType)
         {
-            var fullName = namedType.OriginalDefinition.ToDisplayString();
+            string fullName = namedType.OriginalDefinition.ToDisplayString();
             return fullName.StartsWith("System.Collections.Generic.IEnumerable<") ||
                    fullName.StartsWith("System.Collections.Generic.IList<") ||
                    fullName.StartsWith("System.Collections.Generic.List<") ||
                    fullName.StartsWith("System.Collections.Generic.IReadOnlyList<") ||
                    fullName.StartsWith("System.Collections.Generic.ICollection<");
         }
+
         return false;
     }
 

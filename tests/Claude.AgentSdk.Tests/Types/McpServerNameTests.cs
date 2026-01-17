@@ -1,4 +1,4 @@
-using Claude.AgentSdk.Types;
+﻿using Claude.AgentSdk.Types;
 
 namespace Claude.AgentSdk.Tests.Types;
 
@@ -8,8 +8,6 @@ namespace Claude.AgentSdk.Tests.Types;
 [UnitTest]
 public class McpServerNameTests
 {
-    #region Constructor Tests
-
     [Fact]
     public void Constructor_WithValidValue_SetsValue()
     {
@@ -36,10 +34,6 @@ public class McpServerNameTests
         // Act & Assert
         Assert.Equal(string.Empty, server.Value);
     }
-
-    #endregion
-
-    #region Factory Method Tests
 
     [Fact]
     public void Sdk_WithValidName_ReturnsServerName()
@@ -95,10 +89,6 @@ public class McpServerNameTests
         // Assert
         Assert.Null(server);
     }
-
-    #endregion
-
-    #region Tool Name Helper Tests
 
     [Fact]
     public void Tool_WithValidName_ReturnsCorrectToolName()
@@ -172,10 +162,6 @@ public class McpServerNameTests
         Assert.Empty(tools);
     }
 
-    #endregion
-
-    #region Implicit Conversion Tests
-
     [Fact]
     public void ImplicitConversion_FromString_CreatesServerName()
     {
@@ -198,10 +184,6 @@ public class McpServerNameTests
         // Assert
         Assert.Equal("my-server", value);
     }
-
-    #endregion
-
-    #region Equality Tests
 
     [Fact]
     public void Equals_WithSameValue_ReturnsTrue()
@@ -265,10 +247,6 @@ public class McpServerNameTests
         Assert.Equal(0, server.GetHashCode());
     }
 
-    #endregion
-
-    #region ToString Tests
-
     [Fact]
     public void ToString_ReturnsValue()
     {
@@ -288,6 +266,4 @@ public class McpServerNameTests
         // Act & Assert
         Assert.Equal(string.Empty, server.ToString());
     }
-
-    #endregion
 }

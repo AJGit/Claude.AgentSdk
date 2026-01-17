@@ -1,21 +1,19 @@
+﻿using System.Reflection;
 using Claude.AgentSdk.Exceptions;
-using Xunit;
 
 namespace Claude.AgentSdk.Tests.Exceptions;
 
 /// <summary>
-/// Comprehensive tests for Claude Agent SDK exception types.
+///     Comprehensive tests for Claude Agent SDK exception types.
 /// </summary>
 public class ExceptionTests
 {
-    #region ClaudeAgentException Tests
-
     [Fact]
     public void ClaudeAgentException_ConstructedWithMessage_HasCorrectMessage()
     {
         const string expectedMessage = "Test error message";
 
-        var exception = new ClaudeAgentException(expectedMessage);
+        ClaudeAgentException exception = new(expectedMessage);
 
         Assert.Equal(expectedMessage, exception.Message);
         Assert.Null(exception.InnerException);
@@ -25,9 +23,9 @@ public class ExceptionTests
     public void ClaudeAgentException_ConstructedWithMessageAndInnerException_HasBoth()
     {
         const string expectedMessage = "Outer error message";
-        var innerException = new InvalidOperationException("Inner error");
+        InvalidOperationException innerException = new("Inner error");
 
-        var exception = new ClaudeAgentException(expectedMessage, innerException);
+        ClaudeAgentException exception = new(expectedMessage, innerException);
 
         Assert.Equal(expectedMessage, exception.Message);
         Assert.Same(innerException, exception.InnerException);
@@ -36,7 +34,7 @@ public class ExceptionTests
     [Fact]
     public void ClaudeAgentException_InheritsFromException()
     {
-        var exception = new ClaudeAgentException("Test message");
+        ClaudeAgentException exception = new("Test message");
 
         Assert.IsAssignableFrom<Exception>(exception);
     }
@@ -48,21 +46,17 @@ public class ExceptionTests
     [InlineData("Multi\nline\nerror\nmessage")]
     public void ClaudeAgentException_VariousMessages_PreservesMessage(string message)
     {
-        var exception = new ClaudeAgentException(message);
+        ClaudeAgentException exception = new(message);
 
         Assert.Equal(message, exception.Message);
     }
-
-    #endregion
-
-    #region TransportException Tests
 
     [Fact]
     public void TransportException_ConstructedWithMessage_HasCorrectMessage()
     {
         const string expectedMessage = "Transport layer failed";
 
-        var exception = new TransportException(expectedMessage);
+        TransportException exception = new(expectedMessage);
 
         Assert.Equal(expectedMessage, exception.Message);
         Assert.Null(exception.InnerException);
@@ -72,9 +66,9 @@ public class ExceptionTests
     public void TransportException_ConstructedWithMessageAndInnerException_HasBoth()
     {
         const string expectedMessage = "Transport error occurred";
-        var innerException = new IOException("Network error");
+        IOException innerException = new("Network error");
 
-        var exception = new TransportException(expectedMessage, innerException);
+        TransportException exception = new(expectedMessage, innerException);
 
         Assert.Equal(expectedMessage, exception.Message);
         Assert.Same(innerException, exception.InnerException);
@@ -83,7 +77,7 @@ public class ExceptionTests
     [Fact]
     public void TransportException_InheritsFromClaudeAgentException()
     {
-        var exception = new TransportException("Test message");
+        TransportException exception = new("Test message");
 
         Assert.IsAssignableFrom<ClaudeAgentException>(exception);
     }
@@ -91,7 +85,7 @@ public class ExceptionTests
     [Fact]
     public void TransportException_InheritsFromException()
     {
-        var exception = new TransportException("Test message");
+        TransportException exception = new("Test message");
 
         Assert.IsAssignableFrom<Exception>(exception);
     }
@@ -102,21 +96,17 @@ public class ExceptionTests
     [InlineData("Stream closed unexpectedly")]
     public void TransportException_TransportRelatedMessages_PreservesMessage(string message)
     {
-        var exception = new TransportException(message);
+        TransportException exception = new(message);
 
         Assert.Equal(message, exception.Message);
     }
-
-    #endregion
-
-    #region CliNotFoundException Tests
 
     [Fact]
     public void CliNotFoundException_ConstructedWithMessage_HasCorrectMessage()
     {
         const string expectedMessage = "Claude CLI not found at /usr/bin/claude";
 
-        var exception = new CliNotFoundException(expectedMessage);
+        CliNotFoundException exception = new(expectedMessage);
 
         Assert.Equal(expectedMessage, exception.Message);
     }
@@ -124,7 +114,7 @@ public class ExceptionTests
     [Fact]
     public void CliNotFoundException_InheritsFromTransportException()
     {
-        var exception = new CliNotFoundException("CLI not found");
+        CliNotFoundException exception = new("CLI not found");
 
         Assert.IsAssignableFrom<TransportException>(exception);
     }
@@ -132,7 +122,7 @@ public class ExceptionTests
     [Fact]
     public void CliNotFoundException_InheritsFromClaudeAgentException()
     {
-        var exception = new CliNotFoundException("CLI not found");
+        CliNotFoundException exception = new("CLI not found");
 
         Assert.IsAssignableFrom<ClaudeAgentException>(exception);
     }
@@ -140,7 +130,7 @@ public class ExceptionTests
     [Fact]
     public void CliNotFoundException_InheritsFromException()
     {
-        var exception = new CliNotFoundException("CLI not found");
+        CliNotFoundException exception = new("CLI not found");
 
         Assert.IsAssignableFrom<Exception>(exception);
     }
@@ -151,21 +141,17 @@ public class ExceptionTests
     [InlineData("Executable 'claude.exe' does not exist")]
     public void CliNotFoundException_VariousMessages_PreservesMessage(string message)
     {
-        var exception = new CliNotFoundException(message);
+        CliNotFoundException exception = new(message);
 
         Assert.Equal(message, exception.Message);
     }
-
-    #endregion
-
-    #region CliProcessException Tests
 
     [Fact]
     public void CliProcessException_ConstructedWithMessageOnly_HasCorrectMessageAndNullExitCode()
     {
         const string expectedMessage = "CLI process failed";
 
-        var exception = new CliProcessException(expectedMessage);
+        CliProcessException exception = new(expectedMessage);
 
         Assert.Equal(expectedMessage, exception.Message);
         Assert.Null(exception.ExitCode);
@@ -177,7 +163,7 @@ public class ExceptionTests
         const string expectedMessage = "CLI process exited with error";
         const int expectedExitCode = 1;
 
-        var exception = new CliProcessException(expectedMessage, expectedExitCode);
+        CliProcessException exception = new(expectedMessage, expectedExitCode);
 
         Assert.Equal(expectedMessage, exception.Message);
         Assert.Equal(expectedExitCode, exception.ExitCode);
@@ -186,7 +172,7 @@ public class ExceptionTests
     [Fact]
     public void CliProcessException_WithExitCodeNull_ExitCodeIsNull()
     {
-        var exception = new CliProcessException("Process failed", null);
+        CliProcessException exception = new("Process failed");
 
         Assert.Null(exception.ExitCode);
     }
@@ -194,7 +180,7 @@ public class ExceptionTests
     [Fact]
     public void CliProcessException_InheritsFromTransportException()
     {
-        var exception = new CliProcessException("Process failed");
+        CliProcessException exception = new("Process failed");
 
         Assert.IsAssignableFrom<TransportException>(exception);
     }
@@ -202,7 +188,7 @@ public class ExceptionTests
     [Fact]
     public void CliProcessException_InheritsFromClaudeAgentException()
     {
-        var exception = new CliProcessException("Process failed");
+        CliProcessException exception = new("Process failed");
 
         Assert.IsAssignableFrom<ClaudeAgentException>(exception);
     }
@@ -210,7 +196,7 @@ public class ExceptionTests
     [Fact]
     public void CliProcessException_InheritsFromException()
     {
-        var exception = new CliProcessException("Process failed");
+        CliProcessException exception = new("Process failed");
 
         Assert.IsAssignableFrom<Exception>(exception);
     }
@@ -225,7 +211,7 @@ public class ExceptionTests
     [InlineData(int.MinValue)]
     public void CliProcessException_VariousExitCodes_PreservesExitCode(int exitCode)
     {
-        var exception = new CliProcessException("Process exited", exitCode);
+        CliProcessException exception = new("Process exited", exitCode);
 
         Assert.Equal(exitCode, exception.ExitCode);
     }
@@ -236,22 +222,18 @@ public class ExceptionTests
     [InlineData("Process exited with success but no output", 0)]
     public void CliProcessException_VariousMessagesAndExitCodes_PreservesBoth(string message, int exitCode)
     {
-        var exception = new CliProcessException(message, exitCode);
+        CliProcessException exception = new(message, exitCode);
 
         Assert.Equal(message, exception.Message);
         Assert.Equal(exitCode, exception.ExitCode);
     }
-
-    #endregion
-
-    #region ProtocolException Tests
 
     [Fact]
     public void ProtocolException_ConstructedWithMessage_HasCorrectMessage()
     {
         const string expectedMessage = "Protocol error occurred";
 
-        var exception = new ProtocolException(expectedMessage);
+        ProtocolException exception = new(expectedMessage);
 
         Assert.Equal(expectedMessage, exception.Message);
         Assert.Null(exception.InnerException);
@@ -261,9 +243,9 @@ public class ExceptionTests
     public void ProtocolException_ConstructedWithMessageAndInnerException_HasBoth()
     {
         const string expectedMessage = "Protocol handshake failed";
-        var innerException = new FormatException("Invalid format");
+        FormatException innerException = new("Invalid format");
 
-        var exception = new ProtocolException(expectedMessage, innerException);
+        ProtocolException exception = new(expectedMessage, innerException);
 
         Assert.Equal(expectedMessage, exception.Message);
         Assert.Same(innerException, exception.InnerException);
@@ -272,7 +254,7 @@ public class ExceptionTests
     [Fact]
     public void ProtocolException_InheritsFromClaudeAgentException()
     {
-        var exception = new ProtocolException("Protocol error");
+        ProtocolException exception = new("Protocol error");
 
         Assert.IsAssignableFrom<ClaudeAgentException>(exception);
     }
@@ -280,7 +262,7 @@ public class ExceptionTests
     [Fact]
     public void ProtocolException_InheritsFromException()
     {
-        var exception = new ProtocolException("Protocol error");
+        ProtocolException exception = new("Protocol error");
 
         Assert.IsAssignableFrom<Exception>(exception);
     }
@@ -291,14 +273,10 @@ public class ExceptionTests
     [InlineData("Protocol version mismatch")]
     public void ProtocolException_ProtocolRelatedMessages_PreservesMessage(string message)
     {
-        var exception = new ProtocolException(message);
+        ProtocolException exception = new(message);
 
         Assert.Equal(message, exception.Message);
     }
-
-    #endregion
-
-    #region ControlTimeoutException Tests
 
     [Fact]
     public void ControlTimeoutException_ConstructedWithRequestIdAndMessage_HasBoth()
@@ -306,7 +284,7 @@ public class ExceptionTests
         const string expectedRequestId = "req-12345";
         const string expectedMessage = "Request timed out after 30 seconds";
 
-        var exception = new ControlTimeoutException(expectedRequestId, expectedMessage);
+        ControlTimeoutException exception = new(expectedRequestId, expectedMessage);
 
         Assert.Equal(expectedRequestId, exception.RequestId);
         Assert.Equal(expectedMessage, exception.Message);
@@ -315,7 +293,7 @@ public class ExceptionTests
     [Fact]
     public void ControlTimeoutException_InheritsFromProtocolException()
     {
-        var exception = new ControlTimeoutException("req-1", "Timeout");
+        ControlTimeoutException exception = new("req-1", "Timeout");
 
         Assert.IsAssignableFrom<ProtocolException>(exception);
     }
@@ -323,7 +301,7 @@ public class ExceptionTests
     [Fact]
     public void ControlTimeoutException_InheritsFromClaudeAgentException()
     {
-        var exception = new ControlTimeoutException("req-1", "Timeout");
+        ControlTimeoutException exception = new("req-1", "Timeout");
 
         Assert.IsAssignableFrom<ClaudeAgentException>(exception);
     }
@@ -331,7 +309,7 @@ public class ExceptionTests
     [Fact]
     public void ControlTimeoutException_InheritsFromException()
     {
-        var exception = new ControlTimeoutException("req-1", "Timeout");
+        ControlTimeoutException exception = new("req-1", "Timeout");
 
         Assert.IsAssignableFrom<Exception>(exception);
     }
@@ -343,7 +321,7 @@ public class ExceptionTests
     [InlineData("00000000-0000-0000-0000-000000000000", "UUID-style request ID")]
     public void ControlTimeoutException_VariousRequestIds_PreservesRequestId(string requestId, string message)
     {
-        var exception = new ControlTimeoutException(requestId, message);
+        ControlTimeoutException exception = new(requestId, message);
 
         Assert.Equal(requestId, exception.RequestId);
         Assert.Equal(message, exception.Message);
@@ -352,23 +330,19 @@ public class ExceptionTests
     [Fact]
     public void ControlTimeoutException_RequestIdProperty_IsReadOnly()
     {
-        var exception = new ControlTimeoutException("req-1", "Timeout");
-        var property = typeof(ControlTimeoutException).GetProperty("RequestId");
+        ControlTimeoutException exception = new("req-1", "Timeout");
+        PropertyInfo? property = typeof(ControlTimeoutException).GetProperty("RequestId");
 
         Assert.NotNull(property);
         Assert.False(property!.CanWrite, "RequestId should be read-only");
     }
-
-    #endregion
-
-    #region MessageParseException Tests
 
     [Fact]
     public void MessageParseException_ConstructedWithMessageOnly_HasCorrectMessageAndNullRawMessage()
     {
         const string expectedMessage = "Failed to parse message";
 
-        var exception = new MessageParseException(expectedMessage);
+        MessageParseException exception = new(expectedMessage);
 
         Assert.Equal(expectedMessage, exception.Message);
         Assert.Null(exception.RawMessage);
@@ -381,7 +355,7 @@ public class ExceptionTests
         const string expectedMessage = "Invalid JSON structure";
         const string expectedRawMessage = "{invalid json}";
 
-        var exception = new MessageParseException(expectedMessage, expectedRawMessage);
+        MessageParseException exception = new(expectedMessage, expectedRawMessage);
 
         Assert.Equal(expectedMessage, exception.Message);
         Assert.Equal(expectedRawMessage, exception.RawMessage);
@@ -392,10 +366,10 @@ public class ExceptionTests
     public void MessageParseException_ConstructedWithMessageAndInnerExceptionAndRawMessage_HasAll()
     {
         const string expectedMessage = "JSON parsing failed";
-        var innerException = new JsonException("Unexpected token");
+        JsonException innerException = new("Unexpected token");
         const string expectedRawMessage = "{\"broken\": }";
 
-        var exception = new MessageParseException(expectedMessage, innerException, expectedRawMessage);
+        MessageParseException exception = new(expectedMessage, innerException, expectedRawMessage);
 
         Assert.Equal(expectedMessage, exception.Message);
         Assert.Same(innerException, exception.InnerException);
@@ -406,9 +380,9 @@ public class ExceptionTests
     public void MessageParseException_ConstructedWithMessageAndInnerExceptionAndNullRawMessage_HasCorrectValues()
     {
         const string expectedMessage = "Parse error";
-        var innerException = new FormatException("Bad format");
+        FormatException innerException = new("Bad format");
 
-        var exception = new MessageParseException(expectedMessage, innerException, null);
+        MessageParseException exception = new(expectedMessage, innerException);
 
         Assert.Equal(expectedMessage, exception.Message);
         Assert.Same(innerException, exception.InnerException);
@@ -418,7 +392,7 @@ public class ExceptionTests
     [Fact]
     public void MessageParseException_InheritsFromClaudeAgentException()
     {
-        var exception = new MessageParseException("Parse error");
+        MessageParseException exception = new("Parse error");
 
         Assert.IsAssignableFrom<ClaudeAgentException>(exception);
     }
@@ -426,7 +400,7 @@ public class ExceptionTests
     [Fact]
     public void MessageParseException_InheritsFromException()
     {
-        var exception = new MessageParseException("Parse error");
+        MessageParseException exception = new("Parse error");
 
         Assert.IsAssignableFrom<Exception>(exception);
     }
@@ -438,7 +412,7 @@ public class ExceptionTests
     [InlineData("Schema validation failed", "{\"type\":\"unknown\"}")]
     public void MessageParseException_VariousMessagesAndRawMessages_PreservesBoth(string message, string? rawMessage)
     {
-        var exception = new MessageParseException(message, rawMessage);
+        MessageParseException exception = new(message, rawMessage);
 
         Assert.Equal(message, exception.Message);
         Assert.Equal(rawMessage, exception.RawMessage);
@@ -447,8 +421,8 @@ public class ExceptionTests
     [Fact]
     public void MessageParseException_RawMessageProperty_IsReadOnly()
     {
-        var exception = new MessageParseException("Parse error");
-        var property = typeof(MessageParseException).GetProperty("RawMessage");
+        MessageParseException exception = new("Parse error");
+        PropertyInfo? property = typeof(MessageParseException).GetProperty("RawMessage");
 
         Assert.NotNull(property);
         Assert.False(property!.CanWrite, "RawMessage should be read-only");
@@ -457,16 +431,12 @@ public class ExceptionTests
     [Fact]
     public void MessageParseException_WithLongRawMessage_PreservesEntireMessage()
     {
-        var longRawMessage = new string('x', 10000);
-        var exception = new MessageParseException("Parse error", longRawMessage);
+        string longRawMessage = new('x', 10000);
+        MessageParseException exception = new("Parse error", longRawMessage);
 
         Assert.Equal(10000, exception.RawMessage!.Length);
         Assert.Equal(longRawMessage, exception.RawMessage);
     }
-
-    #endregion
-
-    #region Exception Hierarchy Tests
 
     [Fact]
     public void ExceptionHierarchy_TransportException_IsClaudeAgentException()
@@ -507,7 +477,7 @@ public class ExceptionTests
     [Fact]
     public void ExceptionHierarchy_AllCustomExceptions_InheritFromClaudeAgentException()
     {
-        var customExceptionTypes = new[]
+        Type[] customExceptionTypes = new[]
         {
             typeof(TransportException),
             typeof(CliNotFoundException),
@@ -517,17 +487,13 @@ public class ExceptionTests
             typeof(MessageParseException)
         };
 
-        foreach (var exceptionType in customExceptionTypes)
+        foreach (Type exceptionType in customExceptionTypes)
         {
             Assert.True(
                 typeof(ClaudeAgentException).IsAssignableFrom(exceptionType),
                 $"{exceptionType.Name} should inherit from ClaudeAgentException");
         }
     }
-
-    #endregion
-
-    #region Exception Catching Tests
 
     [Fact]
     public void CatchingClaudeAgentException_CatchesTransportException()
@@ -604,7 +570,7 @@ public class ExceptionTests
     [Fact]
     public void CatchingClaudeAgentException_CatchesAllCustomExceptions()
     {
-        var exceptions = new Exception[]
+        Exception[] exceptions = new Exception[]
         {
             new ClaudeAgentException("Base exception"),
             new TransportException("Transport error"),
@@ -615,7 +581,7 @@ public class ExceptionTests
             new MessageParseException("Parse error")
         };
 
-        foreach (var exception in exceptions)
+        foreach (Exception exception in exceptions)
         {
             ClaudeAgentException? caught = null;
 
@@ -633,17 +599,13 @@ public class ExceptionTests
         }
     }
 
-    #endregion
-
-    #region Exception ToString Tests
-
     [Fact]
     public void ClaudeAgentException_ToString_ContainsMessage()
     {
         const string message = "Test exception message";
-        var exception = new ClaudeAgentException(message);
+        ClaudeAgentException exception = new(message);
 
-        var result = exception.ToString();
+        string result = exception.ToString();
 
         Assert.Contains(message, result);
         Assert.Contains("ClaudeAgentException", result);
@@ -653,9 +615,9 @@ public class ExceptionTests
     public void TransportException_ToString_ContainsTypeAndMessage()
     {
         const string message = "Transport failed";
-        var exception = new TransportException(message);
+        TransportException exception = new(message);
 
-        var result = exception.ToString();
+        string result = exception.ToString();
 
         Assert.Contains(message, result);
         Assert.Contains("TransportException", result);
@@ -664,24 +626,20 @@ public class ExceptionTests
     [Fact]
     public void ExceptionWithInnerException_ToString_ContainsInnerExceptionInfo()
     {
-        var innerException = new InvalidOperationException("Inner error");
-        var exception = new ClaudeAgentException("Outer error", innerException);
+        InvalidOperationException innerException = new("Inner error");
+        ClaudeAgentException exception = new("Outer error", innerException);
 
-        var result = exception.ToString();
+        string result = exception.ToString();
 
         Assert.Contains("Outer error", result);
         Assert.Contains("Inner error", result);
         Assert.Contains("InvalidOperationException", result);
     }
 
-    #endregion
-
-    #region Edge Cases and Boundary Tests
-
     [Fact]
     public void ClaudeAgentException_WithNullInnerException_InnerExceptionIsNull()
     {
-        var exception = new ClaudeAgentException("Test", null!);
+        ClaudeAgentException exception = new("Test", null!);
 
         Assert.Null(exception.InnerException);
     }
@@ -689,7 +647,7 @@ public class ExceptionTests
     [Fact]
     public void CliProcessException_WithZeroExitCode_ExitCodeIsZero()
     {
-        var exception = new CliProcessException("Success but error", 0);
+        CliProcessException exception = new("Success but error", 0);
 
         Assert.Equal(0, exception.ExitCode);
     }
@@ -697,7 +655,7 @@ public class ExceptionTests
     [Fact]
     public void ControlTimeoutException_WithEmptyRequestId_RequestIdIsEmpty()
     {
-        var exception = new ControlTimeoutException(string.Empty, "Timeout");
+        ControlTimeoutException exception = new(string.Empty, "Timeout");
 
         Assert.Equal(string.Empty, exception.RequestId);
     }
@@ -705,7 +663,7 @@ public class ExceptionTests
     [Fact]
     public void MessageParseException_WithEmptyRawMessage_RawMessageIsEmpty()
     {
-        var exception = new MessageParseException("Parse error", string.Empty);
+        MessageParseException exception = new("Parse error", string.Empty);
 
         Assert.Equal(string.Empty, exception.RawMessage);
     }
@@ -713,20 +671,18 @@ public class ExceptionTests
     [Fact]
     public void NestedInnerExceptions_PreservesChain()
     {
-        var innermost = new IOException("IO error");
-        var middle = new TransportException("Transport error", innermost);
-        var outer = new ClaudeAgentException("Agent error", middle);
+        IOException innermost = new("IO error");
+        TransportException middle = new("Transport error", innermost);
+        ClaudeAgentException outer = new("Agent error", middle);
 
         Assert.Same(middle, outer.InnerException);
         Assert.Same(innermost, outer.InnerException!.InnerException);
     }
-
-    #endregion
 }
 
 // Helper class for testing - System.Text.Json exception
 #pragma warning disable CA2201 // Exception type System.Exception is not sufficiently specific - intentional test mock
-file sealed class JsonException : Exception
+sealed file class JsonException : Exception
 {
     public JsonException(string message) : base(message) { }
 }

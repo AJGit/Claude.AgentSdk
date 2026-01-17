@@ -1,4 +1,4 @@
-using Claude.AgentSdk.Types;
+﻿using Claude.AgentSdk.Types;
 
 namespace Claude.AgentSdk.Tests.Types;
 
@@ -8,8 +8,6 @@ namespace Claude.AgentSdk.Tests.Types;
 [UnitTest]
 public class ToolNameTests
 {
-    #region Constructor Tests
-
     [Fact]
     public void Constructor_WithValidValue_SetsValue()
     {
@@ -36,10 +34,6 @@ public class ToolNameTests
         // Act & Assert
         Assert.Equal(string.Empty, tool.Value);
     }
-
-    #endregion
-
-    #region Static Property Tests
 
     [Fact]
     public void Read_ReturnsCorrectToolName()
@@ -143,10 +137,6 @@ public class ToolNameTests
         Assert.Equal("KillShell", ToolName.KillShell.Value);
     }
 
-    #endregion
-
-    #region Mcp Factory Method Tests
-
     [Fact]
     public void Mcp_WithValidServerAndTool_ReturnsCorrectFormat()
     {
@@ -198,10 +188,6 @@ public class ToolNameTests
         Assert.Equal("mcp__excel-tools__create_spreadsheet", tool.Value);
     }
 
-    #endregion
-
-    #region Custom and FromNullable Tests
-
     [Fact]
     public void Custom_ReturnsNewToolName()
     {
@@ -232,10 +218,6 @@ public class ToolNameTests
         // Assert
         Assert.Null(tool);
     }
-
-    #endregion
-
-    #region MCP Tool Helper Tests
 
     [Fact]
     public void IsMcpTool_WithMcpTool_ReturnsTrue()
@@ -301,10 +283,6 @@ public class ToolNameTests
         Assert.Null(toolName);
     }
 
-    #endregion
-
-    #region Implicit Conversion Tests
-
     [Fact]
     public void ImplicitConversion_FromString_CreatesToolName()
     {
@@ -337,10 +315,6 @@ public class ToolNameTests
         // Assert
         Assert.Equal(new[] { "Read", "Write", "Bash" }, tools);
     }
-
-    #endregion
-
-    #region Equality Tests
 
     [Fact]
     public void Equals_WithSameValue_ReturnsTrue()
@@ -415,10 +389,6 @@ public class ToolNameTests
         Assert.Equal(0, tool.GetHashCode());
     }
 
-    #endregion
-
-    #region ToString Tests
-
     [Fact]
     public void ToString_ReturnsValue()
     {
@@ -438,6 +408,4 @@ public class ToolNameTests
         // Act & Assert
         Assert.Equal(string.Empty, tool.ToString());
     }
-
-    #endregion
 }

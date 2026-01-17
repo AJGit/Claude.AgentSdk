@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 
 namespace Claude.AgentSdk.Transport;
 
@@ -7,7 +7,7 @@ namespace Claude.AgentSdk.Transport;
 /// </summary>
 internal sealed class CliArgumentsBuilder
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         WriteIndented = false
@@ -273,7 +273,7 @@ internal sealed class CliArgumentsBuilder
         if (sandboxConfig.Count > 0)
         {
             _args.Add("--sandbox-config");
-            _args.Add(JsonSerializer.Serialize(sandboxConfig, JsonOptions));
+            _args.Add(JsonSerializer.Serialize(sandboxConfig, _jsonOptions));
         }
     }
 

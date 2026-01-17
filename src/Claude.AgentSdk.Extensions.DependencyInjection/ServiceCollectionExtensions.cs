@@ -1,5 +1,4 @@
-using Claude.AgentSdk;
-using Claude.AgentSdk.Tools;
+﻿using Claude.AgentSdk.Tools;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -13,25 +12,25 @@ namespace Claude.AgentSdk.Extensions.DependencyInjection;
 /// </summary>
 /// <remarks>
 ///     <para>
-///     These extensions integrate the Claude Agent SDK with ASP.NET Core's dependency injection container,
-///     enabling configuration through appsettings.json, IOptions pattern, and named instances.
+///         These extensions integrate the Claude Agent SDK with ASP.NET Core's dependency injection container,
+///         enabling configuration through appsettings.json, IOptions pattern, and named instances.
 ///     </para>
 ///     <para>
-///     Example usage:
-///     <code>
+///         Example usage:
+///         <code>
 ///     // Basic registration with fluent configuration
 ///     services.AddClaudeAgent(options => {
 ///         options.Model = "sonnet";
 ///         options.AllowedTools = ["Read", "Write"];
 ///     });
-///
+/// 
 ///     // Configuration binding from appsettings.json
 ///     services.AddClaudeAgent(configuration.GetSection("Claude"));
-///
+/// 
 ///     // Named instances for multiple agents
 ///     services.AddClaudeAgent("analyzer", options => options.Model = "sonnet");
 ///     services.AddClaudeAgent("generator", options => options.Model = "opus");
-///
+/// 
 ///     // With MCP tool servers
 ///     services.AddClaudeAgent(options => options.Model = "sonnet")
 ///         .AddMcpServer("tools", myToolServer);
@@ -136,7 +135,7 @@ public static class ServiceCollectionExtensions
         {
             services.TryAddScoped(sp =>
             {
-                var factory = sp.GetRequiredService<IClaudeAgentClientFactory>();
+                IClaudeAgentClientFactory factory = sp.GetRequiredService<IClaudeAgentClientFactory>();
                 return factory.CreateClient();
             });
         }
@@ -193,14 +192,14 @@ public interface IClaudeAgentBuilder
 
 internal sealed class ClaudeAgentBuilder : IClaudeAgentBuilder
 {
-    public IServiceCollection Services { get; }
-    public string? Name { get; }
-
     internal ClaudeAgentBuilder(IServiceCollection services, string? name)
     {
         Services = services;
         Name = name;
     }
+
+    public IServiceCollection Services { get; }
+    public string? Name { get; }
 
     public IClaudeAgentBuilder AddMcpServer(string serverName, IMcpToolServer server)
     {
@@ -229,9 +228,13 @@ internal sealed class ClaudeAgentBuilder : IClaudeAgentBuilder
         ArgumentNullException.ThrowIfNull(configure);
 
         if (Name is null)
+        {
             Services.Configure(configure);
+        }
         else
+        {
             Services.Configure(Name, configure);
+        }
 
         return this;
     }
@@ -241,9 +244,13 @@ internal sealed class ClaudeAgentBuilder : IClaudeAgentBuilder
         ArgumentNullException.ThrowIfNull(postConfigure);
 
         if (Name is null)
+        {
             Services.PostConfigure(postConfigure);
+        }
         else
+        {
             Services.PostConfigure(Name, postConfigure);
+        }
 
         return this;
     }
@@ -277,31 +284,25 @@ public interface IClaudeAgentClientFactory
     ClaudeAgentClient CreateClient(ClaudeAgentOptions options);
 }
 
-internal sealed class ClaudeAgentClientFactory : IClaudeAgentClientFactory
+internal sealed class ClaudeAgentClientFactory(
+    IOptionsMonitor<ClaudeAgentConfiguration> optionsMonitor,
+    IEnumerable<McpServerRegistration> mcpServers,
+    ILoggerFactory? loggerFactory = null)
+    : IClaudeAgentClientFactory
 {
-    private readonly IOptionsMonitor<ClaudeAgentConfiguration> _optionsMonitor;
-    private readonly IEnumerable<McpServerRegistration> _mcpServers;
-    private readonly ILoggerFactory? _loggerFactory;
-
-    public ClaudeAgentClientFactory(
-        IOptionsMonitor<ClaudeAgentConfiguration> optionsMonitor,
-        IEnumerable<McpServerRegistration> mcpServers,
-        ILoggerFactory? loggerFactory = null)
-    {
-        _optionsMonitor = optionsMonitor;
-        _mcpServers = mcpServers;
-        _loggerFactory = loggerFactory;
-    }
+    private readonly ILoggerFactory? _loggerFactory = loggerFactory;
+    private readonly IEnumerable<McpServerRegistration> _mcpServers = mcpServers;
+    private readonly IOptionsMonitor<ClaudeAgentConfiguration> _optionsMonitor = optionsMonitor;
 
     public ClaudeAgentClient CreateClient()
     {
-        var config = _optionsMonitor.CurrentValue;
-        return CreateClientFromConfig(config, agentName: null);
+        ClaudeAgentConfiguration config = _optionsMonitor.CurrentValue;
+        return CreateClientFromConfig(config, null);
     }
 
     public ClaudeAgentClient CreateClient(string name)
     {
-        var config = _optionsMonitor.Get(name);
+        ClaudeAgentConfiguration config = _optionsMonitor.Get(name);
         return CreateClientFromConfig(config, name);
     }
 
@@ -312,10 +313,10 @@ internal sealed class ClaudeAgentClientFactory : IClaudeAgentClientFactory
 
     private ClaudeAgentClient CreateClientFromConfig(ClaudeAgentConfiguration config, string? agentName)
     {
-        var options = config.ToOptions();
+        ClaudeAgentOptions options = config.ToOptions();
 
         // Add registered MCP servers for this agent
-        var servers = _mcpServers
+        Dictionary<string, McpServerConfig> servers = _mcpServers
             .Where(r => r.AgentName == agentName)
             .ToDictionary(
                 r => r.ServerName,
@@ -328,7 +329,7 @@ internal sealed class ClaudeAgentClientFactory : IClaudeAgentClientFactory
         if (servers.Count > 0)
         {
             // Use 'with' expression to create a new options with merged MCP servers
-            var mergedServers = options.McpServers is null
+            Dictionary<string, McpServerConfig> mergedServers = options.McpServers is null
                 ? servers
                 : options.McpServers.Concat(servers).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
 

@@ -1,4 +1,4 @@
-using Claude.AgentSdk.Functional;
+﻿using Claude.AgentSdk.Functional;
 
 namespace Claude.AgentSdk.Tests.Functional;
 
@@ -8,7 +8,21 @@ namespace Claude.AgentSdk.Tests.Functional;
 [UnitTest]
 public class EitherTests
 {
-    #region Creation Tests
+    [Fact]
+    public void Merge_WhenSameType_ReturnsValue()
+    {
+        // Arrange
+        var leftEither = Either<string, string>.Left("left value");
+        var rightEither = Either<string, string>.Right("right value");
+
+        // Act
+        var leftMerged = leftEither.Merge();
+        var rightMerged = rightEither.Merge();
+
+        // Assert
+        Assert.Equal("left value", leftMerged);
+        Assert.Equal("right value", rightMerged);
+    }
 
     [Fact]
     public void Left_CreatesLeftValue()
@@ -77,10 +91,6 @@ public class EitherTests
         Assert.True(either.IsRight);
         Assert.Equal(42, either.RightValue);
     }
-
-    #endregion
-
-    #region Value Access Tests
 
     [Fact]
     public void LeftValue_WhenLeft_ReturnsValue()
@@ -183,7 +193,7 @@ public class EitherTests
         var either = Either<string, int>.Right(42);
 
         // Act
-        var value = either.GetRightOrDefault(0);
+        var value = either.GetRightOrDefault();
 
         // Assert
         Assert.Equal(42, value);
@@ -223,7 +233,11 @@ public class EitherTests
         var factoryCalled = false;
 
         // Act
-        var value = either.GetRightOrElse(_ => { factoryCalled = true; return 99; });
+        var value = either.GetRightOrElse(_ =>
+        {
+            factoryCalled = true;
+            return 99;
+        });
 
         // Assert
         Assert.Equal(42, value);
@@ -243,10 +257,6 @@ public class EitherTests
         Assert.Equal(5, value); // "error".Length
     }
 
-    #endregion
-
-    #region Match Tests
-
     [Fact]
     public void Match_WhenRight_CallsRightFunc()
     {
@@ -255,8 +265,8 @@ public class EitherTests
 
         // Act
         var result = either.Match(
-            left: _ => -1,
-            right: x => x * 2);
+            _ => -1,
+            x => x * 2);
 
         // Assert
         Assert.Equal(10, result);
@@ -270,8 +280,8 @@ public class EitherTests
 
         // Act
         var result = either.Match(
-            left: left => left.Length,
-            right: _ => -1);
+            left => left.Length,
+            _ => -1);
 
         // Assert
         Assert.Equal(5, result);
@@ -287,8 +297,8 @@ public class EitherTests
 
         // Act
         either.Match(
-            left: _ => leftCalled = true,
-            right: _ => rightCalled = true);
+            _ => leftCalled = true,
+            _ => rightCalled = true);
 
         // Assert
         Assert.False(leftCalled);
@@ -305,17 +315,13 @@ public class EitherTests
 
         // Act
         either.Match(
-            left: _ => leftCalled = true,
-            right: _ => rightCalled = true);
+            _ => leftCalled = true,
+            _ => rightCalled = true);
 
         // Assert
         Assert.True(leftCalled);
         Assert.False(rightCalled);
     }
-
-    #endregion
-
-    #region Map Tests
 
     [Fact]
     public void Map_WhenRight_TransformsValue()
@@ -400,11 +406,11 @@ public class EitherTests
 
         // Act
         var leftResult = leftEither.BiMap(
-            leftMapper: s => s.ToUpper(),
-            rightMapper: n => n * 2);
+            s => s.ToUpper(),
+            n => n * 2);
         var rightResult = rightEither.BiMap(
-            leftMapper: s => s.ToUpper(),
-            rightMapper: n => n * 2);
+            s => s.ToUpper(),
+            n => n * 2);
 
         // Assert
         Assert.True(leftResult.IsLeft);
@@ -413,18 +419,18 @@ public class EitherTests
         Assert.Equal(10, rightResult.RightValue);
     }
 
-    #endregion
-
-    #region Bind Tests
-
     [Fact]
     public void Bind_WhenRight_ChainsOperation()
     {
         // Arrange
         var either = Either<string, int>.Right(10);
-        Either<string, int> Halve(int x) => x % 2 == 0
-            ? Either<string, int>.Right(x / 2)
-            : Either<string, int>.Left("Not even");
+
+        Either<string, int> Halve(int x)
+        {
+            return x % 2 == 0
+                ? Either<string, int>.Right(x / 2)
+                : Either<string, int>.Left("Not even");
+        }
 
         // Act
         var result = either.Bind(Halve);
@@ -439,9 +445,13 @@ public class EitherTests
     {
         // Arrange
         var either = Either<string, int>.Right(9);
-        Either<string, int> Halve(int x) => x % 2 == 0
-            ? Either<string, int>.Right(x / 2)
-            : Either<string, int>.Left("Not even");
+
+        Either<string, int> Halve(int x)
+        {
+            return x % 2 == 0
+                ? Either<string, int>.Right(x / 2)
+                : Either<string, int>.Left("Not even");
+        }
 
         // Act
         var result = either.Bind(Halve);
@@ -488,10 +498,6 @@ public class EitherTests
         Assert.True(result.IsRight);
         Assert.Equal(5, result.RightValue);
     }
-
-    #endregion
-
-    #region Do Tests
 
     [Fact]
     public void DoRight_WhenRight_ExecutesAction()
@@ -549,10 +555,6 @@ public class EitherTests
         Assert.False(actionCalled);
     }
 
-    #endregion
-
-    #region Swap Tests
-
     [Fact]
     public void Swap_WhenLeft_BecomesRight()
     {
@@ -580,10 +582,6 @@ public class EitherTests
         Assert.True(swapped.IsLeft);
         Assert.Equal(42, swapped.LeftValue);
     }
-
-    #endregion
-
-    #region Conversion Tests
 
     [Fact]
     public void ToOption_WhenRight_ReturnsSome()
@@ -667,30 +665,6 @@ public class EitherTests
         Assert.Equal("error", result.Error);
     }
 
-    #endregion
-
-    #region Merge Tests
-
-    [Fact]
-    public void Merge_WhenSameType_ReturnsValue()
-    {
-        // Arrange
-        var leftEither = Either<string, string>.Left("left value");
-        var rightEither = Either<string, string>.Right("right value");
-
-        // Act
-        var leftMerged = leftEither.Merge();
-        var rightMerged = rightEither.Merge();
-
-        // Assert
-        Assert.Equal("left value", leftMerged);
-        Assert.Equal("right value", rightMerged);
-    }
-
-    #endregion
-
-    #region Sequence and Traverse Tests
-
     [Fact]
     public void Sequence_AllRight_ReturnsRightWithList()
     {
@@ -766,10 +740,6 @@ public class EitherTests
         Assert.Equal([1, 2], rights);
     }
 
-    #endregion
-
-    #region Equality Tests
-
     [Fact]
     public void Equals_SameRight_ReturnsTrue()
     {
@@ -816,10 +786,6 @@ public class EitherTests
         Assert.False(left.Equals(right));
     }
 
-    #endregion
-
-    #region ToString Tests
-
     [Fact]
     public void ToString_WhenRight_ReturnsRightFormat()
     {
@@ -839,6 +805,4 @@ public class EitherTests
         // Act & Assert
         Assert.Equal("Left(error)", either.ToString());
     }
-
-    #endregion
 }

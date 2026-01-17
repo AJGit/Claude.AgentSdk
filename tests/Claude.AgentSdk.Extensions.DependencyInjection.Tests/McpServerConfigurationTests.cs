@@ -1,6 +1,4 @@
-using Claude.AgentSdk;
-using Claude.AgentSdk.Extensions.DependencyInjection;
-using Xunit;
+﻿using Xunit;
 
 namespace Claude.AgentSdk.Extensions.DependencyInjection.Tests;
 
@@ -9,13 +7,21 @@ namespace Claude.AgentSdk.Extensions.DependencyInjection.Tests;
 /// </summary>
 public class McpServerConfigurationTests
 {
-    #region Stdio Server Tests
+    [Fact]
+    public void DefaultType_IsStdio()
+    {
+        // Arrange
+        McpServerConfiguration config = new();
+
+        // Assert
+        Assert.Equal("Stdio", config.Type);
+    }
 
     [Fact]
     public void ToConfig_StdioServer_ReturnsStdioConfig()
     {
         // Arrange
-        var config = new McpServerConfiguration
+        McpServerConfiguration config = new()
         {
             Type = "Stdio",
             Command = "python",
@@ -23,11 +29,11 @@ public class McpServerConfigurationTests
         };
 
         // Act
-        var result = config.ToConfig();
+        McpServerConfig result = config.ToConfig();
 
         // Assert
         Assert.IsType<McpStdioServerConfig>(result);
-        var stdioConfig = (McpStdioServerConfig)result;
+        McpStdioServerConfig stdioConfig = (McpStdioServerConfig)result;
         Assert.Equal("python", stdioConfig.Command);
         Assert.NotNull(stdioConfig.Args);
         Assert.Equal(3, stdioConfig.Args.Count);
@@ -38,7 +44,7 @@ public class McpServerConfigurationTests
     public void ToConfig_StdioServer_WithEnvironment_ReturnsConfigWithEnv()
     {
         // Arrange
-        var config = new McpServerConfiguration
+        McpServerConfiguration config = new()
         {
             Type = "Stdio",
             Command = "node",
@@ -51,10 +57,10 @@ public class McpServerConfigurationTests
         };
 
         // Act
-        var result = config.ToConfig();
+        McpServerConfig result = config.ToConfig();
 
         // Assert
-        var stdioConfig = (McpStdioServerConfig)result;
+        McpStdioServerConfig stdioConfig = (McpStdioServerConfig)result;
         Assert.NotNull(stdioConfig.Env);
         Assert.Equal(2, stdioConfig.Env.Count);
         Assert.Equal("production", stdioConfig.Env["NODE_ENV"]);
@@ -64,14 +70,14 @@ public class McpServerConfigurationTests
     public void ToConfig_StdioServer_WithoutCommand_ThrowsInvalidOperationException()
     {
         // Arrange
-        var config = new McpServerConfiguration
+        McpServerConfiguration config = new()
         {
             Type = "Stdio",
             Command = null
         };
 
         // Act & Assert
-        var ex = Assert.Throws<InvalidOperationException>(() => config.ToConfig());
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => config.ToConfig());
         Assert.Contains("Command", ex.Message);
     }
 
@@ -79,39 +85,35 @@ public class McpServerConfigurationTests
     public void ToConfig_StdioServer_CaseInsensitive()
     {
         // Arrange
-        var config = new McpServerConfiguration
+        McpServerConfiguration config = new()
         {
             Type = "STDIO",
             Command = "python"
         };
 
         // Act
-        var result = config.ToConfig();
+        McpServerConfig result = config.ToConfig();
 
         // Assert
         Assert.IsType<McpStdioServerConfig>(result);
     }
 
-    #endregion
-
-    #region SSE Server Tests
-
     [Fact]
     public void ToConfig_SseServer_ReturnsSseConfig()
     {
         // Arrange
-        var config = new McpServerConfiguration
+        McpServerConfiguration config = new()
         {
             Type = "Sse",
             Url = "https://api.example.com/events"
         };
 
         // Act
-        var result = config.ToConfig();
+        McpServerConfig result = config.ToConfig();
 
         // Assert
         Assert.IsType<McpSseServerConfig>(result);
-        var sseConfig = (McpSseServerConfig)result;
+        McpSseServerConfig sseConfig = (McpSseServerConfig)result;
         Assert.Equal("https://api.example.com/events", sseConfig.Url);
     }
 
@@ -119,7 +121,7 @@ public class McpServerConfigurationTests
     public void ToConfig_SseServer_WithHeaders_ReturnsConfigWithHeaders()
     {
         // Arrange
-        var config = new McpServerConfiguration
+        McpServerConfiguration config = new()
         {
             Type = "Sse",
             Url = "https://api.example.com/events",
@@ -131,10 +133,10 @@ public class McpServerConfigurationTests
         };
 
         // Act
-        var result = config.ToConfig();
+        McpServerConfig result = config.ToConfig();
 
         // Assert
-        var sseConfig = (McpSseServerConfig)result;
+        McpSseServerConfig sseConfig = (McpSseServerConfig)result;
         Assert.NotNull(sseConfig.Headers);
         Assert.Equal(2, sseConfig.Headers.Count);
         Assert.Equal("Bearer token123", sseConfig.Headers["Authorization"]);
@@ -144,14 +146,14 @@ public class McpServerConfigurationTests
     public void ToConfig_SseServer_WithoutUrl_ThrowsInvalidOperationException()
     {
         // Arrange
-        var config = new McpServerConfiguration
+        McpServerConfiguration config = new()
         {
             Type = "Sse",
             Url = null
         };
 
         // Act & Assert
-        var ex = Assert.Throws<InvalidOperationException>(() => config.ToConfig());
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => config.ToConfig());
         Assert.Contains("Url", ex.Message);
     }
 
@@ -159,39 +161,35 @@ public class McpServerConfigurationTests
     public void ToConfig_SseServer_CaseInsensitive()
     {
         // Arrange
-        var config = new McpServerConfiguration
+        McpServerConfiguration config = new()
         {
             Type = "SSE",
             Url = "https://api.example.com"
         };
 
         // Act
-        var result = config.ToConfig();
+        McpServerConfig result = config.ToConfig();
 
         // Assert
         Assert.IsType<McpSseServerConfig>(result);
     }
 
-    #endregion
-
-    #region HTTP Server Tests
-
     [Fact]
     public void ToConfig_HttpServer_ReturnsHttpConfig()
     {
         // Arrange
-        var config = new McpServerConfiguration
+        McpServerConfiguration config = new()
         {
             Type = "Http",
             Url = "https://api.example.com/mcp"
         };
 
         // Act
-        var result = config.ToConfig();
+        McpServerConfig result = config.ToConfig();
 
         // Assert
         Assert.IsType<McpHttpServerConfig>(result);
-        var httpConfig = (McpHttpServerConfig)result;
+        McpHttpServerConfig httpConfig = (McpHttpServerConfig)result;
         Assert.Equal("https://api.example.com/mcp", httpConfig.Url);
     }
 
@@ -199,7 +197,7 @@ public class McpServerConfigurationTests
     public void ToConfig_HttpServer_WithHeaders_ReturnsConfigWithHeaders()
     {
         // Arrange
-        var config = new McpServerConfiguration
+        McpServerConfiguration config = new()
         {
             Type = "Http",
             Url = "https://api.example.com/mcp",
@@ -211,10 +209,10 @@ public class McpServerConfigurationTests
         };
 
         // Act
-        var result = config.ToConfig();
+        McpServerConfig result = config.ToConfig();
 
         // Assert
-        var httpConfig = (McpHttpServerConfig)result;
+        McpHttpServerConfig httpConfig = (McpHttpServerConfig)result;
         Assert.NotNull(httpConfig.Headers);
         Assert.Equal(2, httpConfig.Headers.Count);
     }
@@ -223,14 +221,14 @@ public class McpServerConfigurationTests
     public void ToConfig_HttpServer_WithoutUrl_ThrowsInvalidOperationException()
     {
         // Arrange
-        var config = new McpServerConfiguration
+        McpServerConfiguration config = new()
         {
             Type = "Http",
             Url = null
         };
 
         // Act & Assert
-        var ex = Assert.Throws<InvalidOperationException>(() => config.ToConfig());
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => config.ToConfig());
         Assert.Contains("Url", ex.Message);
     }
 
@@ -238,34 +236,30 @@ public class McpServerConfigurationTests
     public void ToConfig_HttpServer_CaseInsensitive()
     {
         // Arrange
-        var config = new McpServerConfiguration
+        McpServerConfiguration config = new()
         {
             Type = "HTTP",
             Url = "https://api.example.com"
         };
 
         // Act
-        var result = config.ToConfig();
+        McpServerConfig result = config.ToConfig();
 
         // Assert
         Assert.IsType<McpHttpServerConfig>(result);
     }
 
-    #endregion
-
-    #region Unknown Type Tests
-
     [Fact]
     public void ToConfig_UnknownType_ThrowsInvalidOperationException()
     {
         // Arrange
-        var config = new McpServerConfiguration
+        McpServerConfiguration config = new()
         {
             Type = "Unknown"
         };
 
         // Act & Assert
-        var ex = Assert.Throws<InvalidOperationException>(() => config.ToConfig());
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => config.ToConfig());
         Assert.Contains("Unknown", ex.Message);
     }
 
@@ -273,7 +267,7 @@ public class McpServerConfigurationTests
     public void ToConfig_EmptyType_ThrowsInvalidOperationException()
     {
         // Arrange
-        var config = new McpServerConfiguration
+        McpServerConfiguration config = new()
         {
             Type = ""
         };
@@ -281,20 +275,4 @@ public class McpServerConfigurationTests
         // Act & Assert
         Assert.Throws<InvalidOperationException>(() => config.ToConfig());
     }
-
-    #endregion
-
-    #region Default Value Tests
-
-    [Fact]
-    public void DefaultType_IsStdio()
-    {
-        // Arrange
-        var config = new McpServerConfiguration();
-
-        // Assert
-        Assert.Equal("Stdio", config.Type);
-    }
-
-    #endregion
 }
