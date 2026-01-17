@@ -4,7 +4,9 @@ A sample project demonstrating defense-in-depth protection for Claude agent sess
 
 ## Attribution
 
-This sample is a C# port of the [claude-code-damage-control](https://github.com/disler/claude-code-damage-control) project by [disler](https://github.com/disler). The security patterns (`patterns.yaml`) are copied from the original repository.
+This sample is a C# port of the [claude-code-damage-control](https://github.com/disler/claude-code-damage-control) project by [IndyDevDan (disler)](https://github.com/disler). The security patterns (`patterns.yaml`) are copied from the original repository.
+
+> Note: There are know issues with this approach, see the original repo for details.
 
 ## Overview
 
