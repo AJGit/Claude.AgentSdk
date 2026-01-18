@@ -59,10 +59,10 @@ public class StreamingExample : IExample
                     break;
 
                 case ResultMessage result:
-                    Console.WriteLine("\n\n[Completed]");
-                    Console.WriteLine($"  Total cost: ${result.TotalCostUsd:F4}");
-                    Console.WriteLine($"  Duration: {result.DurationMs}ms");
-                    Console.WriteLine($"  Turns: {result.NumTurns}");
+                    string context = result.Usage is not null
+                        ? $"{result.Usage.TotalContextTokens / 1000.0:F0}k"
+                        : "?";
+                    Console.WriteLine($"\n\n[{result.DurationMs / 1000.0:F1}s | ${result.TotalCostUsd:F4} | {context}]");
                     break;
             }
         }

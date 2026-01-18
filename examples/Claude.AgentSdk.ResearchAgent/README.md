@@ -195,7 +195,10 @@ await foreach (var message in session.ReceiveResponseAsync())
     // Exhaustive pattern matching
     message.Match(
         assistantMessage: a => ProcessAssistant(a),
-        resultMessage: r => Console.WriteLine($"[${r.TotalCostUsd:F4}]"),
+        resultMessage: r => {
+            var ctx = r.Usage is not null ? $"{r.Usage.TotalContextTokens / 1000.0:F0}k" : "?";
+            Console.WriteLine($"[{r.DurationMs/1000.0:F1}s | ${r.TotalCostUsd:F4} | {ctx}]");
+        },
         systemMessage: _ => { },
         userMessage: _ => { },
         streamEvent: _ => { }

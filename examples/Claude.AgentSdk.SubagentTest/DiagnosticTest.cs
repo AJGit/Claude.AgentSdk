@@ -317,8 +317,10 @@ DO NOT use any tool other than Task.",
                         break;
 
                     case ResultMessage result:
-                        Log(
-                            $"RESULT: Completed in {result.DurationMs / 1000.0:F1}s, Cost: ${result.TotalCostUsd:F4}, Error: {result.IsError}");
+                        string ctx = result.Usage is not null
+                            ? $"{result.Usage.TotalContextTokens / 1000.0:F0}k"
+                            : "?";
+                        Log($"RESULT: [{result.DurationMs / 1000.0:F1}s | ${result.TotalCostUsd:F4} | {ctx}] Error: {result.IsError}");
                         goto done;
                 }
             }

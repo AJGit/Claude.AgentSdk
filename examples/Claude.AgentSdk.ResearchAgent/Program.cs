@@ -407,8 +407,11 @@ public static class Program
                 break;
 
             case ResultMessage result:
+                string context = result.Usage is not null
+                    ? $"{result.Usage.TotalContextTokens / 1000.0:F0}k"
+                    : "?";
                 Debug.WriteLine("");
-                Debug.WriteLine($"[Completed in {result.DurationMs / 1000.0:F1}s | Cost: ${result.TotalCostUsd:F4}]");
+                Debug.WriteLine($"[{result.DurationMs / 1000.0:F1}s | ${result.TotalCostUsd:F4} | {context}]");
                 return true;
         }
 

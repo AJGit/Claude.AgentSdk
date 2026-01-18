@@ -137,7 +137,10 @@ await foreach (var message in client.QueryAsync(prompt))
                 );
             }
         },
-        resultMessage: r => Console.WriteLine($"[{r.DurationMs/1000.0:F1}s | ${r.TotalCostUsd:F4}]"),
+        resultMessage: r => {
+            var ctx = r.Usage is not null ? $"{r.Usage.TotalContextTokens / 1000.0:F0}k" : "?";
+            Console.WriteLine($"[{r.DurationMs/1000.0:F1}s | ${r.TotalCostUsd:F4} | {ctx}]");
+        },
         systemMessage: _ => { },
         userMessage: _ => { },
         streamEvent: _ => { }
@@ -237,7 +240,8 @@ private static void ProcessMessage(Message message)
             break;
 
         case ResultMessage result:
-            Console.WriteLine($"[{result.DurationMs / 1000.0:F1}s | ${result.TotalCostUsd:F4}]");
+            var ctx = result.Usage is not null ? $"{result.Usage.TotalContextTokens / 1000.0:F0}k" : "?";
+            Console.WriteLine($"[{result.DurationMs / 1000.0:F1}s | ${result.TotalCostUsd:F4} | {ctx}]");
             break;
     }
 }
