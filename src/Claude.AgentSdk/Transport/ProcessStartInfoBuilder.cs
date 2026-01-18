@@ -152,6 +152,10 @@ internal sealed partial class ProcessStartInfoBuilder
             startInfo.Environment[key] = value;
         }
 
+        if (!string.IsNullOrEmpty(_workingDirectory))
+        {
+            startInfo.Environment["PWD"] = _workingDirectory;
+        }
         // Always set SDK entrypoint for telemetry
         startInfo.Environment["CLAUDE_CODE_ENTRYPOINT"] = "sdk-csharp";
     }
