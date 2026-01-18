@@ -221,9 +221,11 @@ DO NOT DO THE RESEARCH YOURSELF. SPAWN THE SUBAGENT.",
                         break;
 
                     case ResultMessage result:
+                        string context = result.Usage is not null
+                            ? $"{result.Usage.TotalContextTokens / 1000.0:F0}k"
+                            : "?";
                         Console.WriteLine();
-                        Console.WriteLine(
-                            $"--- Completed in {result.DurationMs / 1000.0:F1}s | Cost: ${result.TotalCostUsd:F4} ---");
+                        Console.WriteLine($"--- [{result.DurationMs / 1000.0:F1}s | ${result.TotalCostUsd:F4} | {context}] ---");
                         // exit early no use waiting for this to time out...
                         goto finished;
                 }

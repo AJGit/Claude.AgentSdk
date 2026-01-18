@@ -591,9 +591,9 @@ public class MessageTypeParsingTests
         // Assert
         Assert.NotNull(message);
         Assert.NotNull(message.Usage);
-        Assert.Equal(100, message.Usage.Value.GetProperty("input_tokens").GetInt32());
-        Assert.Equal(50, message.Usage.Value.GetProperty("output_tokens").GetInt32());
-        Assert.Equal(20, message.Usage.Value.GetProperty("cache_read_input_tokens").GetInt32());
+        Assert.Equal(100, message.Usage.InputTokens);
+        Assert.Equal(50, message.Usage.OutputTokens);
+        Assert.Equal(20, message.Usage.CacheReadInputTokens);
     }
 
     [Fact]

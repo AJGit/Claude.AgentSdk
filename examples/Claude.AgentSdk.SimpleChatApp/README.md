@@ -149,7 +149,8 @@ private static MessageResult ProcessMessage(Message message)
             return MessageResult.MoreMessages;
         },
         resultMessage: r => {
-            Console.WriteLine($"[{r.DurationMs/1000.0:F1}s | ${r.TotalCostUsd:F4}]");
+            var ctx = r.Usage is not null ? $"{r.Usage.TotalContextTokens / 1000.0:F0}k" : "?";
+            Console.WriteLine($"[{r.DurationMs/1000.0:F1}s | ${r.TotalCostUsd:F4} | {ctx}]");
             return MessageResult.Completed;
         },
         systemMessage: _ => MessageResult.NoMessage,
@@ -236,7 +237,8 @@ private static MessageResult ProcessMessage(Message message)
             return MessageResult.MoreMessages;
 
         case ResultMessage result:
-            Console.Write($"[{result.DurationMs / 1000.0:F1}s | ${result.TotalCostUsd:F4}]");
+            var ctx = result.Usage is not null ? $"{result.Usage.TotalContextTokens / 1000.0:F0}k" : "?";
+            Console.Write($"[{result.DurationMs / 1000.0:F1}s | ${result.TotalCostUsd:F4} | {ctx}]");
             return MessageResult.Completed;
     }
 

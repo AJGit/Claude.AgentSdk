@@ -108,7 +108,10 @@ Additional rules:
                     break;
 
                 case ResultMessage result:
-                    Console.WriteLine($"\n[Cost: ${result.TotalCostUsd:F4}]");
+                    string context = result.Usage is not null
+                        ? $"{result.Usage.TotalContextTokens / 1000.0:F0}k"
+                        : "?";
+                    Console.WriteLine($"\n[{result.DurationMs / 1000.0:F1}s | ${result.TotalCostUsd:F4} | {context}]");
                     break;
             }
         }

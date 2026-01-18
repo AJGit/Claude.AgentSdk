@@ -194,7 +194,8 @@ public class ClaudeAgentHub(ISessionManager sessionManager, ILogger<ClaudeAgentH
                 DurationMs = result.DurationMs,
                 NumTurns = result.NumTurns,
                 IsError = result.IsError,
-                Result = result.Result
+                Result = result.Result,
+                ContextTokens = result.Usage?.TotalContextTokens
             },
             UserMessage user => new MessageDto
             {
@@ -284,6 +285,7 @@ public class MessageDto
     public bool? IsError { get; set; }
     public bool? IsInit { get; set; }
     public string? Result { get; set; }
+    public int? ContextTokens { get; set; }
 }
 
 /// <summary>

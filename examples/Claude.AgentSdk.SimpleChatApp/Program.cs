@@ -186,10 +186,20 @@ public static class Program
 
                 break;
 
+            case SystemMessage system when system.CompactMetadata is not null:
+                Console.WriteLine();
+                Console.ForegroundColor = ConsoleColor.Magenta;
+                Console.Write($"[Context compacted: {system.CompactMetadata.PreTokens:N0} → {system.CompactMetadata.PostTokens:N0} tokens]");
+                Console.ResetColor();
+                return MessageResult.MoreMessages;
+
             case ResultMessage result:
                 Console.WriteLine();
                 Console.ForegroundColor = ConsoleColor.DarkGray;
-                Console.Write($"[{result.DurationMs / 1000.0:F1}s | ${result.TotalCostUsd:F4}]");
+                string context = result.Usage is not null
+                    ? $"{result.Usage.TotalContextTokens / 1000.0:F0}k"
+                    : "?";
+                Console.Write($"[{result.DurationMs / 1000.0:F1}s | ${result.TotalCostUsd:F4} | {context}]");
                 Console.ResetColor();
                 return MessageResult.Completed;
         }

@@ -184,10 +184,12 @@ public static class Program
                         : result.SubtypeEnum == ResultMessageSubtype.Error
                             ? "Error"
                             : "Partial";
+                    string context = result.Usage is not null
+                        ? $"{result.Usage.TotalContextTokens / 1000.0:F0}k"
+                        : "?";
                     Console.WriteLine();
                     Console.WriteLine(new string('-', 50));
-                    Console.WriteLine(
-                        $"{resultType} in {result.DurationMs / 1000.0:F2}s | Cost: ${result.TotalCostUsd:F4}");
+                    Console.WriteLine($"[{result.DurationMs / 1000.0:F1}s | ${result.TotalCostUsd:F4} | {context}]");
                     break;
             }
         }

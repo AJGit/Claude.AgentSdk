@@ -155,7 +155,8 @@ private MessageDto MapToDto(Message message)
         {
             Type = "result",
             TotalCostUsd = r.TotalCostUsd,
-            DurationMs = r.DurationMs
+            DurationMs = r.DurationMs,
+            ContextTokens = r.Usage?.TotalContextTokens
         },
         systemMessage: s => new MessageDto
         {
@@ -304,6 +305,7 @@ public class MessageDto
     public int? NumTurns { get; set; }
     public bool? IsError { get; set; }
     public bool? IsInit { get; set; }
+    public int? ContextTokens { get; set; }
 }
 
 public class ContentBlockDto

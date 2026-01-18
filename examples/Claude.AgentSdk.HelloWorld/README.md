@@ -86,7 +86,10 @@ await foreach (var message in client.QueryAsync(prompt))
         userMessage: u => $"User: {u.MessageContent.Content}",
         assistantMessage: a => ProcessAssistant(a),
         systemMessage: s => $"System: {s.Subtype}",
-        resultMessage: r => $"Done: ${r.TotalCostUsd:F4}",
+        resultMessage: r => {
+            var ctx = r.Usage is not null ? $"{r.Usage.TotalContextTokens / 1000.0:F0}k" : "?";
+            return $"[{r.DurationMs/1000.0:F1}s | ${r.TotalCostUsd:F4} | {ctx}]";
+        },
         streamEvent: _ => null
     );
 
@@ -126,7 +129,8 @@ await foreach (var message in client.QueryAsync(prompt))
                 ResultMessageSubtype.Partial => "Partial",
                 _ => "Unknown"
             };
-            Console.WriteLine($"{resultType} - Cost: ${result.TotalCostUsd:F4}");
+            var ctx = result.Usage is not null ? $"{result.Usage.TotalContextTokens / 1000.0:F0}k" : "?";
+            Console.WriteLine($"[{result.DurationMs / 1000.0:F1}s | ${result.TotalCostUsd:F4} | {ctx}]");
             break;
     }
 }
@@ -308,7 +312,8 @@ await foreach (var message in client.QueryAsync(prompt))
                 ResultMessageSubtype.Partial => "Partial",
                 _ => "Unknown"
             };
-            Console.WriteLine($"{resultType} in {result.DurationMs / 1000.0:F2}s | Cost: ${result.TotalCostUsd:F4}");
+            var ctx = result.Usage is not null ? $"{result.Usage.TotalContextTokens / 1000.0:F0}k" : "?";
+            Console.WriteLine($"[{result.DurationMs / 1000.0:F1}s | ${result.TotalCostUsd:F4} | {ctx}]");
             break;
     }
 }

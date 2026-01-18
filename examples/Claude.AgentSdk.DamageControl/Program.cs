@@ -312,7 +312,10 @@ internal static class Program
                             break;
 
                         case ResultMessage result:
-                            Console.WriteLine($"\n\n--- Turn Complete (Cost: ${result.TotalCostUsd:F4}) ---\n");
+                            string ctx = result.Usage is not null
+                                ? $"{result.Usage.TotalContextTokens / 1000.0:F0}k"
+                                : "?";
+                            Console.WriteLine($"\n\n--- [{result.DurationMs / 1000.0:F1}s | ${result.TotalCostUsd:F4} | {ctx}] ---\n");
                             break;
                     }
                 }

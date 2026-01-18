@@ -189,7 +189,10 @@ public static class Program
             case ResultMessage result:
                 Console.WriteLine();
                 Console.ForegroundColor = ConsoleColor.DarkGray;
-                Console.WriteLine($"[Completed in {result.DurationMs / 1000.0:F1}s | Cost: ${result.TotalCostUsd:F4}]");
+                string context = result.Usage is not null
+                    ? $"{result.Usage.TotalContextTokens / 1000.0:F0}k"
+                    : "?";
+                Console.WriteLine($"[{result.DurationMs / 1000.0:F1}s | ${result.TotalCostUsd:F4} | {context}]");
                 Console.ResetColor();
                 break;
         }

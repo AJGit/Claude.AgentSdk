@@ -602,9 +602,9 @@ public class MessageTests
 
         Assert.NotNull(message);
         Assert.NotNull(message.Usage);
-        Assert.Equal(1500, message.Usage.Value.GetProperty("input_tokens").GetInt32());
-        Assert.Equal(500, message.Usage.Value.GetProperty("output_tokens").GetInt32());
-        Assert.Equal(1000, message.Usage.Value.GetProperty("cache_read_input_tokens").GetInt32());
+        Assert.Equal(1500, message.Usage.InputTokens);
+        Assert.Equal(500, message.Usage.OutputTokens);
+        Assert.Equal(1000, message.Usage.CacheReadInputTokens);
     }
 
     [Fact]

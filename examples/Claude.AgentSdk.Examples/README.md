@@ -123,7 +123,10 @@ var description = message.Match(
     userMessage: u => $"User: {u.MessageContent.Content}",
     assistantMessage: a => $"Claude: {a.MessageContent.Content.Count} blocks",
     systemMessage: s => $"System: {s.Subtype}",
-    resultMessage: r => $"Result: ${r.TotalCostUsd:F4}",
+    resultMessage: r => {
+        var ctx = r.Usage is not null ? $"{r.Usage.TotalContextTokens / 1000.0:F0}k" : "?";
+        return $"[{r.DurationMs/1000.0:F1}s | ${r.TotalCostUsd:F4} | {ctx}]";
+    },
     streamEvent: e => $"Event: {e.Uuid}"
 );
 
@@ -320,7 +323,8 @@ case ResultMessage result:
         ResultMessageSubtype.Partial => "Partial",
         _ => "Unknown"
     };
-    Console.WriteLine($"{status} - Cost: ${result.TotalCostUsd:F4}");
+    var ctx = result.Usage is not null ? $"{result.Usage.TotalContextTokens / 1000.0:F0}k" : "?";
+    Console.WriteLine($"[{result.DurationMs / 1000.0:F1}s | ${result.TotalCostUsd:F4} | {ctx}]");
     break;
 ```
 
