@@ -100,6 +100,7 @@ internal sealed class SubprocessTransport(
             var json = message.RootElement.GetRawText();
             await _stdin.WriteLineAsync(json.AsMemory(), cancellationToken).ConfigureAwait(false);
             await _stdin.FlushAsync(cancellationToken).ConfigureAwait(false);
+            _options.OnMessageSent?.Invoke(json);
             if (_logger is not null)
             {
                 Log.MessageSent(_logger, json);
@@ -126,6 +127,7 @@ internal sealed class SubprocessTransport(
             var json = JsonSerializer.Serialize(message, _jsonOptions);
             await _stdin.WriteLineAsync(json.AsMemory(), cancellationToken).ConfigureAwait(false);
             await _stdin.FlushAsync(cancellationToken).ConfigureAwait(false);
+            _options.OnMessageSent?.Invoke(json);
             if (_logger is not null)
             {
                 Log.MessageSent(_logger, json);
@@ -174,6 +176,7 @@ internal sealed class SubprocessTransport(
                 continue;
             }
 
+            _options.OnMessageReceived?.Invoke(line);
             if (_logger is not null)
             {
                 Log.MessageReceived(_logger, line);
