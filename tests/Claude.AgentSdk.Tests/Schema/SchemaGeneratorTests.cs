@@ -10,12 +10,12 @@ namespace Claude.AgentSdk.Tests.Schema;
 public class SchemaGeneratorTests
 {
     [Theory]
-    [InlineData("string_list", "string")]
-    [InlineData("int_list", "integer")]
-    [InlineData("read_only_double_list", "number")]
-    [InlineData("bool_enumerable", "boolean")]
-    [InlineData("float_collection", "number")]
-    [InlineData("read_only_long_collection", "integer")]
+    [InlineData("stringList", "string")]
+    [InlineData("intList", "integer")]
+    [InlineData("readOnlyDoubleList", "number")]
+    [InlineData("boolEnumerable", "boolean")]
+    [InlineData("floatCollection", "number")]
+    [InlineData("readOnlyLongCollection", "integer")]
     public void Generate_ListTypes_ReturnsArrayWithCorrectItemType(string propertyName, string expectedItemType)
     {
         var result = SchemaGenerator.Generate<ClassWithLists>("test_schema");
@@ -212,10 +212,10 @@ public class SchemaGeneratorTests
     }
 
     [Theory]
-    [InlineData("int_prop", "integer")]
-    [InlineData("long_prop", "integer")]
-    [InlineData("short_prop", "integer")]
-    [InlineData("byte_prop", "integer")]
+    [InlineData("intProp", "integer")]
+    [InlineData("longProp", "integer")]
+    [InlineData("shortProp", "integer")]
+    [InlineData("byteProp", "integer")]
     public void Generate_IntegerTypes_ReturnsIntegerType(string propertyName, string expectedType)
     {
         var result = SchemaGenerator.Generate<AllPrimitiveTypes>("test_schema");
@@ -226,9 +226,9 @@ public class SchemaGeneratorTests
     }
 
     [Theory]
-    [InlineData("double_prop", "number")]
-    [InlineData("float_prop", "number")]
-    [InlineData("decimal_prop", "number")]
+    [InlineData("doubleProp", "number")]
+    [InlineData("floatProp", "number")]
+    [InlineData("decimalProp", "number")]
     public void Generate_FloatingPointTypes_ReturnsNumberType(string propertyName, string expectedType)
     {
         var result = SchemaGenerator.Generate<AllPrimitiveTypes>("test_schema");
@@ -245,7 +245,7 @@ public class SchemaGeneratorTests
         var schema = GetInnerSchema(result);
         var properties = schema.GetProperty("properties");
 
-        Assert.Equal("boolean", properties.GetProperty("bool_prop").GetProperty("type").GetString());
+        Assert.Equal("boolean", properties.GetProperty("boolProp").GetProperty("type").GetString());
     }
 
     [Fact]
@@ -254,7 +254,7 @@ public class SchemaGeneratorTests
         var result = SchemaGenerator.Generate<NullableTypes>("test_schema");
         var schema = GetInnerSchema(result);
         var properties = schema.GetProperty("properties");
-        var nullableIntType = properties.GetProperty("nullable_int").GetProperty("type");
+        var nullableIntType = properties.GetProperty("nullableInt").GetProperty("type");
 
         Assert.Equal(JsonValueKind.Array, nullableIntType.ValueKind);
         var types = GetArrayStrings(nullableIntType);
@@ -268,7 +268,7 @@ public class SchemaGeneratorTests
         var result = SchemaGenerator.Generate<NullableTypes>("test_schema");
         var schema = GetInnerSchema(result);
         var properties = schema.GetProperty("properties");
-        var nullableDoubleType = properties.GetProperty("nullable_double").GetProperty("type");
+        var nullableDoubleType = properties.GetProperty("nullableDouble").GetProperty("type");
 
         Assert.Equal(JsonValueKind.Array, nullableDoubleType.ValueKind);
         var types = GetArrayStrings(nullableDoubleType);
@@ -282,7 +282,7 @@ public class SchemaGeneratorTests
         var result = SchemaGenerator.Generate<NullableTypes>("test_schema");
         var schema = GetInnerSchema(result);
         var properties = schema.GetProperty("properties");
-        var nullableBoolType = properties.GetProperty("nullable_bool").GetProperty("type");
+        var nullableBoolType = properties.GetProperty("nullableBool").GetProperty("type");
 
         Assert.Equal(JsonValueKind.Array, nullableBoolType.ValueKind);
         var types = GetArrayStrings(nullableBoolType);
@@ -300,7 +300,7 @@ public class SchemaGeneratorTests
         if (schema.TryGetProperty("required", out var required))
         {
             var requiredFields = GetArrayStrings(required);
-            Assert.DoesNotContain("nullable_string", requiredFields);
+            Assert.DoesNotContain("nullableString", requiredFields);
         }
     }
 
@@ -314,9 +314,9 @@ public class SchemaGeneratorTests
 
         Assert.Equal("string", statusProp.GetProperty("type").GetString());
         var enumValues = GetArrayStrings(statusProp.GetProperty("enum"));
-        Assert.Contains("first_value", enumValues);
-        Assert.Contains("second_value", enumValues);
-        Assert.Contains("third_option", enumValues);
+        Assert.Contains("firstValue", enumValues);
+        Assert.Contains("secondValue", enumValues);
+        Assert.Contains("thirdOption", enumValues);
     }
 
     [Fact]
@@ -325,7 +325,7 @@ public class SchemaGeneratorTests
         var result = SchemaGenerator.Generate<ClassWithEnum>("test_schema");
         var schema = GetInnerSchema(result);
         var properties = schema.GetProperty("properties");
-        var colorProp = properties.GetProperty("optional_color");
+        var colorProp = properties.GetProperty("optionalColor");
 
         // Should have type array with string and null
         var typeValue = colorProp.GetProperty("type");
@@ -342,7 +342,7 @@ public class SchemaGeneratorTests
     }
 
     [Fact]
-    public void Generate_EnumValues_AreConvertedToSnakeCase()
+    public void Generate_EnumValues_AreConvertedToCamelCase()
     {
         var result = SchemaGenerator.Generate<ClassWithEnum>("test_schema");
         var schema = GetInnerSchema(result);
@@ -350,10 +350,10 @@ public class SchemaGeneratorTests
         var statusProp = properties.GetProperty("status");
         var enumValues = GetArrayStrings(statusProp.GetProperty("enum"));
 
-        // Verify snake_case conversion
-        Assert.Contains("first_value", enumValues); // FirstValue -> first_value
-        Assert.Contains("second_value", enumValues); // SecondValue -> second_value
-        Assert.Contains("third_option", enumValues); // ThirdOption -> third_option
+        // Verify camelCase conversion
+        Assert.Contains("firstValue", enumValues); // FirstValue -> firstValue
+        Assert.Contains("secondValue", enumValues); // SecondValue -> secondValue
+        Assert.Contains("thirdOption", enumValues); // ThirdOption -> thirdOption
     }
 
     [Fact]
@@ -362,7 +362,7 @@ public class SchemaGeneratorTests
         var result = SchemaGenerator.Generate<ClassWithArrays>("test_schema");
         var schema = GetInnerSchema(result);
         var properties = schema.GetProperty("properties");
-        var arrayProp = properties.GetProperty("string_array");
+        var arrayProp = properties.GetProperty("stringArray");
 
         Assert.Equal("array", arrayProp.GetProperty("type").GetString());
         Assert.Equal("string", arrayProp.GetProperty("items").GetProperty("type").GetString());
@@ -374,7 +374,7 @@ public class SchemaGeneratorTests
         var result = SchemaGenerator.Generate<ClassWithArrays>("test_schema");
         var schema = GetInnerSchema(result);
         var properties = schema.GetProperty("properties");
-        var arrayProp = properties.GetProperty("int_array");
+        var arrayProp = properties.GetProperty("intArray");
 
         Assert.Equal("array", arrayProp.GetProperty("type").GetString());
         Assert.Equal("integer", arrayProp.GetProperty("items").GetProperty("type").GetString());
@@ -393,7 +393,7 @@ public class SchemaGeneratorTests
         var result = SchemaGenerator.Generate<ClassWithDictionaries>("test_schema");
         var schema = GetInnerSchema(result);
         var properties = schema.GetProperty("properties");
-        var dictProp = properties.GetProperty("string_int_dict");
+        var dictProp = properties.GetProperty("stringIntDict");
 
         // Current behavior: Dictionary is treated as an array of KeyValuePairs
         Assert.Equal("array", dictProp.GetProperty("type").GetString());
@@ -405,7 +405,7 @@ public class SchemaGeneratorTests
         var result = SchemaGenerator.Generate<ClassWithDictionaries>("test_schema");
         var schema = GetInnerSchema(result);
         var properties = schema.GetProperty("properties");
-        var dictProp = properties.GetProperty("string_string_dict");
+        var dictProp = properties.GetProperty("stringStringDict");
 
         Assert.Equal("array", dictProp.GetProperty("type").GetString());
     }
@@ -416,7 +416,7 @@ public class SchemaGeneratorTests
         var result = SchemaGenerator.Generate<ClassWithDictionaries>("test_schema");
         var schema = GetInnerSchema(result);
         var properties = schema.GetProperty("properties");
-        var dictProp = properties.GetProperty("read_only_dict");
+        var dictProp = properties.GetProperty("readOnlyDict");
 
         Assert.Equal("array", dictProp.GetProperty("type").GetString());
     }
@@ -457,20 +457,20 @@ public class SchemaGeneratorTests
         var schema = GetInnerSchema(result);
         var properties = schema.GetProperty("properties");
 
-        Assert.Equal("string", properties.GetProperty("root_name").GetProperty("type").GetString());
+        Assert.Equal("string", properties.GetProperty("rootName").GetProperty("type").GetString());
 
-        var level1 = properties.GetProperty("level1_data");
+        var level1 = properties.GetProperty("level1Data");
         Assert.Equal("object", level1.GetProperty("type").GetString());
 
         var level1Properties = level1.GetProperty("properties");
-        Assert.Equal("string", level1Properties.GetProperty("level1_name").GetProperty("type").GetString());
+        Assert.Equal("string", level1Properties.GetProperty("level1Name").GetProperty("type").GetString());
 
-        var level2 = level1Properties.GetProperty("level2_data");
+        var level2 = level1Properties.GetProperty("level2Data");
         Assert.Equal("object", level2.GetProperty("type").GetString());
 
         var level2Properties = level2.GetProperty("properties");
-        Assert.Equal("string", level2Properties.GetProperty("level2_name").GetProperty("type").GetString());
-        Assert.Equal("integer", level2Properties.GetProperty("final_value").GetProperty("type").GetString());
+        Assert.Equal("string", level2Properties.GetProperty("level2Name").GetProperty("type").GetString());
+        Assert.Equal("integer", level2Properties.GetProperty("finalValue").GetProperty("type").GetString());
     }
 
     [Fact]
@@ -495,7 +495,7 @@ public class SchemaGeneratorTests
 
         // Note: Due to implementation order (list before dictionary detection),
         // Dictionary<string, InnerClass> is treated as IEnumerable<KeyValuePair<string, InnerClass>>
-        var itemsDict = properties.GetProperty("items_dict");
+        var itemsDict = properties.GetProperty("itemsDict");
         Assert.Equal("array", itemsDict.GetProperty("type").GetString());
     }
 
@@ -507,7 +507,7 @@ public class SchemaGeneratorTests
         var properties = schema.GetProperty("properties");
 
         // Array of InnerClass
-        var itemsArray = properties.GetProperty("items_array");
+        var itemsArray = properties.GetProperty("itemsArray");
         Assert.Equal("array", itemsArray.GetProperty("type").GetString());
         Assert.Equal("object", itemsArray.GetProperty("items").GetProperty("type").GetString());
     }
@@ -519,8 +519,8 @@ public class SchemaGeneratorTests
         var schema = GetInnerSchema(result);
         var required = GetArrayStrings(schema.GetProperty("required"));
 
-        Assert.Contains("required_string", required);
-        Assert.Contains("required_int", required);
+        Assert.Contains("requiredString", required);
+        Assert.Contains("requiredInt", required);
     }
 
     [Fact]
@@ -530,8 +530,8 @@ public class SchemaGeneratorTests
         var schema = GetInnerSchema(result);
         var required = GetArrayStrings(schema.GetProperty("required"));
 
-        Assert.DoesNotContain("optional_string", required);
-        Assert.DoesNotContain("optional_int", required);
+        Assert.DoesNotContain("optionalString", required);
+        Assert.DoesNotContain("optionalInt", required);
     }
 
     [Fact]
@@ -682,7 +682,7 @@ public class SchemaGeneratorTests
         var schema = GetInnerSchema(result);
         var properties = schema.GetProperty("properties");
 
-        var structProp = properties.GetProperty("struct_prop");
+        var structProp = properties.GetProperty("structProp");
         Assert.Equal("object", structProp.GetProperty("type").GetString());
     }
 
@@ -752,25 +752,25 @@ public class SchemaGeneratorTests
     }
 
     [Fact]
-    public void Generate_PropertyNames_AreConvertedToSnakeCase()
+    public void Generate_PropertyNames_AreConvertedToCamelCase()
     {
         var result = SchemaGenerator.Generate<AllPrimitiveTypes>("test_schema");
         var schema = GetInnerSchema(result);
         var properties = schema.GetProperty("properties");
 
-        // Check property names are snake_case
-        Assert.True(properties.TryGetProperty("string_prop", out _));
-        Assert.True(properties.TryGetProperty("int_prop", out _));
-        Assert.True(properties.TryGetProperty("long_prop", out _));
-        Assert.True(properties.TryGetProperty("bool_prop", out _));
+        // Check property names are camelCase
+        Assert.True(properties.TryGetProperty("stringProp", out _));
+        Assert.True(properties.TryGetProperty("intProp", out _));
+        Assert.True(properties.TryGetProperty("longProp", out _));
+        Assert.True(properties.TryGetProperty("boolProp", out _));
     }
 
     [Theory]
-    [InlineData("required_string")]
-    [InlineData("required_int")]
-    [InlineData("optional_string")]
-    [InlineData("optional_int")]
-    public void Generate_RequiredArray_UsesSnakeCasePropertyNames(string expectedPropertyName)
+    [InlineData("requiredString")]
+    [InlineData("requiredInt")]
+    [InlineData("optionalString")]
+    [InlineData("optionalInt")]
+    public void Generate_RequiredArray_UsesCamelCasePropertyNames(string expectedPropertyName)
     {
         var result = SchemaGenerator.Generate<RequiredVsOptional>("test_schema");
         var schema = GetInnerSchema(result);

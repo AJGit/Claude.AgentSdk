@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Reflection;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -143,7 +143,7 @@ public static class SchemaGenerator
         var enumValues = new JsonArray();
         foreach (var enumName in Enum.GetNames(type))
         {
-            enumValues.Add(ToSnakeCase(enumName));
+            enumValues.Add(ToCamelCase(enumName));
         }
 
         schema = new JsonObject
@@ -238,7 +238,7 @@ public static class SchemaGenerator
 
         foreach (var prop in typeProps)
         {
-            var propName = ToSnakeCase(prop.Name);
+            var propName = ToCamelCase(prop.Name);
             var propSchema = GenerateTypeSchema(prop.PropertyType, strict, visited);
 
             AddPropertyDescription(prop, propSchema);
@@ -269,6 +269,16 @@ public static class SchemaGenerator
         AddTypeDescription(type, schema);
 
         return schema;
+    }
+
+    private static string ToCamelCase(string propName)
+    {
+        if (string.IsNullOrEmpty(propName))
+        {
+            return propName;
+        }
+
+        return char.ToLowerInvariant(propName[0]) + propName.Substring(1);
     }
 
     private static void AddPropertyDescription(PropertyInfo prop, JsonNode propSchema)

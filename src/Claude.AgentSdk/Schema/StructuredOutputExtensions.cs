@@ -1,5 +1,4 @@
-using System.Text;
-using Claude.AgentSdk.Messages;
+﻿using Claude.AgentSdk.Messages;
 
 namespace Claude.AgentSdk.Schema;
 
@@ -19,7 +18,7 @@ public static class StructuredOutputExtensions
         this ClaudeAgentOptions options,
         string? schemaName = null)
     {
-        var name = schemaName ?? ToSnakeCase(typeof(TOutput).Name);
+        var name = schemaName ?? ToCamelCase(typeof(TOutput).Name);
         var schema = SchemaGenerator.Generate<TOutput>(name);
 
         return options with { OutputFormat = schema };
@@ -46,7 +45,7 @@ public static class StructuredOutputExtensions
         {
             options ??= new JsonSerializerOptions
             {
-                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             };
 
             try
@@ -71,7 +70,7 @@ public static class StructuredOutputExtensions
 
         options ??= new JsonSerializerOptions
         {
-            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         };
 
         try
@@ -102,7 +101,7 @@ public static class StructuredOutputExtensions
 
         options ??= new JsonSerializerOptions
         {
-            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         };
 
         try
@@ -117,30 +116,40 @@ public static class StructuredOutputExtensions
         }
     }
 
-    private static string ToSnakeCase(string name)
+    private static string ToCamelCase(string name)
     {
         if (string.IsNullOrEmpty(name))
         {
             return name;
         }
 
-        var result = new StringBuilder();
-        result.Append(char.ToLowerInvariant(name[0]));
-
-        for (var i = 1; i < name.Length; i++)
-        {
-            var c = name[i];
-            if (char.IsUpper(c))
-            {
-                result.Append('_');
-                result.Append(char.ToLowerInvariant(c));
-            }
-            else
-            {
-                result.Append(c);
-            }
-        }
-
-        return result.ToString();
+        return char.ToLowerInvariant(name[0]) + name[1..];
     }
+
+    //private static string ToSnakeCase(string name)
+    //{
+    //    if (string.IsNullOrEmpty(name))
+    //    {
+    //        return name;
+    //    }
+
+    //    var result = new StringBuilder();
+    //    result.Append(char.ToLowerInvariant(name[0]));
+
+    //    for (var i = 1; i < name.Length; i++)
+    //    {
+    //        var c = name[i];
+    //        if (char.IsUpper(c))
+    //        {
+    //            result.Append('_');
+    //            result.Append(char.ToLowerInvariant(c));
+    //        }
+    //        else
+    //        {
+    //            result.Append(c);
+    //        }
+    //    }
+
+    //    return result.ToString();
+    //}
 }
