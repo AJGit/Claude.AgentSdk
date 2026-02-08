@@ -1,5 +1,6 @@
-using System.Runtime.Serialization;
+﻿using System.Runtime.Serialization;
 using Claude.AgentSdk.Attributes;
+using Claude.AgentSdk.Metrics;
 using Claude.AgentSdk.Protocol;
 using Claude.AgentSdk.Tools;
 using Claude.AgentSdk.Types;
@@ -27,7 +28,10 @@ public enum PermissionMode
     BypassPermissions,
 
     /// <summary>Don't ask for any permissions.</summary>
-    [EnumMember(Value = "dontAsk")] DontAsk
+    [EnumMember(Value = "dontAsk")] DontAsk,
+
+    /// <summary>Delegate permission decisions to a handler.</summary>
+    [EnumMember(Value = "delegate")] Delegate
 }
 
 /// <summary>
@@ -177,6 +181,11 @@ public sealed record SandboxSettings : SandboxConfig
     ///     Enable a weaker nested sandbox for compatibility with certain environments.
     /// </summary>
     public bool EnableWeakerNestedSandbox { get; init; }
+
+    /// <summary>
+    ///     Configuration for ripgrep (rg) command.
+    /// </summary>
+    public RipgrepConfig? Ripgrep { get; init; }
 }
 
 /// <summary>
@@ -209,6 +218,16 @@ public sealed record NetworkSandboxSettings
     ///     SOCKS proxy port for network requests.
     /// </summary>
     public int? SocksProxyPort { get; init; }
+
+    /// <summary>
+    ///     Allowed network domains.
+    /// </summary>
+    public IReadOnlyList<string>? AllowedDomains { get; init; }
+
+    /// <summary>
+    ///     Only allow managed domains for network access.
+    /// </summary>
+    public bool AllowManagedDomainsOnly { get; init; }
 }
 
 /// <summary>
@@ -484,6 +503,11 @@ public sealed record ClaudeAgentOptions
     public string? Model { get; init; }
 
     /// <summary>
+    ///     Display name for metrics tracking. Shows in metrics output instead of session ID.
+    /// </summary>
+    public string? SessionDisplayName { get; init; }
+
+    /// <summary>
     ///     Strongly-typed model identifier. Use this instead of <see cref="Model" /> for type safety.
     /// </summary>
     /// <remarks>
@@ -661,6 +685,63 @@ public sealed record ClaudeAgentOptions
     public bool NoHooks { get; init; }
 
     /// <summary>
+    ///     Callback for JSON messages sent to the CLI.
+    ///     Useful for debugging the actual conversation context.
+    /// </summary>
+    public Action<string>? OnMessageSent { get; init; }
+
+    /// <summary>
+    ///     Callback for JSON messages received from the CLI.
+    ///     Useful for debugging the actual conversation context.
+    /// </summary>
+    public Action<string>? OnMessageReceived { get; init; }
+
+    /// <summary>
+    ///     Callback invoked when metrics are available (token usage, cost, timing).
+    ///     Called for each turn/result in both one-shot queries and interactive sessions.
+    /// </summary>
+    /// <remarks>
+    ///     For interactive sessions created via <see cref="ClaudeAgentClient.CreateSessionAsync" />,
+    ///     you can also set <see cref="ClaudeAgentSession.OnMetrics" /> directly on the session.
+    ///     This option provides a way to capture metrics for one-shot queries via
+    ///     <see cref="ClaudeAgentClient.QueryAsync" /> and <see cref="ClaudeAgentClient.QueryToCompletionAsync" />.
+    /// </remarks>
+    /// <example>
+    ///     <code>
+    /// var options = new ClaudeAgentOptions
+    /// {
+    ///     OnMetrics = evt =>
+    ///     {
+    ///         Console.WriteLine($"Tokens: {evt.InputTokens} in, {evt.OutputTokens} out");
+    ///         Console.WriteLine($"Cost: ${evt.CostUsd:F4}");
+    ///         return ValueTask.CompletedTask;
+    ///     }
+    /// };
+    /// </code>
+    /// </example>
+    public Func<MetricsEvent, ValueTask>? OnMetrics { get; init; }
+
+    /// <summary>
+    ///     Custom session ID (UUID) for conversations.
+    /// </summary>
+    public string? SessionId { get; init; }
+
+    /// <summary>
+    ///     Enable debug logging.
+    /// </summary>
+    public bool Debug { get; init; }
+
+    /// <summary>
+    ///     Path for debug output file.
+    /// </summary>
+    public string? DebugFile { get; init; }
+
+    /// <summary>
+    ///     Persist session state across restarts.
+    /// </summary>
+    public bool PersistSession { get; init; }
+
+    /// <summary>
     ///     User identifier for analytics and attribution.
     /// </summary>
     public string? User { get; init; }
@@ -743,6 +824,47 @@ public sealed record AgentDefinition
     /// </summary>
     /// <example>"sonnet", "opus", "haiku"</example>
     public string? Model { get; init; }
+
+    /// <summary>
+    ///     Skills available to this subagent.
+    /// </summary>
+    public IReadOnlyList<string>? Skills { get; init; }
+
+    /// <summary>
+    ///     Maximum number of turns for this subagent.
+    /// </summary>
+    public int? MaxTurns { get; init; }
+
+    /// <summary>
+    ///     Tools explicitly disallowed for this subagent.
+    /// </summary>
+    public IReadOnlyList<string>? DisallowedTools { get; init; }
+
+    /// <summary>
+    ///     MCP server configurations for this subagent.
+    /// </summary>
+    public IReadOnlyDictionary<string, McpServerConfig>? McpServers { get; init; }
+
+    /// <summary>
+    ///     Experimental critical system reminder appended to the system prompt.
+    /// </summary>
+    public string? CriticalSystemReminderExperimental { get; init; }
+}
+
+/// <summary>
+///     Configuration for ripgrep (rg) command.
+/// </summary>
+public sealed record RipgrepConfig
+{
+    /// <summary>
+    ///     The ripgrep command path.
+    /// </summary>
+    public required string Command { get; init; }
+
+    /// <summary>
+    ///     Additional arguments for ripgrep.
+    /// </summary>
+    public IReadOnlyList<string>? Args { get; init; }
 }
 
 /// <summary>

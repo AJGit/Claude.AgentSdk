@@ -61,6 +61,9 @@ internal static class ControlSubtype
     public const string SupportedModels = "supported_models";
     public const string McpServerStatus = "mcp_server_status";
     public const string AccountInfo = "account_info";
+    public const string ReconnectMcpServer = "reconnect_mcp_server";
+    public const string ToggleMcpServer = "toggle_mcp_server";
+    public const string SetMcpServers = "set_mcp_servers";
 }
 
 /// <summary>
@@ -202,6 +205,38 @@ internal sealed record AccountInfoRequestBody
 }
 
 /// <summary>
+///     Reconnect MCP server request body.
+/// </summary>
+internal sealed record ReconnectMcpServerRequestBody
+{
+    [JsonPropertyName("subtype")] public string Subtype => ControlSubtype.ReconnectMcpServer;
+
+    [JsonPropertyName("server_name")] public required string ServerName { get; init; }
+}
+
+/// <summary>
+///     Toggle MCP server request body.
+/// </summary>
+internal sealed record ToggleMcpServerRequestBody
+{
+    [JsonPropertyName("subtype")] public string Subtype => ControlSubtype.ToggleMcpServer;
+
+    [JsonPropertyName("server_name")] public required string ServerName { get; init; }
+
+    [JsonPropertyName("enabled")] public required bool Enabled { get; init; }
+}
+
+/// <summary>
+///     Set MCP servers request body.
+/// </summary>
+internal sealed record SetMcpServersRequestBody
+{
+    [JsonPropertyName("subtype")] public string Subtype => ControlSubtype.SetMcpServers;
+
+    [JsonPropertyName("servers")] public required object Servers { get; init; }
+}
+
+/// <summary>
 ///     Initialize request body with hooks configuration.
 /// </summary>
 internal sealed record InitializeRequestBody
@@ -326,4 +361,68 @@ internal sealed record UserMessagePayload
 internal sealed record McpResponseWrapper
 {
     [JsonPropertyName("mcp_response")] public object? McpResponse { get; init; }
+}
+
+// ============================================================================
+// Public Result Types
+// ============================================================================
+
+/// <summary>
+///     Result of setting MCP servers.
+/// </summary>
+public sealed record McpSetServersResult
+{
+    /// <summary>
+    ///     Servers that were added.
+    /// </summary>
+    [JsonPropertyName("added")]
+    public IReadOnlyList<string> Added { get; init; } = [];
+
+    /// <summary>
+    ///     Servers that were removed.
+    /// </summary>
+    [JsonPropertyName("removed")]
+    public IReadOnlyList<string> Removed { get; init; } = [];
+
+    /// <summary>
+    ///     Errors that occurred during configuration.
+    /// </summary>
+    [JsonPropertyName("errors")]
+    public IReadOnlyList<string> Errors { get; init; } = [];
+}
+
+/// <summary>
+///     Result of rewinding files to a previous state.
+/// </summary>
+public sealed record RewindFilesResult
+{
+    /// <summary>
+    ///     Whether the rewind operation is possible.
+    /// </summary>
+    [JsonPropertyName("can_rewind")]
+    public bool CanRewind { get; init; }
+
+    /// <summary>
+    ///     Error message if rewind failed.
+    /// </summary>
+    [JsonPropertyName("error")]
+    public string? Error { get; init; }
+
+    /// <summary>
+    ///     Number of files changed during rewind.
+    /// </summary>
+    [JsonPropertyName("files_changed")]
+    public int? FilesChanged { get; init; }
+
+    /// <summary>
+    ///     Number of line insertions.
+    /// </summary>
+    [JsonPropertyName("insertions")]
+    public int? Insertions { get; init; }
+
+    /// <summary>
+    ///     Number of line deletions.
+    /// </summary>
+    [JsonPropertyName("deletions")]
+    public int? Deletions { get; init; }
 }

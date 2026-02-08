@@ -65,7 +65,22 @@ public enum HookEvent
     /// <summary>
     ///     Fires for agent status notifications.
     /// </summary>
-    Notification
+    Notification,
+
+    /// <summary>
+    ///     Fires on initialization or maintenance triggers.
+    /// </summary>
+    Setup,
+
+    /// <summary>
+    ///     Fires when a teammate becomes idle.
+    /// </summary>
+    TeammateIdle,
+
+    /// <summary>
+    ///     Fires when a task completes.
+    /// </summary>
+    TaskCompleted
 }
 
 /// <summary>
@@ -129,6 +144,8 @@ public sealed record PreToolUseHookInput : HookInput
     [JsonPropertyName("tool_name")] public required string ToolName { get; init; }
 
     [JsonPropertyName("tool_input")] public required JsonElement ToolInput { get; init; }
+
+    [JsonPropertyName("tool_use_id")] public string? ToolUseId { get; init; }
 }
 
 public sealed record PostToolUseHookInput : HookInput
@@ -140,6 +157,8 @@ public sealed record PostToolUseHookInput : HookInput
     [JsonPropertyName("tool_input")] public required JsonElement ToolInput { get; init; }
 
     [JsonPropertyName("tool_response")] public JsonElement? ToolResponse { get; init; }
+
+    [JsonPropertyName("tool_use_id")] public string? ToolUseId { get; init; }
 }
 
 public sealed record UserPromptSubmitHookInput : HookInput
@@ -166,6 +185,8 @@ public sealed record SubagentStopHookInput : HookInput
 
     [JsonPropertyName("agent_transcript_path")]
     public string? AgentTranscriptPath { get; init; }
+
+    [JsonPropertyName("agent_type")] public string? AgentType { get; init; }
 }
 
 public sealed record PreCompactHookInput : HookInput
@@ -192,6 +213,8 @@ public sealed record PostToolUseFailureHookInput : HookInput
     [JsonPropertyName("error")] public required string Error { get; init; }
 
     [JsonPropertyName("is_interrupt")] public bool IsInterrupt { get; init; }
+
+    [JsonPropertyName("tool_use_id")] public string? ToolUseId { get; init; }
 }
 
 /// <summary>
@@ -239,6 +262,10 @@ public sealed record SessionStartHookInput : HookInput
     /// </summary>
     [JsonIgnore]
     public SessionStartSource SourceEnum => EnumStringMappings.ParseSessionStartSource(Source);
+
+    [JsonPropertyName("agent_type")] public string? AgentType { get; init; }
+
+    [JsonPropertyName("model")] public string? Model { get; init; }
 }
 
 /// <summary>
@@ -357,3 +384,96 @@ public sealed record AsyncHookOutput : HookOutput
     [JsonPropertyName("asyncTimeout")]
     public int? AsyncTimeout { get; init; }
 }
+
+// ============================================================================
+// New Hook Input Records
+// ============================================================================
+
+/// <summary>
+///     Input for Setup hooks (fires on init/maintenance triggers).
+/// </summary>
+public sealed record SetupHookInput : HookInput
+{
+    public override string HookEventName => "Setup";
+
+    /// <summary>
+    ///     The trigger type: "init" or "maintenance".
+    /// </summary>
+    [JsonPropertyName("trigger")]
+    public required string Trigger { get; init; }
+}
+
+/// <summary>
+///     Input for TeammateIdle hooks (fires when a teammate becomes idle).
+/// </summary>
+public sealed record TeammateIdleHookInput : HookInput
+{
+    public override string HookEventName => "TeammateIdle";
+
+    [JsonPropertyName("teammate_name")] public required string TeammateName { get; init; }
+
+    [JsonPropertyName("team_name")] public required string TeamName { get; init; }
+}
+
+/// <summary>
+///     Input for TaskCompleted hooks (fires when a task completes).
+/// </summary>
+public sealed record TaskCompletedHookInput : HookInput
+{
+    public override string HookEventName => "TaskCompleted";
+
+    [JsonPropertyName("task_id")] public required string TaskId { get; init; }
+
+    [JsonPropertyName("task_subject")] public required string TaskSubject { get; init; }
+
+    [JsonPropertyName("task_description")] public string? TaskDescription { get; init; }
+
+    [JsonPropertyName("teammate_name")] public string? TeammateName { get; init; }
+
+    [JsonPropertyName("team_name")] public string? TeamName { get; init; }
+}
+
+// ============================================================================
+// Hook-Specific Output Records
+// ============================================================================
+
+/// <summary>
+///     Hook-specific output for PreToolUse hooks.
+/// </summary>
+public sealed record PreToolUseHookSpecificOutput
+{
+    [JsonPropertyName("additionalContext")] public string? AdditionalContext { get; init; }
+}
+
+/// <summary>
+///     Hook-specific output for PostToolUse hooks.
+/// </summary>
+public sealed record PostToolUseHookSpecificOutput
+{
+    [JsonPropertyName("updatedMCPToolOutput")] public JsonElement? UpdatedMcpToolOutput { get; init; }
+}
+
+/// <summary>
+///     Hook-specific output for Notification hooks.
+/// </summary>
+public sealed record NotificationHookSpecificOutput;
+
+/// <summary>
+///     Hook-specific output for SessionStart hooks.
+/// </summary>
+public sealed record SessionStartHookSpecificOutput;
+
+/// <summary>
+///     Hook-specific output for Setup hooks.
+/// </summary>
+public sealed record SetupHookSpecificOutput;
+
+/// <summary>
+///     Hook-specific output for SubagentStart hooks.
+/// </summary>
+public sealed record SubagentStartHookSpecificOutput;
+
+/// <summary>
+///     Hook-specific output for PostToolUseFailure hooks.
+/// </summary>
+public sealed record PostToolUseFailureHookSpecificOutput;

@@ -78,6 +78,30 @@ public sealed record McpServerStatusInfo
     /// </summary>
     [JsonPropertyName("serverInfo")]
     public McpServerInfo? ServerInfo { get; init; }
+
+    /// <summary>
+    ///     Error message if connection failed.
+    /// </summary>
+    [JsonPropertyName("error")]
+    public string? Error { get; init; }
+
+    /// <summary>
+    ///     Server configuration.
+    /// </summary>
+    [JsonPropertyName("config")]
+    public JsonElement? Config { get; init; }
+
+    /// <summary>
+    ///     Server scope.
+    /// </summary>
+    [JsonPropertyName("scope")]
+    public string? Scope { get; init; }
+
+    /// <summary>
+    ///     Tools provided by this server.
+    /// </summary>
+    [JsonPropertyName("tools")]
+    public IReadOnlyList<string>? Tools { get; init; }
 }
 
 /// <summary>

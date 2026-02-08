@@ -13,7 +13,9 @@
     <Authors>AJGit</Authors>
     <Company>AJGit</Company>
     <Product>Claude.AgentSdk</Product>
-    <Description>A C# SDK for building intelligent agents with Claude Code CLI. Provides session management, bidirectional communication, custom MCP tools, hooks, subagents, and structured outputs.</Description>
+    <Description>A C# SDK for building intelligent agents with Claude Code CLI. Provides session
+      management, bidirectional communication, custom MCP tools, hooks, subagents, and structured
+      outputs.</Description>
     <PackageTags>anthropic;claude;agent;sdk;ai;llm;mcp;model-context-protocol</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Copyright>Copyright (c) 2025 AJGit</Copyright>
@@ -27,7 +29,8 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
     <!-- Release Notes -->
-    <PackageReleaseNotes>Initial release with core SDK features including session management, MCP tools, hooks, subagents, and structured outputs.</PackageReleaseNotes>
+    <PackageReleaseNotes>Initial release with core SDK features including session management, MCP
+      tools, hooks, subagents, and structured outputs.</PackageReleaseNotes>
 
     <!-- Build Settings -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -72,25 +75,21 @@
   <!-- Reference the source generator and analyzers -->
   <ItemGroup>
     <ProjectReference Include="..\Claude.AgentSdk.Generators\Claude.AgentSdk.Generators.csproj"
-                      OutputItemType="Analyzer"
-                      ReferenceOutputAssembly="false" />
+      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\Claude.AgentSdk.Analyzers\Claude.AgentSdk.Analyzers.csproj"
-                      OutputItemType="Analyzer"
-                      ReferenceOutputAssembly="false" />
+      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <!-- Include the source generator and analyzers in the NuGet package -->
   <ItemGroup>
     <!-- Pack the generator DLL into the analyzers folder -->
-    <None Include="$(MSBuildProjectDirectory)\..\Claude.AgentSdk.Generators\bin\$(Configuration)\netstandard2.0\Claude.AgentSdk.Generators.dll"
-          Pack="true"
-          PackagePath="analyzers/dotnet/cs"
-          Visible="false" />
+    <None
+      Include="$(MSBuildProjectDirectory)\..\Claude.AgentSdk.Generators\bin\$(Configuration)\netstandard2.0\Claude.AgentSdk.Generators.dll"
+      Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
     <!-- Pack the analyzers DLL into the analyzers folder -->
-    <None Include="$(MSBuildProjectDirectory)\..\Claude.AgentSdk.Analyzers\bin\$(Configuration)\netstandard2.0\Claude.AgentSdk.Analyzers.dll"
-          Pack="true"
-          PackagePath="analyzers/dotnet/cs"
-          Visible="false" />
+    <None
+      Include="$(MSBuildProjectDirectory)\..\Claude.AgentSdk.Analyzers\bin\$(Configuration)\netstandard2.0\Claude.AgentSdk.Analyzers.dll"
+      Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
   </ItemGroup>
 
 </Project>

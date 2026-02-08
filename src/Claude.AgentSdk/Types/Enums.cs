@@ -22,7 +22,16 @@ public enum MessageType
     [EnumMember(Value = "result")] Result,
 
     /// <summary>Stream event for partial message updates.</summary>
-    [EnumMember(Value = "stream_event")] StreamEvent
+    [EnumMember(Value = "stream_event")] StreamEvent,
+
+    /// <summary>Tool progress update message.</summary>
+    [EnumMember(Value = "tool_progress")] ToolProgress,
+
+    /// <summary>Tool use summary message.</summary>
+    [EnumMember(Value = "tool_use_summary")] ToolUseSummary,
+
+    /// <summary>Authentication status message.</summary>
+    [EnumMember(Value = "auth_status")] AuthStatus
 }
 
 /// <summary>
@@ -57,7 +66,19 @@ public enum ResultMessageSubtype
     [EnumMember(Value = "error")] Error,
 
     /// <summary>Partial result (streaming).</summary>
-    [EnumMember(Value = "partial")] Partial
+    [EnumMember(Value = "partial")] Partial,
+
+    /// <summary>Error occurred during execution.</summary>
+    [EnumMember(Value = "error_during_execution")] ErrorDuringExecution,
+
+    /// <summary>Maximum turns exceeded.</summary>
+    [EnumMember(Value = "error_max_turns")] ErrorMaxTurns,
+
+    /// <summary>Maximum budget exceeded.</summary>
+    [EnumMember(Value = "error_max_budget_usd")] ErrorMaxBudget,
+
+    /// <summary>Maximum structured output retries exceeded.</summary>
+    [EnumMember(Value = "error_max_structured_output_retries")] ErrorMaxStructuredOutputRetries
 }
 
 /// <summary>
@@ -71,7 +92,25 @@ public enum SystemMessageSubtype
 
     /// <summary>Compact boundary marker after conversation compaction.</summary>
     [EnumMember(Value = "compact_boundary")]
-    CompactBoundary
+    CompactBoundary,
+
+    /// <summary>Status update message.</summary>
+    [EnumMember(Value = "status")] Status,
+
+    /// <summary>Hook execution started.</summary>
+    [EnumMember(Value = "hook_started")] HookStarted,
+
+    /// <summary>Hook execution progress.</summary>
+    [EnumMember(Value = "hook_progress")] HookProgress,
+
+    /// <summary>Hook execution response.</summary>
+    [EnumMember(Value = "hook_response")] HookResponse,
+
+    /// <summary>Task notification.</summary>
+    [EnumMember(Value = "task_notification")] TaskNotification,
+
+    /// <summary>Files persisted notification.</summary>
+    [EnumMember(Value = "files_persisted")] FilesPersisted
 }
 
 /// <summary>
@@ -90,7 +129,10 @@ public enum McpServerStatusType
     [EnumMember(Value = "needs-auth")] NeedsAuth,
 
     /// <summary>Server connection is pending.</summary>
-    [EnumMember(Value = "pending")] Pending
+    [EnumMember(Value = "pending")] Pending,
+
+    /// <summary>Server is disabled.</summary>
+    [EnumMember(Value = "disabled")] Disabled
 }
 
 /// <summary>
@@ -205,7 +247,16 @@ public enum ControlSubtypeEnum
     McpServerStatus,
 
     /// <summary>Query account information.</summary>
-    [EnumMember(Value = "account_info")] AccountInfo
+    [EnumMember(Value = "account_info")] AccountInfo,
+
+    /// <summary>Reconnect to an MCP server.</summary>
+    [EnumMember(Value = "reconnect_mcp_server")] ReconnectMcpServer,
+
+    /// <summary>Toggle an MCP server on or off.</summary>
+    [EnumMember(Value = "toggle_mcp_server")] ToggleMcpServer,
+
+    /// <summary>Set MCP server configurations.</summary>
+    [EnumMember(Value = "set_mcp_servers")] SetMcpServers
 }
 
 /// <summary>

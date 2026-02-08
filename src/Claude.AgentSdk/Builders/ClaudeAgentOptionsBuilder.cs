@@ -64,6 +64,10 @@ public sealed class ClaudeAgentOptionsBuilder
     private bool _strictMcpConfig;
     private SystemPromptConfig? _systemPrompt;
     private ToolsConfig? _tools;
+    private string? _sessionId;
+    private bool _debug;
+    private string? _debugFile;
+    private bool _persistSession;
     private string? _user;
     private string? _workingDirectory;
 
@@ -113,6 +117,10 @@ public sealed class ClaudeAgentOptionsBuilder
             StrictMcpConfig = _strictMcpConfig,
             DangerouslySkipPermissions = _dangerouslySkipPermissions,
             NoHooks = _noHooks,
+            SessionId = _sessionId,
+            Debug = _debug,
+            DebugFile = _debugFile,
+            PersistSession = _persistSession,
             User = _user,
             AdditionalDataPaths = _additionalDataPaths.Count > 0 ? _additionalDataPaths : null,
             OnStderr = _onStderr,
@@ -796,6 +804,50 @@ public sealed class ClaudeAgentOptionsBuilder
     public ClaudeAgentOptionsBuilder WithPermissionPromptTool(string toolName)
     {
         _permissionPromptToolName = toolName;
+        return this;
+    }
+
+    /// <summary>
+    ///     Sets a custom session ID.
+    /// </summary>
+    /// <param name="sessionId">The session ID (UUID).</param>
+    /// <returns>This builder for chaining.</returns>
+    public ClaudeAgentOptionsBuilder WithSessionId(string sessionId)
+    {
+        _sessionId = sessionId;
+        return this;
+    }
+
+    /// <summary>
+    ///     Enables debug logging.
+    /// </summary>
+    /// <param name="enable">Whether to enable debug logging.</param>
+    /// <returns>This builder for chaining.</returns>
+    public ClaudeAgentOptionsBuilder WithDebug(bool enable = true)
+    {
+        _debug = enable;
+        return this;
+    }
+
+    /// <summary>
+    ///     Sets the debug output file path.
+    /// </summary>
+    /// <param name="path">The file path for debug output.</param>
+    /// <returns>This builder for chaining.</returns>
+    public ClaudeAgentOptionsBuilder WithDebugFile(string path)
+    {
+        _debugFile = path;
+        return this;
+    }
+
+    /// <summary>
+    ///     Enables session persistence.
+    /// </summary>
+    /// <param name="persist">Whether to persist session state.</param>
+    /// <returns>This builder for chaining.</returns>
+    public ClaudeAgentOptionsBuilder WithPersistSession(bool persist = true)
+    {
+        _persistSession = persist;
         return this;
     }
 }

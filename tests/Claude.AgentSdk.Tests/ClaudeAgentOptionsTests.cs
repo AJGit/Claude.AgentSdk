@@ -168,12 +168,13 @@ public class ClaudeAgentOptionsTests
     public void PermissionMode_HasExpectedValues()
     {
         var values = Enum.GetValues<PermissionMode>();
-        Assert.Equal(5, values.Length);
+        Assert.Equal(6, values.Length);
         Assert.Contains(PermissionMode.Default, values);
         Assert.Contains(PermissionMode.AcceptEdits, values);
         Assert.Contains(PermissionMode.Plan, values);
         Assert.Contains(PermissionMode.BypassPermissions, values);
         Assert.Contains(PermissionMode.DontAsk, values);
+        Assert.Contains(PermissionMode.Delegate, values);
     }
 
     [Theory]
@@ -729,7 +730,7 @@ public class ClaudeAgentOptionsTests
     public void HookEvent_HasAllExpectedValues()
     {
         var values = Enum.GetValues<HookEvent>();
-        Assert.Equal(12, values.Length);
+        Assert.Equal(15, values.Length);
         Assert.Contains(HookEvent.PreToolUse, values);
         Assert.Contains(HookEvent.PostToolUse, values);
         Assert.Contains(HookEvent.PostToolUseFailure, values);
@@ -742,6 +743,9 @@ public class ClaudeAgentOptionsTests
         Assert.Contains(HookEvent.SessionStart, values);
         Assert.Contains(HookEvent.SessionEnd, values);
         Assert.Contains(HookEvent.Notification, values);
+        Assert.Contains(HookEvent.Setup, values);
+        Assert.Contains(HookEvent.TeammateIdle, values);
+        Assert.Contains(HookEvent.TaskCompleted, values);
     }
 
     [Theory]

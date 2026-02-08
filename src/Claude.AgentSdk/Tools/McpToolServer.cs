@@ -69,6 +69,37 @@ public sealed class ToolDefinition
     public required string Description { get; init; }
     public required JsonObject InputSchema { get; init; }
     public required Func<JsonElement, CancellationToken, Task<ToolResult>> Handler { get; init; }
+
+    /// <summary>
+    ///     MCP tool annotations providing hints about tool behavior.
+    /// </summary>
+    public ToolAnnotations? Annotations { get; init; }
+}
+
+/// <summary>
+///     MCP tool annotations providing hints about the tool's behavior and side effects.
+/// </summary>
+public sealed record ToolAnnotations
+{
+    /// <summary>
+    ///     If true, the tool does not modify any state.
+    /// </summary>
+    public bool? ReadOnlyHint { get; init; }
+
+    /// <summary>
+    ///     If true, the tool may perform destructive operations.
+    /// </summary>
+    public bool? DestructiveHint { get; init; }
+
+    /// <summary>
+    ///     If true, calling the tool multiple times with the same input produces the same result.
+    /// </summary>
+    public bool? IdempotentHint { get; init; }
+
+    /// <summary>
+    ///     If true, the tool interacts with the external world.
+    /// </summary>
+    public bool? OpenWorldHint { get; init; }
 }
 
 /// <summary>
@@ -112,6 +143,26 @@ public sealed class ClaudeToolAttribute : Attribute
     ///     Timeout in seconds for the tool execution. Zero means no timeout.
     /// </summary>
     public int TimeoutSeconds { get; init; }
+
+    /// <summary>
+    ///     Hint: the tool does not modify any state.
+    /// </summary>
+    public bool ReadOnlyHint { get; set; }
+
+    /// <summary>
+    ///     Hint: the tool may perform destructive operations.
+    /// </summary>
+    public bool DestructiveHint { get; set; }
+
+    /// <summary>
+    ///     Hint: calling the tool multiple times with the same input produces the same result.
+    /// </summary>
+    public bool IdempotentHint { get; set; }
+
+    /// <summary>
+    ///     Hint: the tool interacts with the external world.
+    /// </summary>
+    public bool OpenWorldHint { get; set; }
 }
 
 /// <summary>
@@ -273,11 +324,22 @@ public sealed class McpToolServer(string name, string version = "1.0.0") : IMcpT
             var parameters = method.GetParameters();
             var schema = GenerateSchemaFromParameters(parameters);
 
+            var annotations = (attr.ReadOnlyHint || attr.DestructiveHint || attr.IdempotentHint || attr.OpenWorldHint)
+                ? new ToolAnnotations
+                {
+                    ReadOnlyHint = attr.ReadOnlyHint ? true : null,
+                    DestructiveHint = attr.DestructiveHint ? true : null,
+                    IdempotentHint = attr.IdempotentHint ? true : null,
+                    OpenWorldHint = attr.OpenWorldHint ? true : null
+                }
+                : null;
+
             _tools[attr.Name] = new ToolDefinition
             {
                 Name = attr.Name,
                 Description = attr.Description,
                 InputSchema = schema,
+                Annotations = annotations,
                 Handler = async (input, ct) =>
                 {
                     try
@@ -388,11 +450,32 @@ public sealed class McpToolServer(string name, string version = "1.0.0") : IMcpT
     private Dictionary<string, object> HandleToolsList()
     {
         // Use Dictionary to preserve exact property names (avoid snake_case conversion)
-        var tools = _tools.Values.Select(t => new Dictionary<string, object?>
+        var tools = _tools.Values.Select(t =>
         {
-            ["name"] = t.Name,
-            ["description"] = t.Description,
-            ["inputSchema"] = t.InputSchema
+            var dict = new Dictionary<string, object?>
+            {
+                ["name"] = t.Name,
+                ["description"] = t.Description,
+                ["inputSchema"] = t.InputSchema
+            };
+
+            if (t.Annotations is not null)
+            {
+                var annotations = new Dictionary<string, object?>();
+                if (t.Annotations.ReadOnlyHint.HasValue)
+                    annotations["readOnlyHint"] = t.Annotations.ReadOnlyHint.Value;
+                if (t.Annotations.DestructiveHint.HasValue)
+                    annotations["destructiveHint"] = t.Annotations.DestructiveHint.Value;
+                if (t.Annotations.IdempotentHint.HasValue)
+                    annotations["idempotentHint"] = t.Annotations.IdempotentHint.Value;
+                if (t.Annotations.OpenWorldHint.HasValue)
+                    annotations["openWorldHint"] = t.Annotations.OpenWorldHint.Value;
+
+                if (annotations.Count > 0)
+                    dict["annotations"] = annotations;
+            }
+
+            return dict;
         }).ToList();
 
         return new Dictionary<string, object> { ["tools"] = tools };

@@ -1,6 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using Claude.AgentSdk.Logging;
 using Claude.AgentSdk.Messages;
+using Claude.AgentSdk.Metrics;
 using Claude.AgentSdk.Protocol;
 using Claude.AgentSdk.Transport;
 using Microsoft.Extensions.Logging;
@@ -143,6 +144,16 @@ public sealed class ClaudeAgentClient : IAsyncDisposable
             CompleteOnResult = true // One-shot query should complete after ResultMessage
         };
 
+        // Wire up metrics callback if configured
+        if (effectiveOptions.OnMetrics is { } metricsCallback)
+        {
+            handler.OnResultMessage = result => HandleResultMessageForMetrics(
+                result,
+                metricsCallback,
+                effectiveOptions.SessionDisplayName,
+                handler.CurrentModel);
+        }
+
         try
         {
             await handler.StartAsync(cancellationToken).ConfigureAwait(false);
@@ -232,6 +243,7 @@ public sealed class ClaudeAgentClient : IAsyncDisposable
 
         return new ClaudeAgentSession(
             handler,
+            _options.SessionDisplayName,
             _loggerFactory?.CreateLogger<ClaudeAgentSession>());
     }
 
@@ -291,7 +303,22 @@ public sealed class ClaudeAgentClient : IAsyncDisposable
             OnStderr = overrides.OnStderr ?? _options.OnStderr,
             MessageChannelCapacity = overrides.MessageChannelCapacity > 0
                 ? overrides.MessageChannelCapacity
-                : _options.MessageChannelCapacity
+                : _options.MessageChannelCapacity,
+            OnMetrics = overrides.OnMetrics ?? _options.OnMetrics,
+            SessionDisplayName = overrides.SessionDisplayName ?? _options.SessionDisplayName
         };
+    }
+
+    /// <summary>
+    ///     Handles ResultMessage to fire metrics callback for one-shot queries.
+    /// </summary>
+    private static void HandleResultMessageForMetrics(
+        ResultMessage result,
+        Func<MetricsEvent, ValueTask> callback,
+        string? displayName = null,
+        string? model = null)
+    {
+        var evt = MetricsHelper.FromResultMessage(result, displayName: displayName, model: model);
+        MetricsHelper.FireAndForget(evt, callback);
     }
 }

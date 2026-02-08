@@ -25,9 +25,14 @@ namespace Claude.AgentSdk.Builders;
 public sealed class AgentDefinitionBuilder
 {
     private readonly List<string> _tools = [];
+    private readonly List<string> _disallowedTools = [];
+    private readonly List<string> _skills = [];
+    private readonly Dictionary<string, McpServerConfig> _mcpServers = [];
     private string? _description;
     private string? _model;
     private string? _prompt;
+    private int? _maxTurns;
+    private string? _criticalSystemReminder;
 
     /// <summary>
     ///     Sets the description of when to use this agent.
@@ -146,6 +151,79 @@ public sealed class AgentDefinitionBuilder
     }
 
     /// <summary>
+    ///     Sets the skills available to this agent.
+    /// </summary>
+    /// <param name="skills">The skill names.</param>
+    /// <returns>This builder for chaining.</returns>
+    public AgentDefinitionBuilder WithSkills(params string[] skills)
+    {
+        _skills.Clear();
+        _skills.AddRange(skills);
+        return this;
+    }
+
+    /// <summary>
+    ///     Sets the maximum number of turns for this agent.
+    /// </summary>
+    /// <param name="maxTurns">The maximum turn count.</param>
+    /// <returns>This builder for chaining.</returns>
+    public AgentDefinitionBuilder WithMaxTurns(int maxTurns)
+    {
+        _maxTurns = maxTurns;
+        return this;
+    }
+
+    /// <summary>
+    ///     Sets the disallowed tools for this agent.
+    /// </summary>
+    /// <param name="tools">The tool names to disallow.</param>
+    /// <returns>This builder for chaining.</returns>
+    public AgentDefinitionBuilder WithDisallowedTools(params string[] tools)
+    {
+        _disallowedTools.Clear();
+        _disallowedTools.AddRange(tools);
+        return this;
+    }
+
+    /// <summary>
+    ///     Sets the disallowed tools for this agent using strongly-typed names.
+    /// </summary>
+    /// <param name="tools">The tool names to disallow.</param>
+    /// <returns>This builder for chaining.</returns>
+    public AgentDefinitionBuilder WithDisallowedTools(params ToolName[] tools)
+    {
+        _disallowedTools.Clear();
+        _disallowedTools.AddRange(tools.Select(t => t.Value));
+        return this;
+    }
+
+    /// <summary>
+    ///     Sets the MCP server configurations for this agent.
+    /// </summary>
+    /// <param name="servers">The MCP server configurations.</param>
+    /// <returns>This builder for chaining.</returns>
+    public AgentDefinitionBuilder WithMcpServers(IDictionary<string, McpServerConfig> servers)
+    {
+        _mcpServers.Clear();
+        foreach (var (name, config) in servers)
+        {
+            _mcpServers[name] = config;
+        }
+        return this;
+    }
+
+    /// <summary>
+    ///     Sets the critical system reminder for this agent (experimental).
+    /// </summary>
+    /// <param name="reminder">The critical system reminder text.</param>
+    /// <returns>This builder for chaining.</returns>
+    public AgentDefinitionBuilder WithCriticalSystemReminder(string reminder)
+    {
+        _criticalSystemReminder = reminder;
+        return this;
+    }
+
+    /// <summary>
     ///     Builds the <see cref="AgentDefinition" /> instance.
     /// </summary>
     /// <returns>The configured agent definition.</returns>
@@ -167,7 +245,12 @@ public sealed class AgentDefinitionBuilder
             Description = _description,
             Prompt = _prompt,
             Tools = _tools.Count > 0 ? _tools : null,
-            Model = _model
+            Model = _model,
+            Skills = _skills.Count > 0 ? _skills : null,
+            MaxTurns = _maxTurns,
+            DisallowedTools = _disallowedTools.Count > 0 ? _disallowedTools : null,
+            McpServers = _mcpServers.Count > 0 ? _mcpServers : null,
+            CriticalSystemReminderExperimental = _criticalSystemReminder
         };
     }
 }
