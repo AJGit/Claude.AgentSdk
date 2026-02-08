@@ -12,7 +12,7 @@ public class ClaudeAgentSessionRewindTests
         // Verify the method exists on ClaudeAgentSession
         var method = typeof(ClaudeAgentSession).GetMethod("RewindFilesAsync");
         Assert.NotNull(method);
-        Assert.Equal(typeof(Task), method.ReturnType);
+        Assert.Equal(typeof(Task<Claude.AgentSdk.Protocol.RewindFilesResult>), method.ReturnType);
 
         var parameters = method.GetParameters();
         Assert.Equal(2, parameters.Length);
@@ -38,8 +38,8 @@ public class ClaudeAgentSessionRewindTests
         var method = typeof(ClaudeAgentSession).GetMethod("RewindFilesAsync");
         Assert.NotNull(method);
 
-        // Should return Task (void async)
-        Assert.Equal(typeof(Task), method.ReturnType);
+        // Should return Task<RewindFilesResult>
+        Assert.Equal(typeof(Task<Claude.AgentSdk.Protocol.RewindFilesResult>), method.ReturnType);
 
         // Should have userMessageId and optional cancellationToken parameters
         var parameters = method.GetParameters();

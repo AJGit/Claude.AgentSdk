@@ -36,7 +36,7 @@ public class HookTypesTests
     public void HookEvent_HasAllExpectedValues()
     {
         HookEvent[] values = Enum.GetValues<HookEvent>();
-        Assert.Equal(12, values.Length);
+        Assert.Equal(15, values.Length);
     }
 
     [Fact]

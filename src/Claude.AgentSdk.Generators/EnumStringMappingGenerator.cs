@@ -121,7 +121,7 @@ public sealed class EnumStringMappingGenerator : IIncrementalGenerator
         }
 
         // Get the default naming strategy from the attribute
-        NamingStrategy namingStrategy = NamingStrategy.SnakeCase;
+        NamingStrategy namingStrategy = NamingStrategy.CamelCase;
         foreach (KeyValuePair<string, TypedConstant> namedArg in generateAttr.NamedArguments)
         {
             if (namedArg is { Key: "DefaultNaming", Value.Value: int strategyValue })
@@ -185,7 +185,8 @@ public sealed class EnumStringMappingGenerator : IIncrementalGenerator
             NamingStrategy.LowerCase => name.ToLowerInvariant(),
             NamingStrategy.SnakeCase => ToSnakeCase(name),
             NamingStrategy.KebabCase => ToKebabCase(name),
-            _ => ToSnakeCase(name)
+            // NamingStrategy.CamelCase => ToCamelCase(name),
+            _ => ToCamelCase(name)
         };
     }
 
@@ -231,6 +232,16 @@ public sealed class EnumStringMappingGenerator : IIncrementalGenerator
         }
 
         return sb.ToString();
+    }
+
+    private static string ToCamelCase(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+        {
+            return name;
+        }
+
+        return char.ToLowerInvariant(name[0]) + name.Substring(1);
     }
 
     private static string GenerateEnumStringMappings(List<EnumInfo> enums)
@@ -341,7 +352,8 @@ public sealed class EnumStringMappingGenerator : IIncrementalGenerator
         Exact = 0,
         SnakeCase = 1,
         KebabCase = 2,
-        LowerCase = 3
+        LowerCase = 3,
+        CamelCase = 4
     }
 
     private sealed class EnumInfo

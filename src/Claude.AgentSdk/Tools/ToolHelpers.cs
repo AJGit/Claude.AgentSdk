@@ -16,6 +16,7 @@ public static class ToolHelpers
     /// <param name="name">The name of the tool.</param>
     /// <param name="description">A description of what the tool does.</param>
     /// <param name="handler">Async function that executes the tool logic.</param>
+    /// <param name="annotations">Optional MCP tool annotations providing hints about tool behavior.</param>
     /// <returns>A tool definition that can be registered with an MCP server.</returns>
     /// <example>
     ///     <code>
@@ -33,7 +34,8 @@ public static class ToolHelpers
     public static ToolDefinition Tool<TInput>(
         string name,
         string description,
-        Func<TInput, CancellationToken, Task<ToolResult>> handler)
+        Func<TInput, CancellationToken, Task<ToolResult>> handler,
+        ToolAnnotations? annotations = null)
         where TInput : class
     {
         var schema = SchemaGenerator.Generate<TInput>(name);
@@ -45,6 +47,7 @@ public static class ToolHelpers
             Name = name,
             Description = description,
             InputSchema = schemaNode,
+            Annotations = annotations,
             Handler = async (input, ct) =>
             {
                 var typed = input.Deserialize<TInput>(new JsonSerializerOptions
@@ -69,19 +72,22 @@ public static class ToolHelpers
     /// <param name="description">A description of what the tool does.</param>
     /// <param name="inputSchema">JSON schema defining the tool's input parameters.</param>
     /// <param name="handler">Async function that executes the tool logic.</param>
+    /// <param name="annotations">Optional MCP tool annotations providing hints about tool behavior.</param>
     /// <returns>A tool definition that can be registered with an MCP server.</returns>
     public static ToolDefinition Tool(
         string name,
         string description,
         JsonObject inputSchema,
-        Func<JsonElement, CancellationToken, Task<ToolResult>> handler)
+        Func<JsonElement, CancellationToken, Task<ToolResult>> handler,
+        ToolAnnotations? annotations = null)
     {
         return new ToolDefinition
         {
             Name = name,
             Description = description,
             InputSchema = inputSchema,
-            Handler = handler
+            Handler = handler,
+            Annotations = annotations
         };
     }
 

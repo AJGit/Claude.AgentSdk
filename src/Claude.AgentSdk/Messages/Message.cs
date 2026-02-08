@@ -25,6 +25,9 @@ namespace Claude.AgentSdk.Messages;
 [JsonDerivedType(typeof(SystemMessage), "system")]
 [JsonDerivedType(typeof(ResultMessage), "result")]
 [JsonDerivedType(typeof(StreamEvent), "stream_event")]
+[JsonDerivedType(typeof(ToolProgressMessage), "tool_progress")]
+[JsonDerivedType(typeof(ToolUseSummaryMessage), "tool_use_summary")]
+[JsonDerivedType(typeof(AuthStatusMessage), "auth_status")]
 public abstract record Message;
 
 /// <summary>
@@ -46,6 +49,8 @@ public sealed record UserMessageContent
 
     [JsonPropertyName("parent_tool_use_id")]
     public string? ParentToolUseId { get; init; }
+
+    [JsonPropertyName("tool_use_result")] public JsonElement? ToolUseResult { get; init; }
 }
 
 /// <summary>
@@ -129,6 +134,12 @@ public sealed record McpServerStatus
     public McpServerStatusType StatusEnum => EnumStringMappings.ParseMcpServerStatusType(Status);
 
     [JsonPropertyName("error")] public string? Error { get; init; }
+
+    [JsonPropertyName("config")] public JsonElement? Config { get; init; }
+
+    [JsonPropertyName("scope")] public string? Scope { get; init; }
+
+    [JsonPropertyName("tools")] public IReadOnlyList<string>? Tools { get; init; }
 }
 
 /// <summary>
@@ -173,6 +184,12 @@ public sealed record UsageInfo
     public int? CacheCreationInputTokens { get; init; }
 
     /// <summary>
+    ///     Number of web search requests made.
+    /// </summary>
+    [JsonPropertyName("web_search_requests")]
+    public int? WebSearchRequests { get; init; }
+
+    /// <summary>
     ///     Calculates the total context size (cache + input + output).
     /// </summary>
     public int TotalContextTokens => (CacheReadInputTokens ?? 0) + InputTokens + OutputTokens;
@@ -209,6 +226,8 @@ public sealed record ResultMessage : Message
 
     [JsonPropertyName("structured_output")]
     public JsonElement? StructuredOutput { get; init; }
+
+    [JsonPropertyName("stop_reason")] public string? StopReason { get; init; }
 }
 
 /// <summary>
@@ -224,4 +243,52 @@ public sealed record StreamEvent : Message
 
     [JsonPropertyName("parent_tool_use_id")]
     public string? ParentToolUseId { get; init; }
+}
+
+/// <summary>
+///     Tool progress update message.
+/// </summary>
+public sealed record ToolProgressMessage : Message
+{
+    [JsonPropertyName("tool_use_id")] public required string ToolUseId { get; init; }
+
+    [JsonPropertyName("tool_name")] public required string ToolName { get; init; }
+
+    [JsonPropertyName("parent_tool_use_id")] public string? ParentToolUseId { get; init; }
+
+    [JsonPropertyName("elapsed_time_seconds")] public required double ElapsedTimeSeconds { get; init; }
+
+    [JsonPropertyName("uuid")] public required string Uuid { get; init; }
+
+    [JsonPropertyName("session_id")] public required string SessionId { get; init; }
+}
+
+/// <summary>
+///     Tool use summary message.
+/// </summary>
+public sealed record ToolUseSummaryMessage : Message
+{
+    [JsonPropertyName("summary")] public required string Summary { get; init; }
+
+    [JsonPropertyName("preceding_tool_use_ids")] public required IReadOnlyList<string> PrecedingToolUseIds { get; init; }
+
+    [JsonPropertyName("uuid")] public required string Uuid { get; init; }
+
+    [JsonPropertyName("session_id")] public required string SessionId { get; init; }
+}
+
+/// <summary>
+///     Authentication status message.
+/// </summary>
+public sealed record AuthStatusMessage : Message
+{
+    [JsonPropertyName("isAuthenticating")] public required bool IsAuthenticating { get; init; }
+
+    [JsonPropertyName("output")] public required IReadOnlyList<string> Output { get; init; }
+
+    [JsonPropertyName("error")] public string? Error { get; init; }
+
+    [JsonPropertyName("uuid")] public required string Uuid { get; init; }
+
+    [JsonPropertyName("session_id")] public required string SessionId { get; init; }
 }

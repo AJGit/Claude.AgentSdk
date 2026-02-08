@@ -43,11 +43,12 @@ public static class SdkMcpTool
     /// <param name="name">The unique name of the tool.</param>
     /// <param name="description">A description of what the tool does.</param>
     /// <param name="handler">Async function that executes the tool logic.</param>
+    /// <param name="annotations">Optional MCP tool annotations providing hints about tool behavior.</param>
     /// <returns>A tool definition ready for registration.</returns>
     /// <example>
     ///     <code>
     /// public record WeatherArgs(string Location, string? Units);
-    /// 
+    ///
     /// var tool = SdkMcpTool.Create&lt;WeatherArgs&gt;(
     ///     "get-weather",
     ///     "Get the current weather for a location",
@@ -61,10 +62,11 @@ public static class SdkMcpTool
     public static ToolDefinition Create<TInput>(
         string name,
         string description,
-        Func<TInput, CancellationToken, Task<ToolResult>> handler)
+        Func<TInput, CancellationToken, Task<ToolResult>> handler,
+        ToolAnnotations? annotations = null)
         where TInput : class
     {
-        return ToolHelpers.Tool(name, description, handler);
+        return ToolHelpers.Tool(name, description, handler, annotations);
     }
 
     /// <summary>
@@ -74,6 +76,7 @@ public static class SdkMcpTool
     /// <param name="description">A description of what the tool does.</param>
     /// <param name="inputSchema">JSON schema defining the tool's input parameters.</param>
     /// <param name="handler">Async function that executes the tool logic.</param>
+    /// <param name="annotations">Optional MCP tool annotations providing hints about tool behavior.</param>
     /// <returns>A tool definition ready for registration.</returns>
     /// <example>
     ///     <code>
@@ -86,7 +89,7 @@ public static class SdkMcpTool
     ///     },
     ///     ["required"] = new JsonArray { "query" }
     /// };
-    /// 
+    ///
     /// var tool = SdkMcpTool.Create(
     ///     "search",
     ///     "Search for information",
@@ -103,9 +106,10 @@ public static class SdkMcpTool
         string name,
         string description,
         JsonObject inputSchema,
-        Func<JsonElement, CancellationToken, Task<ToolResult>> handler)
+        Func<JsonElement, CancellationToken, Task<ToolResult>> handler,
+        ToolAnnotations? annotations = null)
     {
-        return ToolHelpers.Tool(name, description, inputSchema, handler);
+        return ToolHelpers.Tool(name, description, inputSchema, handler, annotations);
     }
 
     /// <summary>

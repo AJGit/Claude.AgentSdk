@@ -232,5 +232,23 @@ public static class MessageExtensions
 
             return message.McpServers;
         }
+
+        /// <summary>
+        ///     Extracts the typed data from the system message's Data property.
+        /// </summary>
+        /// <typeparam name="T">The expected data type for this system message subtype.</typeparam>
+        /// <returns>The deserialized data, or null if data is missing or deserialization fails.</returns>
+        public T? GetData<T>() where T : class
+        {
+            if (message?.Data is null || message.Data.Value.ValueKind == System.Text.Json.JsonValueKind.Undefined)
+            {
+                return null;
+            }
+
+            return message.Data.Value.Deserialize<T>(new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+        }
     }
 }

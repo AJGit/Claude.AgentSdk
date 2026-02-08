@@ -98,6 +98,17 @@ internal sealed class QueryHandler : IAsyncDisposable
     /// </summary>
     public bool CompleteOnResult { get; set; }
 
+    /// <summary>
+    ///     Callback invoked when a ResultMessage is received.
+    ///     Used by ClaudeAgentSession to fire metrics events.
+    /// </summary>
+    internal Action<ResultMessage>? OnResultMessage { get; set; }
+
+    /// <summary>
+    ///     The most recently observed model from system init or assistant messages.
+    /// </summary>
+    internal string? CurrentModel { get; private set; }
+
     public async ValueTask DisposeAsync()
     {
         if (_disposed)
@@ -237,6 +248,7 @@ internal sealed class QueryHandler : IAsyncDisposable
             PermissionMode.AcceptEdits => "acceptEdits",
             PermissionMode.Plan => "plan",
             PermissionMode.BypassPermissions => "bypassPermissions",
+            PermissionMode.Delegate => "delegate",
             _ => "default"
         };
         return SendControlRequestAsync(new SetPermissionModeRequestBody { Mode = modeString }, cancellationToken);
@@ -253,7 +265,7 @@ internal sealed class QueryHandler : IAsyncDisposable
     /// <summary>
     ///     Rewind files to a specific user message.
     /// </summary>
-    public Task RewindFilesAsync(string userMessageId, CancellationToken cancellationToken = default)
+    public Task<JsonElement> RewindFilesAsync(string userMessageId, CancellationToken cancellationToken = default)
     {
         return SendControlRequestAsync(new RewindFilesRequestBody { UserMessageId = userMessageId }, cancellationToken);
     }
@@ -264,6 +276,34 @@ internal sealed class QueryHandler : IAsyncDisposable
     public Task SetMaxThinkingTokensAsync(int maxTokens, CancellationToken cancellationToken = default)
     {
         return SendControlRequestAsync(new SetMaxThinkingTokensRequestBody { MaxThinkingTokens = maxTokens },
+            cancellationToken);
+    }
+
+    /// <summary>
+    ///     Reconnect to an MCP server.
+    /// </summary>
+    public Task ReconnectMcpServerAsync(string serverName, CancellationToken cancellationToken = default)
+    {
+        return SendControlRequestAsync(new ReconnectMcpServerRequestBody { ServerName = serverName },
+            cancellationToken);
+    }
+
+    /// <summary>
+    ///     Toggle an MCP server on or off.
+    /// </summary>
+    public Task ToggleMcpServerAsync(string serverName, bool enabled, CancellationToken cancellationToken = default)
+    {
+        return SendControlRequestAsync(
+            new ToggleMcpServerRequestBody { ServerName = serverName, Enabled = enabled },
+            cancellationToken);
+    }
+
+    /// <summary>
+    ///     Configure MCP servers.
+    /// </summary>
+    public Task<JsonElement> SetMcpServersAsync(object servers, CancellationToken cancellationToken = default)
+    {
+        return SendControlRequestAsync(new SetMcpServersRequestBody { Servers = servers },
             cancellationToken);
     }
 
@@ -379,7 +419,23 @@ internal sealed class QueryHandler : IAsyncDisposable
                 var message = ParseMessage(root, type);
                 if (message is not null)
                 {
+                    // Track model from system init and assistant messages for metrics
+                    if (message is SystemMessage { IsInit: true, Model: not null } sys)
+                    {
+                        CurrentModel = sys.Model;
+                    }
+                    else if (message is AssistantMessage { MessageContent.Model: not null } asst)
+                    {
+                        CurrentModel = asst.MessageContent.Model;
+                    }
+
                     await _messageChannel.Writer.WriteAsync(message, cancellationToken).ConfigureAwait(false);
+
+                    // Notify callback for ResultMessage (used for metrics)
+                    if (message is ResultMessage resultMsg)
+                    {
+                        OnResultMessage?.Invoke(resultMsg);
+                    }
 
                     // In one-shot query mode, final ResultMessage indicates completion
                     // Only complete on terminal subtypes (success, error_*, etc.), not on "partial"
