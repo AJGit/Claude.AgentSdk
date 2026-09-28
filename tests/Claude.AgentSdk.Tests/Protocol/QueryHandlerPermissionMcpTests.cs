@@ -117,8 +117,32 @@ public class QueryHandlerPermissionMcpTests
         return controlResponse.GetProperty("response").GetProperty("response");
     }
 
+    /// <summary>
+    ///     Waits for the control_response answering <paramref name="requestId" />. Control requests are handled
+    ///     concurrently, so responses may arrive in any order.
+    /// </summary>
+    private static async Task<JsonElement> WaitForResponseToAsync(MockTransport transport, string requestId)
+    {
+        for (var i = 0; i < 200; i++)
+        {
+            foreach (var message in transport.WrittenMessages)
+            {
+                if (message.TryGetProperty("response", out var response) &&
+                    response.TryGetProperty("request_id", out var id) &&
+                    id.GetString() == requestId)
+                {
+                    return message;
+                }
+            }
+
+            await Task.Delay(10);
+        }
+
+        throw new TimeoutException($"No response written for {requestId}");
+    }
+
     [Fact]
-    public async Task HandleToolPermissionAsync_NoCanUseToolCallback_ReturnsAllow()
+    public async Task HandleToolPermissionAsync_NoCanUseToolCallback_ReturnsError()
     {
         // Arrange
         var transport = new MockTransport();
@@ -139,10 +163,85 @@ public class QueryHandlerPermissionMcpTests
         // Act
         var response = await WaitForWrittenResponseAsync(transport, 1);
 
-        // Assert
+        // Assert - the CLI should only ask when a callback is registered, so this is an error
         Assert.Equal("control_response", response.GetProperty("type").GetString());
-        var responseData = GetResponseData(response);
-        Assert.Equal("allow", responseData.GetProperty("behavior").GetString());
+        var responseObj = response.GetProperty("response");
+        Assert.Equal("error", responseObj.GetProperty("subtype").GetString());
+        Assert.Contains("canUseTool callback is not provided", responseObj.GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task HandleToolPermissionAsync_AllowWithoutUpdatedInput_EchoesOriginalInput()
+    {
+        var transport = new MockTransport();
+        var options = new ClaudeAgentOptions
+        {
+            CanUseTool = (_, _) => Task.FromResult<PermissionResult>(new PermissionResultAllow())
+        };
+
+        await using var handler = new QueryHandler(transport, options);
+        await handler.StartAsync();
+
+        transport.EnqueueMessage(CreateCanUseToolRequestJson("req-echo", "Read", new { file_path = "/a.txt" }));
+
+        var responseData = GetResponseData(await WaitForResponseToAsync(transport, "req-echo"));
+        Assert.Equal("/a.txt", responseData.GetProperty("updatedInput").GetProperty("file_path").GetString());
+    }
+
+    [Fact]
+    public async Task HandleToolPermissionAsync_ParsesContextFieldsAndSuggestions()
+    {
+        var transport = new MockTransport();
+        ToolPermissionRequest? received = null;
+        var options = new ClaudeAgentOptions
+        {
+            CanUseTool = (request, _) =>
+            {
+                received = request;
+                return Task.FromResult<PermissionResult>(new PermissionResultAllow());
+            }
+        };
+
+        await using var handler = new QueryHandler(transport, options);
+        await handler.StartAsync();
+
+        transport.EnqueueMessage("""
+                                 {
+                                     "type": "control_request",
+                                     "request_id": "req-ctx",
+                                     "request": {
+                                         "subtype": "can_use_tool",
+                                         "tool_name": "Bash",
+                                         "input": {"command": "ls"},
+                                         "tool_use_id": "toolu_1",
+                                         "agent_id": "agent_7",
+                                         "decision_reason": "hook asked",
+                                         "title": "Claude wants to run ls",
+                                         "display_name": "Run command",
+                                         "description": "Lists files",
+                                         "permission_suggestions": [
+                                             {"type": "addRules", "destination": "session", "behavior": "allow",
+                                              "rules": [{"toolName": "Bash", "ruleContent": "ls:*"}]},
+                                             {"type": "setMode", "mode": "acceptEdits", "destination": "session"}
+                                         ]
+                                     }
+                                 }
+                                 """);
+
+        await WaitForResponseToAsync(transport, "req-ctx");
+
+        Assert.NotNull(received);
+        Assert.Equal("toolu_1", received.ToolUseId);
+        Assert.Equal("agent_7", received.AgentId);
+        Assert.Equal("hook asked", received.DecisionReason);
+        Assert.Equal("Claude wants to run ls", received.Title);
+        Assert.Equal("Run command", received.DisplayName);
+        Assert.Equal("Lists files", received.Description);
+        Assert.Equal(2, received.Suggestions!.Count);
+        Assert.Equal(PermissionUpdateType.AddRules, received.Suggestions[0].Type);
+        Assert.Equal(PermissionUpdateDestination.Session, received.Suggestions[0].Destination);
+        Assert.Equal("ls:*", received.Suggestions[0].Rules![0].RuleContent);
+        Assert.Equal(PermissionMode.AcceptEdits, received.Suggestions[1].Mode);
     }
 
     [Fact]
@@ -305,7 +404,7 @@ public class QueryHandlerPermissionMcpTests
         // Assert
         var responseData = GetResponseData(response);
         Assert.Equal("allow", responseData.GetProperty("behavior").GetString());
-        Assert.True(responseData.TryGetProperty("updated_input", out var updatedInputProp));
+        Assert.True(responseData.TryGetProperty("updatedInput", out var updatedInputProp));
         Assert.Equal("/modified/path.txt", updatedInputProp.GetProperty("file_path").GetString());
     }
 
@@ -351,7 +450,13 @@ public class QueryHandlerPermissionMcpTests
         // Assert
         var responseData = GetResponseData(response);
         Assert.Equal("allow", responseData.GetProperty("behavior").GetString());
-        Assert.True(responseData.TryGetProperty("updated_permissions", out _));
+        Assert.True(responseData.TryGetProperty("updatedPermissions", out var updates));
+        var update = updates[0];
+        Assert.Equal("addRules", update.GetProperty("type").GetString());
+        Assert.Equal("session", update.GetProperty("destination").GetString());
+        Assert.Equal("allow", update.GetProperty("behavior").GetString());
+        Assert.Equal("Read", update.GetProperty("rules")[0].GetProperty("toolName").GetString());
+        Assert.Equal("/*", update.GetProperty("rules")[0].GetProperty("ruleContent").GetString());
     }
 
     [Fact]
@@ -415,7 +520,7 @@ public class QueryHandlerPermissionMcpTests
     }
 
     [Fact]
-    public async Task HandleToolPermissionAsync_UnknownResultType_DefaultsToAllow()
+    public async Task HandleToolPermissionAsync_UnknownResultType_ReturnsError()
     {
         // Arrange
         var transport = new MockTransport();
@@ -440,8 +545,7 @@ public class QueryHandlerPermissionMcpTests
         var response = await WaitForWrittenResponseAsync(transport, 1);
 
         // Assert
-        var responseData = GetResponseData(response);
-        Assert.Equal("allow", responseData.GetProperty("behavior").GetString());
+        Assert.Equal("error", response.GetProperty("response").GetProperty("subtype").GetString());
     }
 
     [Fact]
@@ -976,7 +1080,7 @@ public class QueryHandlerPermissionMcpTests
     }
 
     [Fact]
-    public async Task ControlRequestRouting_UnknownSubtype_ReturnsNullResponseData()
+    public async Task ControlRequestRouting_UnknownSubtype_ReturnsErrorResponse()
     {
         // Arrange
         var transport = new MockTransport();
@@ -999,7 +1103,8 @@ public class QueryHandlerPermissionMcpTests
         // Assert
         Assert.Equal("control_response", response.GetProperty("type").GetString());
         var responseObj = response.GetProperty("response");
-        Assert.Equal("success", responseObj.GetProperty("subtype").GetString());
+        Assert.Equal("error", responseObj.GetProperty("subtype").GetString());
+        Assert.Contains("unknown_request_type", responseObj.GetProperty("error").GetString());
     }
 
     [Fact]
@@ -1014,14 +1119,14 @@ public class QueryHandlerPermissionMcpTests
         mockServer.SetupGet(s => s.Name).Returns("integration-server");
         mockServer
             .Setup(s => s.HandleRequestAsync(It.IsAny<JsonElement>(), It.IsAny<CancellationToken>()))
-            .Callback(() => mcpCallCount++)
+            .Callback(() => Interlocked.Increment(ref mcpCallCount))
             .ReturnsAsync(new Dictionary<string, object?> { ["jsonrpc"] = "2.0", ["id"] = 1, ["result"] = new { } });
 
         var options = new ClaudeAgentOptions
         {
             CanUseTool = (request, ct) =>
             {
-                permissionCallCount++;
+                Interlocked.Increment(ref permissionCallCount);
                 return Task.FromResult<PermissionResult>(new PermissionResultAllow());
             },
             McpServers = new Dictionary<string, McpServerConfig>
@@ -1091,9 +1196,9 @@ public class QueryHandlerPermissionMcpTests
 
         await Task.Delay(200);
 
-        // Get responses
-        var response1 = await WaitForWrittenResponseAsync(transport, 1);
-        var response2 = await WaitForWrittenResponseAsync(transport, 2);
+        // Get responses (handled concurrently, so match by request id)
+        var response1 = await WaitForResponseToAsync(transport, "deny-1");
+        var response2 = await WaitForResponseToAsync(transport, "deny-2");
 
         // Assert - permission denied
         var data1 = GetResponseData(response1);

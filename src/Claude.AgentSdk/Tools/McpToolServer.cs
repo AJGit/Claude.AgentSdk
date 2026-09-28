@@ -41,6 +41,17 @@ public sealed record ToolResult
             IsError = true
         };
     }
+
+    /// <summary>
+    ///     Create an image result from base64-encoded data.
+    /// </summary>
+    public static ToolResult Image(string base64Data, string mimeType)
+    {
+        return new ToolResult
+        {
+            Content = [new ToolResultImageContent { Data = base64Data, MimeType = mimeType }]
+        };
+    }
 }
 
 /// <summary>
@@ -58,6 +69,24 @@ public sealed record ToolResultTextContent : ToolResultContent
 {
     public override string Type => "text";
     public required string Text { get; init; }
+}
+
+/// <summary>
+///     Image content in a tool result.
+/// </summary>
+public sealed record ToolResultImageContent : ToolResultContent
+{
+    public override string Type => "image";
+
+    /// <summary>
+    ///     Base64-encoded image data.
+    /// </summary>
+    public required string Data { get; init; }
+
+    /// <summary>
+    ///     The image MIME type (e.g. "image/png").
+    /// </summary>
+    public required string MimeType { get; init; }
 }
 
 /// <summary>
@@ -100,6 +129,13 @@ public sealed record ToolAnnotations
     ///     If true, the tool interacts with the external world.
     /// </summary>
     public bool? OpenWorldHint { get; init; }
+
+    /// <summary>
+    ///     The size (in characters) up to which Claude Code keeps this tool's result inline rather than
+    ///     persisting it and showing a preview. Not an MCP hint: it is sent in the tool's <c>_meta</c> as
+    ///     <c>anthropic/maxResultSizeChars</c> because MCP clients drop unknown annotation fields.
+    /// </summary>
+    public int? MaxResultSizeChars { get; init; }
 }
 
 /// <summary>
@@ -187,12 +223,16 @@ public sealed class McpToolServer(string name, string version = "1.0.0") : IMcpT
 
     public async Task<object?> HandleRequestAsync(JsonElement request, CancellationToken cancellationToken = default)
     {
-        var method = request.GetProperty("method").GetString()!;
+        var method = request.TryGetProperty("method", out var methodElement) &&
+                     methodElement.ValueKind == JsonValueKind.String
+            ? methodElement.GetString()!
+            : "";
 
-        // Handle notifications - return empty acknowledgment
-        if (method == "notifications/initialized")
+        // JSON-RPC notifications (no id) get no reply, but the control request that carried one still
+        // expects an acknowledgment.
+        if (!request.TryGetProperty("id", out _) || method.StartsWith("notifications/", StringComparison.Ordinal))
         {
-            return BuildJsonRpcResponse(null, new Dictionary<string, object>());
+            return new Dictionary<string, object?> { ["jsonrpc"] = "2.0", ["result"] = new Dictionary<string, object>() };
         }
 
         var id = ExtractJsonRpcId(request);
@@ -387,6 +427,7 @@ public sealed class McpToolServer(string name, string version = "1.0.0") : IMcpT
         return method switch
         {
             "initialize" => HandleInitialize(),
+            "ping" => new Dictionary<string, object>(),
             "tools/list" => HandleToolsList(),
             "tools/call" => await HandleToolsCallAsync(request, cancellationToken).ConfigureAwait(false),
             _ => throw new NotSupportedException($"Unknown method: {method}")
@@ -473,6 +514,9 @@ public sealed class McpToolServer(string name, string version = "1.0.0") : IMcpT
 
                 if (annotations.Count > 0)
                     dict["annotations"] = annotations;
+
+                if (t.Annotations.MaxResultSizeChars is { } maxSize)
+                    dict["_meta"] = new Dictionary<string, object> { ["anthropic/maxResultSizeChars"] = maxSize };
             }
 
             return dict;
@@ -499,6 +543,8 @@ public sealed class McpToolServer(string name, string version = "1.0.0") : IMcpT
         {
             ToolResultTextContent text => (object)new Dictionary<string, object>
                 { ["type"] = "text", ["text"] = text.Text },
+            ToolResultImageContent image => new Dictionary<string, object>
+                { ["type"] = "image", ["data"] = image.Data, ["mimeType"] = image.MimeType },
             _ => new Dictionary<string, object> { ["type"] = "text", ["text"] = c.ToString()! }
         }).ToList();
 

@@ -1,3 +1,5 @@
+using Claude.AgentSdk.Types;
+
 namespace Claude.AgentSdk.Transport;
 
 /// <summary>
@@ -59,6 +61,145 @@ internal static class ConfigSerializerExtensions
                 }
             }
 
+            if (settings.Ripgrep is { } ripgrep)
+            {
+                var ripgrepConfig = new Dictionary<string, object> { ["command"] = ripgrep.Command };
+                if (ripgrep.Args is { Count: > 0 })
+                {
+                    ripgrepConfig["args"] = ripgrep.Args;
+                }
+
+                config["ripgrep"] = ripgrepConfig;
+            }
+
+            return config;
+        }
+    }
+
+    extension(SandboxConfig sandbox)
+    {
+        /// <summary>
+        ///     Converts any sandbox configuration to the settings-file "sandbox" object.
+        /// </summary>
+        /// <remarks>
+        ///     The CLI takes sandbox settings through <c>--settings</c>. Simple modes map to:
+        ///     Off = disabled; Permissive = enabled, bash auto-approved, unsandboxed escape hatch allowed;
+        ///     Strict = enabled, no auto-approval, no unsandboxed escape hatch.
+        /// </remarks>
+        public Dictionary<string, object> ToSettingsDictionary()
+        {
+            return sandbox switch
+            {
+                SandboxSettings detailed => detailed.ToCliDictionary(),
+                SimpleSandboxConfig { Mode: SandboxMode.Off } => new Dictionary<string, object> { ["enabled"] = false },
+                SimpleSandboxConfig { Mode: SandboxMode.Permissive } => new Dictionary<string, object>
+                {
+                    ["enabled"] = true,
+                    ["autoAllowBashIfSandboxed"] = true,
+                    ["allowUnsandboxedCommands"] = true
+                },
+                SimpleSandboxConfig { Mode: SandboxMode.Strict } => new Dictionary<string, object>
+                {
+                    ["enabled"] = true,
+                    ["autoAllowBashIfSandboxed"] = false,
+                    ["allowUnsandboxedCommands"] = false
+                },
+                _ => new Dictionary<string, object>()
+            };
+        }
+    }
+
+    extension(AgentDefinition agent)
+    {
+        /// <summary>
+        ///     Converts an agent definition to the wire format used by the initialize control request.
+        /// </summary>
+        public Dictionary<string, object> ToCliDictionary()
+        {
+            var config = new Dictionary<string, object>
+            {
+                ["description"] = agent.Description,
+                ["prompt"] = agent.Prompt
+            };
+
+            if (agent.Tools is not null)
+            {
+                config["tools"] = agent.Tools;
+            }
+
+            if (agent.DisallowedTools is not null)
+            {
+                config["disallowedTools"] = agent.DisallowedTools;
+            }
+
+            if (!string.IsNullOrEmpty(agent.Model))
+            {
+                config["model"] = agent.Model;
+            }
+
+            if (agent.Skills is not null)
+            {
+                config["skills"] = agent.Skills;
+            }
+
+            if (agent.Memory is { } memory)
+            {
+                config["memory"] = memory.ToJsonString();
+            }
+
+            // Each entry is either a server name (reference) or an inline {name: config} object.
+            var mcpServers = new List<object>();
+            if (agent.McpServerNames is not null)
+            {
+                mcpServers.AddRange(agent.McpServerNames);
+            }
+
+            if (agent.McpServers is not null)
+            {
+                foreach (var (name, serverConfig) in agent.McpServers)
+                {
+                    if (serverConfig.ToCliDictionary() is { } serverDict)
+                    {
+                        mcpServers.Add(new Dictionary<string, object> { [name] = serverDict });
+                    }
+                }
+            }
+
+            if (agent.McpServerNames is not null || agent.McpServers is not null)
+            {
+                config["mcpServers"] = mcpServers;
+            }
+
+            if (!string.IsNullOrEmpty(agent.InitialPrompt))
+            {
+                config["initialPrompt"] = agent.InitialPrompt;
+            }
+
+            if (agent.MaxTurns.HasValue)
+            {
+                config["maxTurns"] = agent.MaxTurns.Value;
+            }
+
+            if (agent.Background.HasValue)
+            {
+                config["background"] = agent.Background.Value;
+            }
+
+            if (agent.Effort is { } effort)
+            {
+                config["effort"] = effort.ToJsonString();
+            }
+
+            if (agent.PermissionMode is { } permissionMode)
+            {
+                config["permissionMode"] = permissionMode.ToJsonString();
+            }
+
+            if (!string.IsNullOrEmpty(agent.CriticalSystemReminderExperimental))
+            {
+                config["criticalSystemReminder_EXPERIMENTAL"] = agent.CriticalSystemReminderExperimental;
+            }
+
             return config;
         }
     }
@@ -95,6 +236,26 @@ internal static class ConfigSerializerExtensions
             if (network.SocksProxyPort.HasValue)
             {
                 config["socksProxyPort"] = network.SocksProxyPort.Value;
+            }
+
+            if (network.AllowedDomains is not null)
+            {
+                config["allowedDomains"] = network.AllowedDomains;
+            }
+
+            if (network.DeniedDomains is not null)
+            {
+                config["deniedDomains"] = network.DeniedDomains;
+            }
+
+            if (network.AllowManagedDomainsOnly)
+            {
+                config["allowManagedDomainsOnly"] = true;
+            }
+
+            if (network.AllowMachLookup is not null)
+            {
+                config["allowMachLookup"] = network.AllowMachLookup;
             }
 
             return config;

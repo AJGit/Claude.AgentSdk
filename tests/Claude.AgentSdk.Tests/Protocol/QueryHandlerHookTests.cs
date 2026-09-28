@@ -475,7 +475,7 @@ public class QueryHandlerHookTests
     }
 
     [Fact]
-    public async Task HandleHookCallbackAsync_UnknownCallbackId_ReturnsContinueTrue()
+    public async Task HandleHookCallbackAsync_UnknownCallbackId_ReturnsErrorResponse()
     {
         // Arrange
         await using var context = new HookTestContext();
@@ -497,12 +497,13 @@ public class QueryHandlerHookTests
         await transport.EndInputAsync();
         await Task.Delay(100);
 
-        // Assert
+        // Assert - an unknown callback id is a protocol error (matches the Python SDK)
         var response = FindControlResponseFor(transport, "req-unknown");
         Assert.NotNull(response);
 
-        var responseData = response.Value.GetProperty("response").GetProperty("response");
-        Assert.True(responseData.GetProperty("continue").GetBoolean());
+        var responseObj = response.Value.GetProperty("response");
+        Assert.Equal("error", responseObj.GetProperty("subtype").GetString());
+        Assert.Contains("hook_unknown", responseObj.GetProperty("error").GetString());
     }
 
     [Fact]
@@ -755,20 +756,29 @@ public class QueryHandlerHookTests
     [Fact]
     public async Task ParseHookInput_UnknownHookEvent_ReturnsNull()
     {
-        // Arrange
-        await using var ctx = new HookTestContext();
+        // Arrange - a registered callback, so only the event name is unusual
+        HookCallback callback = (_, _, _, _) => Task.FromResult<HookOutput>(new SyncHookOutput { Continue = false });
+        var hooks = new Dictionary<HookEvent, IReadOnlyList<HookMatcher>>
+        {
+            [HookEvent.PreToolUse] = new[] { new HookMatcher { Hooks = new[] { callback } } }
+        };
+
+        await using var ctx = new HookTestContext(hooks);
         var transport = ctx.Transport;
 
+        SetupInitializeResponse(transport);
         await ctx.StartAsync();
+        await ctx.InitializeAsync();
+        var callbackId = GetCallbackIdForEvent(transport, "PreToolUse");
 
         // Send a hook callback with unknown event name
-        transport.EnqueueIncomingMessage("""
+        transport.EnqueueIncomingMessage($$"""
                                          {
                                              "type": "control_request",
                                              "request_id": "req-unknown-event",
                                              "request": {
                                                  "subtype": "hook_callback",
-                                                 "callback_id": "hook_0",
+                                                 "callback_id": "{{callbackId}}",
                                                  "input": {
                                                      "hook_event_name": "UnknownEvent",
                                                      "session_id": "test",
@@ -1087,29 +1097,38 @@ public class QueryHandlerHookTests
         var response = FindControlResponseFor(transport, "req-exception");
         Assert.NotNull(response);
 
-        var responseData = response.Value.GetProperty("response").GetProperty("response");
-        Assert.True(responseData.GetProperty("continue").GetBoolean());
-        Assert.Contains("Hook error", responseData.GetProperty("reason").GetString());
-        Assert.Contains("Test exception message", responseData.GetProperty("reason").GetString());
+        // The failure is reported to the CLI as an error response (matches the Python SDK)
+        var responseObj = response.Value.GetProperty("response");
+        Assert.Equal("error", responseObj.GetProperty("subtype").GetString());
+        Assert.Contains("Test exception message", responseObj.GetProperty("error").GetString());
     }
 
     [Fact]
     public async Task HandleHookCallbackAsync_MissingHookEventName_ReturnsContinueTrue()
     {
-        // Arrange
-        await using var ctx = new HookTestContext();
+        // Arrange - a registered callback, so only the event name is unusual
+        HookCallback callback = (_, _, _, _) => Task.FromResult<HookOutput>(new SyncHookOutput { Continue = false });
+        var hooks = new Dictionary<HookEvent, IReadOnlyList<HookMatcher>>
+        {
+            [HookEvent.PreToolUse] = new[] { new HookMatcher { Hooks = new[] { callback } } }
+        };
+
+        await using var ctx = new HookTestContext(hooks);
         var transport = ctx.Transport;
 
+        SetupInitializeResponse(transport);
         await ctx.StartAsync();
+        await ctx.InitializeAsync();
+        var callbackId = GetCallbackIdForEvent(transport, "PreToolUse");
 
         // Send a hook callback without hook_event_name
-        transport.EnqueueIncomingMessage("""
+        transport.EnqueueIncomingMessage($$"""
                                          {
                                              "type": "control_request",
                                              "request_id": "req-no-event-name",
                                              "request": {
                                                  "subtype": "hook_callback",
-                                                 "callback_id": "hook_0",
+                                                 "callback_id": "{{callbackId}}",
                                                  "input": {
                                                      "session_id": "test",
                                                      "transcript_path": "/test",

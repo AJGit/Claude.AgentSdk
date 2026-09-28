@@ -1,7 +1,8 @@
-﻿using System.Runtime.Serialization;
+using System.Runtime.Serialization;
 using Claude.AgentSdk.Attributes;
 using Claude.AgentSdk.Metrics;
 using Claude.AgentSdk.Protocol;
+using Claude.AgentSdk.Sessions;
 using Claude.AgentSdk.Tools;
 using Claude.AgentSdk.Types;
 using HookEvent = Claude.AgentSdk.Protocol.HookEvent;
@@ -27,12 +28,173 @@ public enum PermissionMode
     [EnumMember(Value = "bypassPermissions")]
     BypassPermissions,
 
-    /// <summary>Don't ask for any permissions.</summary>
+    /// <summary>Don't prompt for permissions; deny any tool call that is not pre-approved.</summary>
     [EnumMember(Value = "dontAsk")] DontAsk,
 
     /// <summary>Delegate permission decisions to a handler.</summary>
-    [EnumMember(Value = "delegate")] Delegate
+    [EnumMember(Value = "delegate")] Delegate,
+
+    /// <summary>A model classifier approves or denies each tool call.</summary>
+    [EnumMember(Value = "auto")] Auto
 }
+
+/// <summary>
+///     How much effort Claude puts into its response. Works with adaptive thinking to guide thinking depth.
+/// </summary>
+[GenerateEnumStrings]
+public enum EffortLevel
+{
+    /// <summary>Minimal thinking, fastest responses.</summary>
+    [EnumMember(Value = "low")] Low,
+
+    /// <summary>Moderate thinking.</summary>
+    [EnumMember(Value = "medium")] Medium,
+
+    /// <summary>Deep reasoning (default).</summary>
+    [EnumMember(Value = "high")] High,
+
+    /// <summary>Extended reasoning depth (falls back to <see cref="High" /> on models that do not support it).</summary>
+    [EnumMember(Value = "xhigh")] XHigh,
+
+    /// <summary>Maximum effort.</summary>
+    [EnumMember(Value = "max")] Max
+}
+
+/// <summary>
+///     Controls whether thinking text is returned summarized or omitted.
+/// </summary>
+[GenerateEnumStrings]
+public enum ThinkingDisplay
+{
+    /// <summary>Return summarized thinking text.</summary>
+    [EnumMember(Value = "summarized")] Summarized,
+
+    /// <summary>Omit thinking text (signature only).</summary>
+    [EnumMember(Value = "omitted")] Omitted
+}
+
+/// <summary>
+///     Controls Claude's thinking/reasoning behavior.
+/// </summary>
+/// <example>
+///     <code>
+/// Thinking = ThinkingConfig.Adaptive()
+/// Thinking = ThinkingConfig.Enabled(budgetTokens: 8000)
+/// Thinking = ThinkingConfig.Disabled
+/// </code>
+/// </example>
+public abstract record ThinkingConfig
+{
+    /// <summary>
+    ///     No extended thinking.
+    /// </summary>
+    public static ThinkingConfig Disabled { get; } = new DisabledThinkingConfig();
+
+    /// <summary>
+    ///     Claude decides when and how much to think.
+    /// </summary>
+    public static ThinkingConfig Adaptive(ThinkingDisplay? display = null)
+    {
+        return new AdaptiveThinkingConfig { Display = display };
+    }
+
+    /// <summary>
+    ///     Fixed thinking token budget.
+    /// </summary>
+    public static ThinkingConfig Enabled(int budgetTokens, ThinkingDisplay? display = null)
+    {
+        return new EnabledThinkingConfig(budgetTokens) { Display = display };
+    }
+}
+
+/// <summary>
+///     Adaptive thinking: Claude decides when and how much to think.
+/// </summary>
+public sealed record AdaptiveThinkingConfig : ThinkingConfig
+{
+    /// <summary>
+    ///     Whether thinking text is summarized or omitted. Null uses the model default.
+    /// </summary>
+    public ThinkingDisplay? Display { get; init; }
+}
+
+/// <summary>
+///     Thinking with a fixed token budget.
+/// </summary>
+public sealed record EnabledThinkingConfig(int BudgetTokens) : ThinkingConfig
+{
+    /// <summary>
+    ///     Whether thinking text is summarized or omitted. Null uses the model default.
+    /// </summary>
+    public ThinkingDisplay? Display { get; init; }
+}
+
+/// <summary>
+///     Extended thinking disabled.
+/// </summary>
+public sealed record DisabledThinkingConfig : ThinkingConfig;
+
+/// <summary>
+///     Skills to enable for the main session.
+/// </summary>
+/// <remarks>
+///     This is a context filter, not a sandbox: unlisted skills are hidden from the model's listing and
+///     rejected by the Skill tool, but their files remain on disk. Do not store secrets in skill files.
+/// </remarks>
+/// <example>
+///     <code>
+/// Skills = SkillsConfig.All
+/// Skills = SkillsConfig.Only("pdf", "my-plugin:review")
+/// Skills = new[] { "pdf" }        // implicit conversion
+/// Skills = SkillsConfig.None      // suppress every skill
+/// </code>
+/// </example>
+public abstract record SkillsConfig
+{
+    /// <summary>
+    ///     Enable every discovered skill.
+    /// </summary>
+    public static SkillsConfig All { get; } = new AllSkillsConfig();
+
+    /// <summary>
+    ///     Suppress every skill from the listing.
+    /// </summary>
+    public static SkillsConfig None => new SkillListConfig([]);
+
+    /// <summary>
+    ///     Enable only the listed skills (SKILL.md name / directory name, or "plugin:skill").
+    /// </summary>
+    public static SkillsConfig Only(params string[] names)
+    {
+        return new SkillListConfig(names);
+    }
+
+    /// <summary>
+    ///     Creates a skill list from an array of skill names.
+    /// </summary>
+    public static implicit operator SkillsConfig(string[] names)
+    {
+        return new SkillListConfig(names);
+    }
+
+    /// <summary>
+    ///     Creates a skill list from a list of skill names.
+    /// </summary>
+    public static implicit operator SkillsConfig(List<string> names)
+    {
+        return new SkillListConfig(names);
+    }
+}
+
+/// <summary>
+///     Enable every discovered skill.
+/// </summary>
+public sealed record AllSkillsConfig : SkillsConfig;
+
+/// <summary>
+///     Enable only the listed skills. An empty list suppresses all skills.
+/// </summary>
+public sealed record SkillListConfig(IReadOnlyList<string> Names) : SkillsConfig;
 
 /// <summary>
 ///     Sources for loading settings (e.g., CLAUDE.md files).
@@ -220,14 +382,24 @@ public sealed record NetworkSandboxSettings
     public int? SocksProxyPort { get; init; }
 
     /// <summary>
-    ///     Allowed network domains.
+    ///     Domain names that sandboxed processes can access.
     /// </summary>
     public IReadOnlyList<string>? AllowedDomains { get; init; }
 
     /// <summary>
-    ///     Only allow managed domains for network access.
+    ///     Domains that are always blocked, even if matched by <see cref="AllowedDomains" />.
+    /// </summary>
+    public IReadOnlyList<string>? DeniedDomains { get; init; }
+
+    /// <summary>
+    ///     When true in managed settings, only managed-settings allowed domains are respected.
     /// </summary>
     public bool AllowManagedDomainsOnly { get; init; }
+
+    /// <summary>
+    ///     macOS only: XPC/Mach service names to allow (supports trailing wildcard).
+    /// </summary>
+    public IReadOnlyList<string>? AllowMachLookup { get; init; }
 }
 
 /// <summary>
@@ -252,6 +424,7 @@ public sealed record SandboxIgnoreViolations
 /// </summary>
 [JsonDerivedType(typeof(CustomSystemPrompt), "custom")]
 [JsonDerivedType(typeof(PresetSystemPrompt), "preset")]
+[JsonDerivedType(typeof(FileSystemPrompt), "file")]
 public abstract record SystemPromptConfig
 {
     /// <summary>
@@ -269,12 +442,26 @@ public abstract record SystemPromptConfig
     {
         return new PresetSystemPrompt { Preset = "claude_code", Append = append };
     }
+
+    /// <summary>
+    ///     Creates a system prompt config that loads the prompt from a file (<c>--system-prompt-file</c>).
+    /// </summary>
+    public static SystemPromptConfig FromFile(string path)
+    {
+        return new FileSystemPrompt(path);
+    }
 }
 
 /// <summary>
 ///     A custom string system prompt that replaces the default entirely.
 /// </summary>
-public sealed record CustomSystemPrompt(string Prompt) : SystemPromptConfig;
+public sealed record CustomSystemPrompt(string Prompt) : SystemPromptConfig
+{
+    /// <summary>
+    ///     Same as <see cref="PresetSystemPrompt.Snapshot" />, applied to <see cref="Prompt" />.
+    /// </summary>
+    public bool? Snapshot { get; init; }
+}
 
 /// <summary>
 ///     A preset system prompt configuration (e.g., claude_code).
@@ -290,7 +477,27 @@ public sealed record PresetSystemPrompt : SystemPromptConfig
     ///     Optional text to append to the preset system prompt.
     /// </summary>
     public string? Append { get; init; }
+
+    /// <summary>
+    ///     Strip per-user dynamic sections (working directory, auto-memory, git status) from the system
+    ///     prompt so it stays static and cacheable across users. The stripped content is re-injected into
+    ///     the first user message. Older CLIs silently ignore this option.
+    /// </summary>
+    public bool? ExcludeDynamicSections { get; init; }
+
+    /// <summary>
+    ///     Whether the session keeps the system prompt it recorded on its first request. When true, every
+    ///     later request (including after resume) sends the recorded prompt, so changing <see cref="Append" />
+    ///     has no effect until the session is compacted or a new session starts. When false, the prompt is
+    ///     rebuilt on every request. Requires Claude Code CLI 2.1.257 or later.
+    /// </summary>
+    public bool? Snapshot { get; init; }
 }
+
+/// <summary>
+///     A system prompt loaded from a file via <c>--system-prompt-file</c>.
+/// </summary>
+public sealed record FileSystemPrompt(string Path) : SystemPromptConfig;
 
 /// <summary>
 ///     Base class for tools configuration.
@@ -567,13 +774,29 @@ public sealed record ClaudeAgentOptions
         new Dictionary<string, string?>();
 
     /// <summary>
-    ///     Callback for tool permission requests.
+    ///     Custom permission handler for tool calls that would otherwise prompt the user.
     /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Invoked only when the CLI's permission rules evaluate to "ask". It is not invoked for tool calls
+    ///         already permitted by <see cref="AllowedTools" />, <see cref="PermissionMode" /> (e.g. acceptEdits /
+    ///         bypassPermissions), or allow rules in settings. A warning is logged when the callback is visibly
+    ///         shadowed by such options. To observe every tool call, use a PreToolUse hook instead.
+    ///     </para>
+    ///     <para>
+    ///         Cannot be combined with <see cref="PermissionPromptToolName" />; the SDK routes permission
+    ///         prompts over the control protocol automatically.
+    ///     </para>
+    /// </remarks>
     public Func<ToolPermissionRequest, CancellationToken, Task<PermissionResult>>? CanUseTool { get; init; }
 
     /// <summary>
     ///     Hook configurations by event type.
     /// </summary>
+    /// <remarks>
+    ///     Multiple matchers registered on the same event are dispatched concurrently by the CLI; do not rely
+    ///     on one hook completing before another starts.
+    /// </remarks>
     public IReadOnlyDictionary<HookEvent, IReadOnlyList<HookMatcher>>? Hooks { get; init; }
 
     /// <summary>
@@ -598,9 +821,115 @@ public sealed record ClaudeAgentOptions
     public string? ResumeSessionAt { get; init; }
 
     /// <summary>
+    ///     With <see cref="ResumeSessionAt" />: the UUID of the user prompt whose turn this truncating resume
+    ///     intends to discard.
+    /// </summary>
+    /// <remarks>
+    ///     When set, the CLI validates at load time that every transcript entry after the
+    ///     <see cref="ResumeSessionAt" /> point is attributable to that turn, and refuses the resume otherwise
+    ///     (the error text contains <c>Resume rejected by --resume-drops-turn:</c>). Treat a refusal as
+    ///     deterministic: resume plainly rather than retrying the same request.
+    /// </remarks>
+    public string? ResumeDropsTurn { get; init; }
+
+    /// <summary>
     ///     Maximum tokens for thinking blocks.
     /// </summary>
+    /// <remarks>
+    ///     Deprecated: use <see cref="Thinking" /> instead. When <see cref="Thinking" /> is set it takes precedence.
+    /// </remarks>
     public int? MaxThinkingTokens { get; init; }
+
+    /// <summary>
+    ///     Controls Claude's thinking/reasoning behavior. Takes precedence over <see cref="MaxThinkingTokens" />.
+    /// </summary>
+    public ThinkingConfig? Thinking { get; init; }
+
+    /// <summary>
+    ///     Controls how much effort Claude puts into its response.
+    /// </summary>
+    public EffortLevel? Effort { get; init; }
+
+    /// <summary>
+    ///     API-side task budget in tokens. The model is made aware of its remaining budget so it can pace
+    ///     tool use and wrap up before the limit.
+    /// </summary>
+    public int? TaskBudget { get; init; }
+
+    /// <summary>
+    ///     Skills to enable for the main session. When set, the SDK adds the matching <c>Skill</c> rules to
+    ///     <see cref="AllowedTools" /> and defaults <see cref="SettingSources" /> to user + project.
+    /// </summary>
+    /// <remarks>
+    ///     Null (default) applies no SDK configuration; the CLI's own defaults still apply. Use
+    ///     <see cref="SkillsConfig.None" /> to suppress every skill. Skill names are validated when the
+    ///     session starts: delimiters, wildcards, surrounding whitespace, or a leading '/' throw
+    ///     <see cref="ArgumentException" />.
+    /// </remarks>
+    public SkillsConfig? Skills { get; init; }
+
+    /// <summary>
+    ///     Path to an additional settings JSON file, or an inline JSON string (<c>--settings</c>).
+    ///     When <see cref="Sandbox" /> is also set, both are merged into one JSON object.
+    /// </summary>
+    public string? Settings { get; init; }
+
+    /// <summary>
+    ///     Include hook lifecycle events (hook_started / hook_response system messages) in the message stream.
+    /// </summary>
+    public bool IncludeHookEvents { get; init; }
+
+    /// <summary>
+    ///     Forward subagent text and thinking blocks as messages in the stream (not just tool_use/tool_result),
+    ///     so consumers can render the full nested transcript.
+    /// </summary>
+    public bool ForwardSubagentText { get; init; }
+
+    /// <summary>
+    ///     Deliver every prompt to Claude exactly as written: no <c>@path</c> file-mention expansion and no
+    ///     slash-command dispatch.
+    /// </summary>
+    /// <remarks>
+    ///     Use this when prompt text is assembled from content the end user did not type (prior turns, tool
+    ///     results, third-party text), so an <c>@/absolute/path</c> inside it cannot make Claude Code read a
+    ///     local file. Requires Claude Code 2.1.248 or later; older versions ignore the flag.
+    /// </remarks>
+    public bool VerbatimPrompts { get; init; }
+
+    /// <summary>
+    ///     Mirror session transcripts to an external store.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Every transcript line the CLI writes locally is also passed to <see cref="ISessionStore.AppendAsync" />
+    ///         (flushed per turn, or per frame with <see cref="SessionStoreFlushMode.Eager" />). Failures never stop the
+    ///         session; a dropped batch surfaces as a system message with subtype <c>mirror_error</c>.
+    ///     </para>
+    ///     <para>
+    ///         With <see cref="Resume" /> or <see cref="ContinueConversation" />, the session is loaded from the store
+    ///         into a temporary <c>CLAUDE_CONFIG_DIR</c> (with the caller's credentials, refresh token redacted) so
+    ///         the CLI can resume it even when the local file is absent. The temp dir is removed when the query or
+    ///         session ends. <see cref="ContinueConversation" /> requires <see cref="ISessionStoreListing" />, and a
+    ///         store cannot be combined with <see cref="EnableFileCheckpointing" />.
+    ///     </para>
+    /// </remarks>
+    public ISessionStore? SessionStore { get; init; }
+
+    /// <summary>
+    ///     When to flush mirrored transcript entries to <see cref="SessionStore" />. Defaults to batched.
+    /// </summary>
+    public SessionStoreFlushMode SessionStoreFlush { get; init; } = SessionStoreFlushMode.Batched;
+
+    /// <summary>
+    ///     Timeout for each store load / list call while materializing a store-backed resume. Defaults to 60 seconds.
+    /// </summary>
+    public TimeSpan SessionStoreLoadTimeout { get; init; } = TimeSpan.FromSeconds(60);
+
+    /// <summary>
+    ///     Timeout for the initialize control request. MCP servers may take a while to start, so this is
+    ///     longer than other control requests. Defaults to 60 seconds.
+    /// </summary>
+    public TimeSpan InitializeTimeout { get; init; } = TimeSpan.FromSeconds(60);
 
     /// <summary>
     ///     Output format for structured outputs.
@@ -680,7 +1009,8 @@ public sealed record ClaudeAgentOptions
     public bool DangerouslySkipPermissions { get; init; }
 
     /// <summary>
-    ///     Explicitly disable all hooks.
+    ///     Explicitly disable all hooks: SDK hook callbacks are not registered, and settings-file hooks are
+    ///     disabled via the <c>disableAllHooks</c> setting.
     /// </summary>
     public bool NoHooks { get; init; }
 
@@ -744,10 +1074,14 @@ public sealed record ClaudeAgentOptions
     /// <summary>
     ///     User identifier for analytics and attribution.
     /// </summary>
+    /// <remarks>
+    ///     Not forwarded to the CLI, which has no equivalent flag (passing one made the CLI exit with
+    ///     "unknown option"). Retained for source compatibility.
+    /// </remarks>
     public string? User { get; init; }
 
     /// <summary>
-    ///     Additional paths to load CLAUDE.md-like files from.
+    ///     Additional paths to load CLAUDE.md-like files from. Passed to the CLI as <c>--add-dir</c>.
     /// </summary>
     public IReadOnlyList<string>? AdditionalDataPaths { get; init; }
 
@@ -757,12 +1091,12 @@ public sealed record ClaudeAgentOptions
     public Action<string>? OnStderr { get; init; }
 
     /// <summary>
-    ///     Timeout for control protocol requests. Defaults to 30 seconds.
+    ///     Timeout for control protocol requests. Defaults to 60 seconds.
     /// </summary>
     /// <remarks>
     ///     This is primarily used for testing to avoid long waits.
     /// </remarks>
-    internal TimeSpan ControlRequestTimeout { get; init; } = TimeSpan.FromSeconds(30);
+    internal TimeSpan ControlRequestTimeout { get; init; } = TimeSpan.FromSeconds(60);
 
     /// <summary>
     ///     Capacity of the internal message channel. Defaults to 256.
@@ -841,14 +1175,44 @@ public sealed record AgentDefinition
     public IReadOnlyList<string>? DisallowedTools { get; init; }
 
     /// <summary>
-    ///     MCP server configurations for this subagent.
+    ///     Inline MCP server configurations for this subagent.
     /// </summary>
     public IReadOnlyDictionary<string, McpServerConfig>? McpServers { get; init; }
+
+    /// <summary>
+    ///     Names of MCP servers (already configured on the parent session) that this subagent may use.
+    /// </summary>
+    public IReadOnlyList<string>? McpServerNames { get; init; }
 
     /// <summary>
     ///     Experimental critical system reminder appended to the system prompt.
     /// </summary>
     public string? CriticalSystemReminderExperimental { get; init; }
+
+    /// <summary>
+    ///     Prompt sent to the subagent as its first user message.
+    /// </summary>
+    public string? InitialPrompt { get; init; }
+
+    /// <summary>
+    ///     Memory scope for this subagent (user, project, or local).
+    /// </summary>
+    public SettingSource? Memory { get; init; }
+
+    /// <summary>
+    ///     Whether this subagent runs in the background by default.
+    /// </summary>
+    public bool? Background { get; init; }
+
+    /// <summary>
+    ///     Effort level override for this subagent.
+    /// </summary>
+    public EffortLevel? Effort { get; init; }
+
+    /// <summary>
+    ///     Permission mode override for this subagent.
+    /// </summary>
+    public PermissionMode? PermissionMode { get; init; }
 }
 
 /// <summary>

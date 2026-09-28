@@ -31,7 +31,13 @@ public enum MessageType
     [EnumMember(Value = "tool_use_summary")] ToolUseSummary,
 
     /// <summary>Authentication status message.</summary>
-    [EnumMember(Value = "auth_status")] AuthStatus
+    [EnumMember(Value = "auth_status")] AuthStatus,
+
+    /// <summary>Rate limit status change.</summary>
+    [EnumMember(Value = "rate_limit_event")] RateLimitEvent,
+
+    /// <summary>Conversation reset without ending the connection (e.g. /clear).</summary>
+    [EnumMember(Value = "conversation_reset")] ConversationReset
 }
 
 /// <summary>
@@ -50,7 +56,13 @@ public enum ContentBlockType
     [EnumMember(Value = "tool_use")] ToolUse,
 
     /// <summary>Tool result block.</summary>
-    [EnumMember(Value = "tool_result")] ToolResult
+    [EnumMember(Value = "tool_result")] ToolResult,
+
+    /// <summary>Server-side tool use block (advisor, web_search, ...).</summary>
+    [EnumMember(Value = "server_tool_use")] ServerToolUse,
+
+    /// <summary>Result of a server-side advisor tool call.</summary>
+    [EnumMember(Value = "advisor_tool_result")] AdvisorToolResult
 }
 
 /// <summary>
@@ -110,7 +122,22 @@ public enum SystemMessageSubtype
     [EnumMember(Value = "task_notification")] TaskNotification,
 
     /// <summary>Files persisted notification.</summary>
-    [EnumMember(Value = "files_persisted")] FilesPersisted
+    [EnumMember(Value = "files_persisted")] FilesPersisted,
+
+    /// <summary>A background task started.</summary>
+    [EnumMember(Value = "task_started")] TaskStarted,
+
+    /// <summary>A background task reported progress.</summary>
+    [EnumMember(Value = "task_progress")] TaskProgress,
+
+    /// <summary>A background task's state changed (may be the only terminal signal).</summary>
+    [EnumMember(Value = "task_updated")] TaskUpdated,
+
+    /// <summary>The CLI session state changed (idle, running, requires_action).</summary>
+    [EnumMember(Value = "session_state_changed")] SessionStateChanged,
+
+    /// <summary>A session-store append failed (SDK-synthesized; never sent by the CLI).</summary>
+    [EnumMember(Value = "mirror_error")] MirrorError
 }
 
 /// <summary>
@@ -243,20 +270,26 @@ public enum ControlSubtypeEnum
     SupportedModels,
 
     /// <summary>Query MCP server status.</summary>
-    [EnumMember(Value = "mcp_server_status")]
+    [EnumMember(Value = "mcp_status")]
     McpServerStatus,
 
     /// <summary>Query account information.</summary>
     [EnumMember(Value = "account_info")] AccountInfo,
 
     /// <summary>Reconnect to an MCP server.</summary>
-    [EnumMember(Value = "reconnect_mcp_server")] ReconnectMcpServer,
+    [EnumMember(Value = "mcp_reconnect")] ReconnectMcpServer,
 
     /// <summary>Toggle an MCP server on or off.</summary>
-    [EnumMember(Value = "toggle_mcp_server")] ToggleMcpServer,
+    [EnumMember(Value = "mcp_toggle")] ToggleMcpServer,
 
     /// <summary>Set MCP server configurations.</summary>
-    [EnumMember(Value = "set_mcp_servers")] SetMcpServers
+    [EnumMember(Value = "mcp_set_servers")] SetMcpServers,
+
+    /// <summary>Query context window usage.</summary>
+    [EnumMember(Value = "get_context_usage")] GetContextUsage,
+
+    /// <summary>Stop a running background task.</summary>
+    [EnumMember(Value = "stop_task")] StopTask
 }
 
 /// <summary>

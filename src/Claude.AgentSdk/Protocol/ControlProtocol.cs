@@ -59,11 +59,13 @@ internal static class ControlSubtype
     public const string SetMaxThinkingTokens = "set_max_thinking_tokens";
     public const string SupportedCommands = "supported_commands";
     public const string SupportedModels = "supported_models";
-    public const string McpServerStatus = "mcp_server_status";
+    public const string McpServerStatus = "mcp_status";
     public const string AccountInfo = "account_info";
-    public const string ReconnectMcpServer = "reconnect_mcp_server";
-    public const string ToggleMcpServer = "toggle_mcp_server";
-    public const string SetMcpServers = "set_mcp_servers";
+    public const string ReconnectMcpServer = "mcp_reconnect";
+    public const string ToggleMcpServer = "mcp_toggle";
+    public const string SetMcpServers = "mcp_set_servers";
+    public const string GetContextUsage = "get_context_usage";
+    public const string StopTask = "stop_task";
 }
 
 /// <summary>
@@ -148,7 +150,11 @@ internal sealed record SetModelRequestBody
 {
     [JsonPropertyName("subtype")] public string Subtype => ControlSubtype.SetModel;
 
-    [JsonPropertyName("model")] public required string Model { get; init; }
+    /// <summary>
+    ///     The model to switch to, or null to reset to the default model.
+    /// </summary>
+    [JsonPropertyName("model")]
+    public string? Model { get; init; }
 }
 
 /// <summary>
@@ -211,7 +217,8 @@ internal sealed record ReconnectMcpServerRequestBody
 {
     [JsonPropertyName("subtype")] public string Subtype => ControlSubtype.ReconnectMcpServer;
 
-    [JsonPropertyName("server_name")] public required string ServerName { get; init; }
+    // The wire protocol uses camelCase for this field.
+    [JsonPropertyName("serverName")] public required string ServerName { get; init; }
 }
 
 /// <summary>
@@ -221,7 +228,8 @@ internal sealed record ToggleMcpServerRequestBody
 {
     [JsonPropertyName("subtype")] public string Subtype => ControlSubtype.ToggleMcpServer;
 
-    [JsonPropertyName("server_name")] public required string ServerName { get; init; }
+    // The wire protocol uses camelCase for this field.
+    [JsonPropertyName("serverName")] public required string ServerName { get; init; }
 
     [JsonPropertyName("enabled")] public required bool Enabled { get; init; }
 }
@@ -237,13 +245,54 @@ internal sealed record SetMcpServersRequestBody
 }
 
 /// <summary>
-///     Initialize request body with hooks configuration.
+///     Get context usage request body.
+/// </summary>
+internal sealed record GetContextUsageRequestBody
+{
+    [JsonPropertyName("subtype")] public string Subtype => ControlSubtype.GetContextUsage;
+}
+
+/// <summary>
+///     Stop task request body.
+/// </summary>
+internal sealed record StopTaskRequestBody
+{
+    [JsonPropertyName("subtype")] public string Subtype => ControlSubtype.StopTask;
+
+    [JsonPropertyName("task_id")] public required string TaskId { get; init; }
+}
+
+/// <summary>
+///     Initialize request body with hooks, agents and session-level flags.
 /// </summary>
 internal sealed record InitializeRequestBody
 {
     [JsonPropertyName("subtype")] public string Subtype => ControlSubtype.Initialize;
 
     [JsonPropertyName("hooks")] public object? Hooks { get; init; }
+
+    [JsonPropertyName("agents")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public object? Agents { get; init; }
+
+    [JsonPropertyName("excludeDynamicSections")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? ExcludeDynamicSections { get; init; }
+
+    [JsonPropertyName("systemPromptSnapshot")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? SystemPromptSnapshot { get; init; }
+
+    /// <summary>
+    ///     Explicit skill allowlist. "All skills" and omitted are equivalent on the wire, so only lists are sent.
+    /// </summary>
+    [JsonPropertyName("skills")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? Skills { get; init; }
+
+    [JsonPropertyName("forwardSubagentText")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? ForwardSubagentText { get; init; }
 }
 
 // ============================================================================
@@ -339,6 +388,13 @@ internal sealed record UserMessageEnvelope
     [JsonPropertyName("session_id")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SessionId { get; init; }
+
+    /// <summary>
+    ///     When true, the CLI delivers the text as written (no @path expansion, no slash-command dispatch).
+    /// </summary>
+    [JsonPropertyName("client_composed")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? ClientComposed { get; init; }
 }
 
 /// <summary>

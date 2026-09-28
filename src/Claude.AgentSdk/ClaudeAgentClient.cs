@@ -1,8 +1,9 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 using Claude.AgentSdk.Logging;
 using Claude.AgentSdk.Messages;
 using Claude.AgentSdk.Metrics;
 using Claude.AgentSdk.Protocol;
+using Claude.AgentSdk.Sessions;
 using Claude.AgentSdk.Transport;
 using Microsoft.Extensions.Logging;
 
@@ -126,23 +127,41 @@ public sealed class ClaudeAgentClient : IAsyncDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         var effectiveOptions = MergeOptions(options);
+        ClaudeAgentOptionsValidation.Validate(effectiveOptions, _logger);
 
-        // SDK MCP servers require bidirectional mode
-        var hasSdkMcpServers = effectiveOptions.McpServers?.Values.Any(c => c is McpSdkServerConfig) ?? false;
-
-        var transport = _transportFactory?.Invoke(effectiveOptions, prompt)
-                        ?? new SubprocessTransport(
-                            effectiveOptions,
-                            prompt,
-                            _loggerFactory?.CreateLogger<SubprocessTransport>());
-
-        var handler = new QueryHandler(
-            transport,
-            effectiveOptions,
-            _loggerFactory?.CreateLogger<QueryHandler>())
+        // Store-backed resume: load the session into a temp CLAUDE_CONFIG_DIR the CLI can resume from.
+        var materialized = await MaterializeResumeAsync(effectiveOptions, cancellationToken).ConfigureAwait(false);
+        if (materialized is not null)
         {
-            CompleteOnResult = true // One-shot query should complete after ResultMessage
-        };
+            effectiveOptions = SessionResumeMaterializer.Apply(effectiveOptions, materialized);
+        }
+
+        QueryHandler handler;
+        try
+        {
+            var transport = _transportFactory?.Invoke(effectiveOptions, prompt)
+                            ?? new SubprocessTransport(
+                                effectiveOptions,
+                                prompt,
+                                _loggerFactory?.CreateLogger<SubprocessTransport>());
+
+            handler = new QueryHandler(
+                transport,
+                effectiveOptions,
+                _loggerFactory?.CreateLogger<QueryHandler>())
+            {
+                CompleteOnResult = true // One-shot query completes once the run ends after a ResultMessage
+            };
+        }
+        catch
+        {
+            if (materialized is not null)
+            {
+                await materialized.CleanupAsync().ConfigureAwait(false);
+            }
+
+            throw;
+        }
 
         // Wire up metrics callback if configured
         if (effectiveOptions.OnMetrics is { } metricsCallback)
@@ -158,13 +177,10 @@ public sealed class ClaudeAgentClient : IAsyncDisposable
         {
             await handler.StartAsync(cancellationToken).ConfigureAwait(false);
 
-            // If SDK MCP servers are present, we're in bidirectional mode
-            // Initialize the control protocol and send the user message
-            if (hasSdkMcpServers)
-            {
-                await handler.InitializeAsync(cancellationToken).ConfigureAwait(false);
-                await handler.SendUserMessageAsync(prompt, null, cancellationToken).ConfigureAwait(false);
-            }
+            // Always streaming mode (matches the Python/TypeScript SDKs): initialize the control protocol so
+            // hooks, CanUseTool, agents and SDK MCP servers work, then send the prompt over stdin.
+            await handler.InitializeAsync(cancellationToken).ConfigureAwait(false);
+            await handler.SendUserMessageAsync(prompt, null, cancellationToken).ConfigureAwait(false);
 
             await foreach (var message in handler.ReceiveMessagesAsync(cancellationToken).ConfigureAwait(false))
             {
@@ -173,7 +189,12 @@ public sealed class ClaudeAgentClient : IAsyncDisposable
         }
         finally
         {
+            // Terminate the CLI before removing the temp config dir it reads and writes.
             await handler.DisposeAsync().ConfigureAwait(false);
+            if (materialized is not null)
+            {
+                await materialized.CleanupAsync().ConfigureAwait(false);
+            }
         }
     }
 
@@ -220,21 +241,49 @@ public sealed class ClaudeAgentClient : IAsyncDisposable
     public async Task<ClaudeAgentSession> CreateSessionAsync(CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        ClaudeAgentOptionsValidation.Validate(_options, _logger);
 
-        var transport = _transportFactory?.Invoke(_options, null)
-                        ?? new SubprocessTransport(
-                            _options,
-                            null, // No prompt in bidirectional mode
-                            _loggerFactory?.CreateLogger<SubprocessTransport>());
+        var options = _options;
+        var materialized = await MaterializeResumeAsync(options, cancellationToken).ConfigureAwait(false);
+        if (materialized is not null)
+        {
+            options = SessionResumeMaterializer.Apply(options, materialized);
+        }
 
-        var handler = new QueryHandler(
-            transport,
-            _options,
-            _loggerFactory?.CreateLogger<QueryHandler>());
+        QueryHandler? handler = null;
 
         // Use the caller token only for connection/initialization
-        await handler.StartAsync(cancellationToken).ConfigureAwait(false);
-        await handler.InitializeAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var transport = _transportFactory?.Invoke(options, null)
+                            ?? new SubprocessTransport(
+                                options,
+                                null, // No prompt in bidirectional mode
+                                _loggerFactory?.CreateLogger<SubprocessTransport>());
+
+            handler = new QueryHandler(
+                transport,
+                options,
+                _loggerFactory?.CreateLogger<QueryHandler>());
+
+            await handler.StartAsync(cancellationToken).ConfigureAwait(false);
+            await handler.InitializeAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Don't leak the CLI process (or the temp config dir) when the handshake fails, e.g. a rejected resume.
+            if (handler is not null)
+            {
+                await handler.DisposeAsync().ConfigureAwait(false);
+            }
+
+            if (materialized is not null)
+            {
+                await materialized.CleanupAsync().ConfigureAwait(false);
+            }
+
+            throw;
+        }
 
         if (_logger is not null)
         {
@@ -243,8 +292,25 @@ public sealed class ClaudeAgentClient : IAsyncDisposable
 
         return new ClaudeAgentSession(
             handler,
-            _options.SessionDisplayName,
-            _loggerFactory?.CreateLogger<ClaudeAgentSession>());
+            options.SessionDisplayName,
+            _loggerFactory?.CreateLogger<ClaudeAgentSession>(),
+            materialized is null ? null : materialized.CleanupAsync);
+    }
+
+    /// <summary>
+    ///     Materializes a store-backed resume, or returns null when none is needed. Skipped for custom (test)
+    ///     transports, which never see the materialized options.
+    /// </summary>
+    private async Task<MaterializedResume?> MaterializeResumeAsync(ClaudeAgentOptions options,
+        CancellationToken cancellationToken)
+    {
+        if (_transportFactory is not null)
+        {
+            return null;
+        }
+
+        return await SessionResumeMaterializer.MaterializeAsync(options, _logger, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>
@@ -290,7 +356,28 @@ public sealed class ClaudeAgentClient : IAsyncDisposable
             Hooks = overrides.Hooks ?? _options.Hooks,
             IncludePartialMessages = overrides.IncludePartialMessages || _options.IncludePartialMessages,
             ForkSession = overrides.ForkSession || _options.ForkSession,
+            ResumeSessionAt = overrides.ResumeSessionAt ?? _options.ResumeSessionAt,
+            ResumeDropsTurn = overrides.ResumeDropsTurn ?? _options.ResumeDropsTurn,
+            SessionId = overrides.SessionId ?? _options.SessionId,
             MaxThinkingTokens = overrides.MaxThinkingTokens ?? _options.MaxThinkingTokens,
+            Thinking = overrides.Thinking ?? _options.Thinking,
+            Effort = overrides.Effort ?? _options.Effort,
+            TaskBudget = overrides.TaskBudget ?? _options.TaskBudget,
+            Skills = overrides.Skills ?? _options.Skills,
+            Settings = overrides.Settings ?? _options.Settings,
+            IncludeHookEvents = overrides.IncludeHookEvents || _options.IncludeHookEvents,
+            ForwardSubagentText = overrides.ForwardSubagentText || _options.ForwardSubagentText,
+            VerbatimPrompts = overrides.VerbatimPrompts || _options.VerbatimPrompts,
+            ModelId = overrides.ModelId ?? _options.ModelId,
+            FallbackModelId = overrides.FallbackModelId ?? _options.FallbackModelId,
+            DangerouslySkipPermissions = overrides.DangerouslySkipPermissions || _options.DangerouslySkipPermissions,
+            OnMessageSent = overrides.OnMessageSent ?? _options.OnMessageSent,
+            OnMessageReceived = overrides.OnMessageReceived ?? _options.OnMessageReceived,
+            SessionStore = overrides.SessionStore ?? _options.SessionStore,
+            SessionStoreFlush = overrides.SessionStore is not null ? overrides.SessionStoreFlush : _options.SessionStoreFlush,
+            SessionStoreLoadTimeout = overrides.SessionStore is not null
+                ? overrides.SessionStoreLoadTimeout
+                : _options.SessionStoreLoadTimeout,
             OutputFormat = overrides.OutputFormat ?? _options.OutputFormat,
             EnableFileCheckpointing = overrides.EnableFileCheckpointing || _options.EnableFileCheckpointing,
             Betas = overrides.Betas ?? _options.Betas,
