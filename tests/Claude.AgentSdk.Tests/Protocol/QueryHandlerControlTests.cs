@@ -583,7 +583,7 @@ public class QueryHandlerControlCommandTests
         Assert.True(result.ValueKind == JsonValueKind.Null || result.ValueKind != JsonValueKind.Undefined);
 
         JsonElement request = GetLastControlRequest(transport);
-        Assert.Equal("mcp_server_status", request.GetProperty("request").GetProperty("subtype").GetString());
+        Assert.Equal("mcp_status", request.GetProperty("request").GetProperty("subtype").GetString());
     }
 
     [Fact]

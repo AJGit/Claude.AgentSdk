@@ -373,7 +373,12 @@ public class ControlProtocolTests
     [Fact]
     public void ControlSubtype_McpServerStatus_HasCorrectValue()
     {
-        Assert.Equal("mcp_server_status", ControlSubtype.McpServerStatus);
+        Assert.Equal("mcp_status", ControlSubtype.McpServerStatus);
+        Assert.Equal("mcp_reconnect", ControlSubtype.ReconnectMcpServer);
+        Assert.Equal("mcp_toggle", ControlSubtype.ToggleMcpServer);
+        Assert.Equal("mcp_set_servers", ControlSubtype.SetMcpServers);
+        Assert.Equal("get_context_usage", ControlSubtype.GetContextUsage);
+        Assert.Equal("stop_task", ControlSubtype.StopTask);
     }
 
     [Fact]
@@ -394,8 +399,10 @@ public class ControlProtocolTests
     [InlineData("set_max_thinking_tokens")]
     [InlineData("supported_commands")]
     [InlineData("supported_models")]
-    [InlineData("mcp_server_status")]
+    [InlineData("mcp_status")]
     [InlineData("account_info")]
+    [InlineData("get_context_usage")]
+    [InlineData("stop_task")]
     public void ControlSubtype_AllValues_AreSnakeCase(string subtype)
     {
         // Verify all subtypes use snake_case convention

@@ -483,7 +483,7 @@ public class QueryHandlerIntegrationTests
     }
 
     [Fact]
-    public async Task QueryHandler_CanUseToolRequest_WithoutCallback_AllowsByDefault()
+    public async Task QueryHandler_CanUseToolRequest_WithoutCallback_SendsErrorResponse()
     {
         // Arrange
         var transport = new MockTransport();
@@ -515,10 +515,11 @@ public class QueryHandlerIntegrationTests
         var writtenMessages = transport.WrittenMessages;
         Assert.NotEmpty(writtenMessages);
 
-        // Verify response contains "allow" behavior
+        // Verify an error response is sent (the CLI should never ask without a registered callback)
         var lastMessage = writtenMessages.Last();
-        var json = lastMessage.GetRawText();
-        Assert.Contains("allow", json);
+        var response = lastMessage.GetProperty("response");
+        Assert.Equal("error", response.GetProperty("subtype").GetString());
+        Assert.Contains("canUseTool callback is not provided", response.GetProperty("error").GetString());
 
         await handler.DisposeAsync();
     }
@@ -642,7 +643,7 @@ public class QueryHandlerIntegrationTests
     }
 
     [Fact]
-    public async Task QueryHandler_HookCallback_UnknownCallbackId_ContinuesByDefault()
+    public async Task QueryHandler_HookCallback_UnknownCallbackId_SendsErrorResponse()
     {
         // Arrange
         var transport = new MockTransport();
@@ -675,13 +676,13 @@ public class QueryHandlerIntegrationTests
         {
         }
 
-        // Assert - response should be sent with continue = true
+        // Assert - an error response names the unknown callback
         var writtenMessages = transport.WrittenMessages;
         Assert.NotEmpty(writtenMessages);
 
-        var lastMessage = writtenMessages.Last();
-        var lastJson = lastMessage.GetRawText();
-        Assert.Contains("continue", lastJson);
+        var response = writtenMessages.Last().GetProperty("response");
+        Assert.Equal("error", response.GetProperty("subtype").GetString());
+        Assert.Contains("unknown_callback_id", response.GetProperty("error").GetString());
 
         await handler.DisposeAsync();
     }
@@ -1620,7 +1621,7 @@ public class ErrorPropagationTests
     }
 
     [Fact]
-    public async Task HookCallback_ThrowsException_ContinuesWithError()
+    public async Task HookCallback_ThrowsException_SendsErrorResponse()
     {
         // Arrange
         var options = new ClaudeAgentOptions
@@ -1649,7 +1650,7 @@ public class ErrorPropagationTests
         var handler = new QueryHandler(transport, options);
 
         await handler.StartAsync();
-        // Skip InitializeAsync to avoid timeout - hook callback handling is tested separately
+        await TestInitialization.InitializeWithAutoResponseAsync(handler, transport);
 
         transport.EnqueueMessage("""
                                  {
@@ -1677,15 +1678,10 @@ public class ErrorPropagationTests
         {
         }
 
-        // Assert - without initialization, hooks aren't registered with CLI
-        // so the handler just sends a default continue response
-        var writtenMessages = transport.WrittenMessages;
-        var hasResponse = writtenMessages.Any(m =>
-        {
-            var json = m.GetRawText();
-            return json.Contains("continue");
-        });
-        Assert.True(hasResponse, "Handler should send a continue response for unregistered hook callbacks");
+        // Assert - the hook failure is reported to the CLI as an error response
+        var response = TestInitialization.FindResponse(transport, "hook-error");
+        Assert.Equal("error", response.GetProperty("subtype").GetString());
+        Assert.Contains("Hook failed", response.GetProperty("error").GetString());
 
         await handler.DisposeAsync();
     }
@@ -1730,7 +1726,7 @@ public class HookOutputConversionTests
         var handler = new QueryHandler(transport, options);
 
         await handler.StartAsync();
-        // Skip InitializeAsync to avoid timeout - hook output serialization is tested separately
+        await TestInitialization.InitializeWithAutoResponseAsync(handler, transport);
 
         transport.EnqueueMessage("""
                                  {
@@ -1758,15 +1754,11 @@ public class HookOutputConversionTests
         {
         }
 
-        // Assert - verify response was sent (hooks work without initialization
-        // but callback_id needs to match registered hooks)
-        var writtenMessages = transport.WrittenMessages;
-        var hasResponse = writtenMessages.Any(m =>
-        {
-            var json = m.GetRawText();
-            return json.Contains("continue");
-        });
-        Assert.True(hasResponse);
+        // Assert - the hook output is serialized with wire names
+        var data = TestInitialization.FindResponse(transport, "hook-sync").GetProperty("response");
+        Assert.True(data.GetProperty("continue").GetBoolean());
+        Assert.False(data.GetProperty("suppressOutput").GetBoolean());
+        Assert.Equal("Allowed by policy", data.GetProperty("reason").GetString());
 
         await handler.DisposeAsync();
     }
@@ -1806,7 +1798,7 @@ public class HookOutputConversionTests
         var handler = new QueryHandler(transport, options);
 
         await handler.StartAsync();
-        // Skip InitializeAsync to avoid timeout - hook output serialization is tested separately
+        await TestInitialization.InitializeWithAutoResponseAsync(handler, transport);
 
         transport.EnqueueMessage("""
                                  {
@@ -1834,15 +1826,12 @@ public class HookOutputConversionTests
         {
         }
 
-        // Assert - without initialization, hooks aren't registered with CLI
-        // so the handler sends a default continue response
-        var writtenMessages = transport.WrittenMessages;
-        var hasResponse = writtenMessages.Any(m =>
-        {
-            var json = m.GetRawText();
-            return json.Contains("continue");
-        });
-        Assert.True(hasResponse, "Handler should send a response for hook callbacks");
+        // Assert - blocking fields are serialized with wire names
+        var data = TestInitialization.FindResponse(transport, "hook-block").GetProperty("response");
+        Assert.False(data.GetProperty("continue").GetBoolean());
+        Assert.Equal("block", data.GetProperty("decision").GetString());
+        Assert.Equal("Tool blocked by security policy", data.GetProperty("stopReason").GetString());
+        Assert.Equal("This tool is not allowed", data.GetProperty("systemMessage").GetString());
 
         await handler.DisposeAsync();
     }
@@ -2142,5 +2131,50 @@ public class TransportContractTests
         Assert.True(transport.InputEnded);
 
         await transport.DisposeAsync();
+    }
+}
+
+/// <summary>
+///     Helpers for driving the initialize handshake against a plain <see cref="MockTransport" />.
+/// </summary>
+internal static class TestInitialization
+{
+    /// <summary>
+    ///     Runs InitializeAsync and answers the initialize control request with an empty success response.
+    /// </summary>
+    public static async Task InitializeWithAutoResponseAsync(QueryHandler handler, MockTransport transport)
+    {
+        var initTask = handler.InitializeAsync();
+
+        for (var i = 0; i < 200 && !initTask.IsCompleted; i++)
+        {
+            var request = transport.WrittenMessages.FirstOrDefault(m =>
+                m.TryGetProperty("type", out var type) && type.GetString() == "control_request" &&
+                m.GetProperty("request").GetProperty("subtype").GetString() == "initialize");
+
+            if (request.ValueKind == JsonValueKind.Object)
+            {
+                var requestId = request.GetProperty("request_id").GetString();
+                transport.EnqueueMessage(
+                    "{\"type\":\"control_response\",\"response\":{\"subtype\":\"success\",\"request_id\":\"" +
+                    requestId + "\",\"response\":{}}}");
+                break;
+            }
+
+            await Task.Delay(10);
+        }
+
+        await initTask;
+    }
+
+    /// <summary>
+    ///     Finds the control response payload sent for the given request id.
+    /// </summary>
+    public static JsonElement FindResponse(MockTransport transport, string requestId)
+    {
+        return transport.WrittenMessages
+            .Where(m => m.TryGetProperty("type", out var type) && type.GetString() == "control_response")
+            .Select(m => m.GetProperty("response"))
+            .Single(r => r.GetProperty("request_id").GetString() == requestId);
     }
 }

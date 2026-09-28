@@ -38,23 +38,57 @@ internal sealed class CliPathResolver
             return explicitResult;
         }
 
-        var cliNames = GetCliNamesForPlatform();
+        if (OperatingSystem.IsWindows())
+        {
+            return ResolveWindows();
+        }
 
         // 2. Search PATH environment
-        if (TryResolveFromPath(cliNames, out var pathResult))
+        if (TryResolveFromPath(_unixCliNames, out var pathResult))
         {
             return pathResult;
         }
 
         // 3. Check common locations
-        if (TryResolveFromCommonLocations(cliNames, out var commonResult))
+        if (TryResolveFromCommonLocations(_unixCliNames, out var commonResult))
         {
             return commonResult;
         }
 
         throw new CliNotFoundException(
-            "Claude CLI not found. Ensure 'claude' is installed and in your PATH. " +
-            "Install with: npm install -g @anthropic-ai/claude-code");
+            "Claude CLI not found. Install with: npm install -g @anthropic-ai/claude-code, " +
+            "or set ClaudeAgentOptions.CliPath to the claude executable.");
+    }
+
+    /// <summary>
+    ///     Windows resolution: prefer a native claude.exe anywhere (PATH is searched directory-major, so an npm
+    ///     claude.cmd shim in an early PATH directory must not shadow a native install in a later one), and fall
+    ///     back to the shim only as a last resort (it is then run via node cli.js, or refused).
+    /// </summary>
+    private string ResolveWindows()
+    {
+        if (TryResolveFromPath(["claude.exe"], out var exeResult))
+        {
+            return exeResult;
+        }
+
+        var nativeInstall = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "bin", "claude.exe");
+        if (File.Exists(nativeInstall))
+        {
+            _logger?.LogDebug("Found native CLI install: {Path}", nativeInstall);
+            return nativeInstall;
+        }
+
+        if (TryResolveFromPath(["claude.cmd"], out var shimResult) ||
+            TryResolveFromCommonLocations(_windowsCliNames, out shimResult))
+        {
+            return shimResult;
+        }
+
+        throw new CliNotFoundException(
+            "Claude Code not found. Install the native claude.exe with (PowerShell): " +
+            "irm https://claude.ai/install.ps1 | iex — or set ClaudeAgentOptions.CliPath to a claude.exe.");
     }
 
     private bool TryResolveExplicitPath(out string result)
@@ -114,11 +148,6 @@ internal sealed class CliPathResolver
         return false;
     }
 
-    private static string[] GetCliNamesForPlatform()
-    {
-        return OperatingSystem.IsWindows() ? _windowsCliNames : _unixCliNames;
-    }
-
     private static List<string> GetCommonPathsForPlatform(string[] cliNames)
     {
         var paths = new List<string>();
@@ -159,8 +188,11 @@ internal sealed class CliPathResolver
     {
         var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         paths.Add(Path.Combine(userProfile, ".npm-global", "bin", "claude"));
-        paths.Add(Path.Combine(userProfile, ".local", "bin", "claude"));
         paths.Add("/usr/local/bin/claude");
+        paths.Add(Path.Combine(userProfile, ".local", "bin", "claude"));
+        paths.Add(Path.Combine(userProfile, "node_modules", ".bin", "claude"));
+        paths.Add(Path.Combine(userProfile, ".yarn", "bin", "claude"));
+        paths.Add(Path.Combine(userProfile, ".claude", "local", "claude"));
         paths.Add("/usr/bin/claude");
     }
 }

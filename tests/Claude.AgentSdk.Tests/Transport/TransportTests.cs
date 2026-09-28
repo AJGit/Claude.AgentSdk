@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using System.Text.Json;
 using Claude.AgentSdk.Exceptions;
 using Claude.AgentSdk.Transport;
@@ -27,9 +27,9 @@ public class CliArgumentsBuilderTests
     }
 
     [Fact]
-    public void Build_WithPrompt_AddsPrintArg()
+    public void Build_WithPrompt_StillUsesStreamingInput()
     {
-        // Arrange
+        // Arrange - prompts always travel over stdin, never argv
         var options = new ClaudeAgentOptions();
         var prompt = "Hello, Claude!";
 
@@ -37,9 +37,211 @@ public class CliArgumentsBuilderTests
         var args = CliArgumentsBuilder.Create(options, prompt).Build();
 
         // Assert
-        Assert.Contains("--print", args);
-        Assert.Contains(prompt, args);
-        Assert.DoesNotContain("--input-format", args);
+        Assert.DoesNotContain("--print", args);
+        Assert.DoesNotContain(prompt, args);
+        Assert.Equal("--input-format", args[^2]);
+        Assert.Equal("stream-json", args[^1]);
+    }
+
+    [Fact]
+    public void Build_WithNullSystemPrompt_PassesEmptySystemPrompt()
+    {
+        var args = CliArgumentsBuilder.Create(new ClaudeAgentOptions()).Build();
+
+        var index = args.IndexOf("--system-prompt");
+        Assert.True(index >= 0);
+        Assert.Equal("", args[index + 1]);
+    }
+
+    [Fact]
+    public void Build_WithFileSystemPrompt_AddsSystemPromptFileArg()
+    {
+        var options = new ClaudeAgentOptions { SystemPrompt = SystemPromptConfig.FromFile("/tmp/prompt.md") };
+
+        var args = CliArgumentsBuilder.Create(options).Build();
+
+        var index = args.IndexOf("--system-prompt-file");
+        Assert.Equal("/tmp/prompt.md", args[index + 1]);
+        Assert.DoesNotContain("--system-prompt", args);
+    }
+
+    [Theory]
+    [InlineData(EffortLevel.Low, "low")]
+    [InlineData(EffortLevel.XHigh, "xhigh")]
+    [InlineData(EffortLevel.Max, "max")]
+    public void Build_WithEffort_AddsEffortArg(EffortLevel effort, string expected)
+    {
+        var args = CliArgumentsBuilder.Create(new ClaudeAgentOptions { Effort = effort }).Build();
+
+        var index = args.IndexOf("--effort");
+        Assert.Equal(expected, args[index + 1]);
+    }
+
+    [Fact]
+    public void Build_WithAdaptiveThinking_AddsThinkingAndDisplayArgs()
+    {
+        var options = new ClaudeAgentOptions
+        {
+            Thinking = ThinkingConfig.Adaptive(ThinkingDisplay.Summarized),
+            MaxThinkingTokens = 999 // ignored when Thinking is set
+        };
+
+        var args = CliArgumentsBuilder.Create(options).Build();
+
+        Assert.Equal("adaptive", args[args.IndexOf("--thinking") + 1]);
+        Assert.Equal("summarized", args[args.IndexOf("--thinking-display") + 1]);
+        Assert.DoesNotContain("--max-thinking-tokens", args);
+    }
+
+    [Fact]
+    public void Build_WithEnabledThinking_UsesMaxThinkingTokens()
+    {
+        var args = CliArgumentsBuilder.Create(new ClaudeAgentOptions { Thinking = ThinkingConfig.Enabled(4096) })
+            .Build();
+
+        Assert.Equal("4096", args[args.IndexOf("--max-thinking-tokens") + 1]);
+        Assert.DoesNotContain("--thinking", args);
+    }
+
+    [Fact]
+    public void Build_WithDisabledThinking_AddsThinkingDisabled()
+    {
+        var args = CliArgumentsBuilder.Create(new ClaudeAgentOptions { Thinking = ThinkingConfig.Disabled }).Build();
+
+        Assert.Equal("disabled", args[args.IndexOf("--thinking") + 1]);
+    }
+
+    [Fact]
+    public void Build_WithTaskBudget_AddsTaskBudgetArg()
+    {
+        var args = CliArgumentsBuilder.Create(new ClaudeAgentOptions { TaskBudget = 50000 }).Build();
+
+        Assert.Equal("50000", args[args.IndexOf("--task-budget") + 1]);
+    }
+
+    [Fact]
+    public void Build_WithNewStreamingFlags_AddsFlags()
+    {
+        var options = new ClaudeAgentOptions
+        {
+            IncludeHookEvents = true,
+            ResumeDropsTurn = "prompt-uuid"
+        };
+
+        var args = CliArgumentsBuilder.Create(options).Build();
+
+        Assert.Contains("--include-hook-events", args);
+        Assert.Contains("--resume-drops-turn=prompt-uuid", args);
+    }
+
+    [Fact]
+    public void Build_WithAllSkills_AddsSkillToolAndDefaultSettingSources()
+    {
+        var args = CliArgumentsBuilder.Create(new ClaudeAgentOptions { Skills = SkillsConfig.All }).Build();
+
+        Assert.Equal("Skill", args[args.IndexOf("--allowedTools") + 1]);
+        Assert.Contains("--setting-sources=user,project", args);
+    }
+
+    [Fact]
+    public void Build_WithSkillList_AddsSkillRulesAndKeepsExplicitSettingSources()
+    {
+        var options = new ClaudeAgentOptions
+        {
+            AllowedTools = ["Read"],
+            Skills = SkillsConfig.Only("pdf", "plugin:review"),
+            SettingSources = [SettingSource.Project]
+        };
+
+        var args = CliArgumentsBuilder.Create(options).Build();
+
+        Assert.Equal("Read,Skill(pdf),Skill(plugin:review)", args[args.IndexOf("--allowedTools") + 1]);
+        Assert.Contains("--setting-sources=project", args);
+    }
+
+    [Theory]
+    [InlineData("a,b")]
+    [InlineData("a(b)")]
+    [InlineData(" pdf")]
+    [InlineData("*")]
+    [InlineData("plugin:*")]
+    [InlineData("/pdf")]
+    [InlineData("")]
+    public void Build_WithInvalidSkillName_Throws(string name)
+    {
+        var options = new ClaudeAgentOptions { Skills = SkillsConfig.Only(name) };
+
+        Assert.Throws<ArgumentException>(() => CliArgumentsBuilder.Create(options).Build());
+    }
+
+    [Fact]
+    public void Build_WithEmptySettingSources_DisablesAllSources()
+    {
+        var args = CliArgumentsBuilder.Create(new ClaudeAgentOptions { SettingSources = [] }).Build();
+
+        Assert.Contains("--setting-sources=", args);
+    }
+
+    [Fact]
+    public void Build_WithCanUseTool_RoutesPermissionPromptsOverStdio()
+    {
+        var options = new ClaudeAgentOptions
+        {
+            CanUseTool = (_, _) => Task.FromResult<Claude.AgentSdk.Protocol.PermissionResult>(new Claude.AgentSdk.Protocol.PermissionResultAllow())
+        };
+
+        var args = CliArgumentsBuilder.Create(options).Build();
+
+        Assert.Equal("stdio", args[args.IndexOf("--permission-prompt-tool") + 1]);
+    }
+
+    [Fact]
+    public void Build_WithDashLeadingExtraArgValue_UsesEqualsForm()
+    {
+        var options = new ClaudeAgentOptions
+        {
+            ExtraArgs = new Dictionary<string, string?> { ["some-flag"] = "-value", ["other"] = "plain" }
+        };
+
+        var args = CliArgumentsBuilder.Create(options).Build();
+
+        Assert.Contains("--some-flag=-value", args);
+        Assert.Equal("plain", args[args.IndexOf("--other") + 1]);
+    }
+
+    [Fact]
+    public void Build_WithSettingsAndSandbox_MergesIntoSettingsJson()
+    {
+        var options = new ClaudeAgentOptions
+        {
+            Settings = """{"model":"opus"}""",
+            Sandbox = new SandboxSettings { IsEnabled = true }
+        };
+
+        var args = CliArgumentsBuilder.Create(options).Build();
+
+        var settings = JsonDocument.Parse(args[args.IndexOf("--settings") + 1]).RootElement;
+        Assert.Equal("opus", settings.GetProperty("model").GetString());
+        Assert.True(settings.GetProperty("sandbox").GetProperty("enabled").GetBoolean());
+    }
+
+    [Fact]
+    public void Build_WithSettingsPathOnly_PassesThrough()
+    {
+        var args = CliArgumentsBuilder.Create(new ClaudeAgentOptions { Settings = "/etc/claude.json" }).Build();
+
+        Assert.Equal("/etc/claude.json", args[args.IndexOf("--settings") + 1]);
+    }
+
+    [Fact]
+    public void Build_WithMessagesApiOutputFormat_ExtractsSchema()
+    {
+        var format = JsonDocument.Parse("""{"type":"json_schema","schema":{"type":"object"}}""").RootElement;
+
+        var args = CliArgumentsBuilder.Create(new ClaudeAgentOptions { OutputFormat = format }).Build();
+
+        var schema = JsonDocument.Parse(args[args.IndexOf("--json-schema") + 1]).RootElement;
+        Assert.Equal("object", schema.GetProperty("type").GetString());
     }
 
     [Fact]
@@ -93,7 +295,7 @@ public class CliArgumentsBuilderTests
     }
 
     [Fact]
-    public void Build_WithToolsPreset_AddsJsonPreset()
+    public void Build_WithToolsPreset_AddsDefaultTools()
     {
         // Arrange
         var options = new ClaudeAgentOptions
@@ -104,13 +306,10 @@ public class CliArgumentsBuilderTests
         // Act
         var args = CliArgumentsBuilder.Create(options).Build();
 
-        // Assert
+        // Assert - the claude_code preset maps to the CLI's default tool set
         Assert.Contains("--tools", args);
         var toolsIndex = args.IndexOf("--tools");
-        var toolsValue = args[toolsIndex + 1];
-        Assert.Contains("type", toolsValue);
-        Assert.Contains("preset", toolsValue);
-        Assert.Contains("claude_code", toolsValue);
+        Assert.Equal("default", args[toolsIndex + 1]);
     }
 
     [Fact]
@@ -180,9 +379,9 @@ public class CliArgumentsBuilderTests
         // Act
         var args = CliArgumentsBuilder.Create(options).Build();
 
-        // Assert
-        Assert.Contains("--system-prompt", args);
-        Assert.Contains("claude_code", args);
+        // Assert - the preset is the CLI default prompt; only the appended text travels on argv
+        Assert.DoesNotContain("--system-prompt", args);
+        Assert.DoesNotContain("claude_code", args);
         Assert.Contains("--append-system-prompt", args);
         Assert.Contains("Always use TypeScript.", args);
     }
@@ -203,8 +402,7 @@ public class CliArgumentsBuilderTests
         var args = CliArgumentsBuilder.Create(options).Build();
 
         // Assert
-        Assert.Contains("--setting-sources", args);
-        Assert.Contains(expected, args);
+        Assert.Contains($"--setting-sources={expected}", args);
     }
 
     [Fact]
@@ -220,8 +418,7 @@ public class CliArgumentsBuilderTests
         var args = CliArgumentsBuilder.Create(options).Build();
 
         // Assert
-        Assert.Contains("--setting-sources", args);
-        Assert.Contains("project,user", args);
+        Assert.Contains("--setting-sources=project,user", args);
     }
 
     [Fact]
@@ -236,8 +433,9 @@ public class CliArgumentsBuilderTests
         // Act
         var args = CliArgumentsBuilder.Create(options).Build();
 
-        // Assert
-        var pathArgCount = args.Count(a => a == "--additional-data-path");
+        // Assert - the CLI has no --additional-data-path flag; --add-dir is where it loads CLAUDE.md from
+        Assert.DoesNotContain("--additional-data-path", args);
+        var pathArgCount = args.Count(a => a == "--add-dir");
         Assert.Equal(2, pathArgCount);
         Assert.Contains("/path/one", args);
         Assert.Contains("/path/two", args);
@@ -248,6 +446,8 @@ public class CliArgumentsBuilderTests
     [InlineData(PermissionMode.AcceptEdits, "acceptEdits")]
     [InlineData(PermissionMode.Plan, "plan")]
     [InlineData(PermissionMode.BypassPermissions, "bypassPermissions")]
+    [InlineData(PermissionMode.DontAsk, "dontAsk")]
+    [InlineData(PermissionMode.Auto, "auto")]
     public void Build_WithPermissionMode_AddsCorrectModeValue(PermissionMode mode, string expected)
     {
         // Arrange
@@ -284,10 +484,10 @@ public class CliArgumentsBuilderTests
     }
 
     [Theory]
-    [InlineData(SandboxMode.Off, "off")]
-    [InlineData(SandboxMode.Permissive, "permissive")]
-    [InlineData(SandboxMode.Strict, "strict")]
-    public void Build_WithSimpleSandbox_AddsSandboxArg(SandboxMode mode, string expected)
+    [InlineData(SandboxMode.Off, false)]
+    [InlineData(SandboxMode.Permissive, true)]
+    [InlineData(SandboxMode.Strict, true)]
+    public void Build_WithSimpleSandbox_AddsSandboxSettings(SandboxMode mode, bool expectedEnabled)
     {
         // Arrange
         var options = new ClaudeAgentOptions
@@ -298,13 +498,14 @@ public class CliArgumentsBuilderTests
         // Act
         var args = CliArgumentsBuilder.Create(options).Build();
 
-        // Assert
-        Assert.Contains("--sandbox", args);
-        Assert.Contains(expected, args);
+        // Assert - sandbox settings travel through --settings
+        Assert.DoesNotContain("--sandbox", args);
+        var settings = JsonDocument.Parse(args[args.IndexOf("--settings") + 1]).RootElement;
+        Assert.Equal(expectedEnabled, settings.GetProperty("sandbox").GetProperty("enabled").GetBoolean());
     }
 
     [Fact]
-    public void Build_WithDetailedSandbox_AddsSandboxConfigJson()
+    public void Build_WithDetailedSandbox_AddsSandboxSettingsJson()
     {
         // Arrange
         var options = new ClaudeAgentOptions
@@ -320,21 +521,19 @@ public class CliArgumentsBuilderTests
         // Act
         var args = CliArgumentsBuilder.Create(options).Build();
 
-        // Assert
-        Assert.Contains("--sandbox-config", args);
-        var configIndex = args.IndexOf("--sandbox-config");
+        // Assert - sandbox settings travel as the "sandbox" object of --settings
+        Assert.Contains("--settings", args);
+        var configIndex = args.IndexOf("--settings");
         var configJson = args[configIndex + 1];
 
-        // Verify it's valid JSON with expected properties
-        // Note: ConfigSerializerExtensions creates camelCase keys, then the dictionary
-        // is serialized. Dictionary keys are preserved as-is (not affected by naming policy).
-        var doc = JsonDocument.Parse(configJson);
-
         // Dictionary keys are preserved as camelCase from ConfigSerializerExtensions
-        Assert.True(doc.RootElement.TryGetProperty("enabled", out var enabledProp),
+        var doc = JsonDocument.Parse(configJson);
+        var sandbox = doc.RootElement.GetProperty("sandbox");
+
+        Assert.True(sandbox.TryGetProperty("enabled", out var enabledProp),
             $"JSON missing 'enabled'. Actual JSON: {configJson}");
         Assert.True(enabledProp.GetBoolean());
-        Assert.True(doc.RootElement.TryGetProperty("autoAllowBashIfSandboxed", out var autoAllowProp),
+        Assert.True(sandbox.TryGetProperty("autoAllowBashIfSandboxed", out var autoAllowProp),
             $"JSON missing 'autoAllowBashIfSandboxed'. Actual JSON: {configJson}");
         Assert.True(autoAllowProp.GetBoolean());
     }
@@ -355,13 +554,15 @@ public class CliArgumentsBuilderTests
         // Act
         var args = CliArgumentsBuilder.Create(options).Build();
 
-        // Assert
+        // Assert - NoHooks and User have no CLI flags (the CLI rejects unknown options)
         Assert.Contains("--permission-prompt-tool", args);
         Assert.Contains("custom_perm_tool", args);
         Assert.Contains("--strict-mcp-config", args);
-        Assert.Contains("--no-hooks", args);
-        Assert.Contains("--user", args);
-        Assert.Contains("test-user", args);
+        Assert.DoesNotContain("--no-hooks", args);
+        Assert.DoesNotContain("--user", args);
+        Assert.DoesNotContain("test-user", args);
+        var settings = JsonDocument.Parse(args[args.IndexOf("--settings") + 1]).RootElement;
+        Assert.True(settings.GetProperty("disableAllHooks").GetBoolean());
         Assert.Contains("--max-turns", args);
         Assert.Contains("5", args);
     }
@@ -380,12 +581,33 @@ public class CliArgumentsBuilderTests
         // Act
         var args = CliArgumentsBuilder.Create(options).Build();
 
-        // Assert
-        Assert.Contains("--resume", args);
-        Assert.Contains("session-123", args);
+        // Assert - values are bound with '=' so a dash-leading value can't be parsed as a flag
+        Assert.Contains("--resume=session-123", args);
         Assert.Contains("--fork-session", args);
-        Assert.Contains("--resume-session-at", args);
-        Assert.Contains("message-456", args);
+        Assert.Contains("--resume-session-at=message-456", args);
+    }
+
+    [Fact]
+    public void Build_WithSessionId_UsesEqualsForm()
+    {
+        var args = CliArgumentsBuilder.Create(new ClaudeAgentOptions { SessionId = "-injected" }).Build();
+
+        Assert.Contains("--session-id=-injected", args);
+    }
+
+    [Fact]
+    public void Build_WithWindowsMetacharactersInResume_ThrowsOnWindows()
+    {
+        var options = new ClaudeAgentOptions { Resume = "abc & calc.exe" };
+
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Throws<ArgumentException>(() => CliArgumentsBuilder.Create(options).Build());
+        }
+        else
+        {
+            Assert.Contains("--resume=abc & calc.exe", CliArgumentsBuilder.Create(options).Build());
+        }
     }
 
     [Fact]
@@ -443,7 +665,7 @@ public class CliArgumentsBuilderTests
     }
 
     [Fact]
-    public void Build_WithAgents_AddsAgentsJsonArg()
+    public void Build_WithAgents_DoesNotPassAgentsOnArgv()
     {
         // Arrange
         var options = new ClaudeAgentOptions
@@ -463,20 +685,16 @@ public class CliArgumentsBuilderTests
         // Act
         var args = CliArgumentsBuilder.Create(options).Build();
 
-        // Assert
-        Assert.Contains("--agents", args);
-        var agentsIndex = args.IndexOf("--agents");
-        var agentsJson = args[agentsIndex + 1];
-
-        // Verify valid JSON
-        var doc = JsonDocument.Parse(agentsJson);
-        Assert.True(doc.RootElement.TryGetProperty("code-reviewer", out var agent));
-        Assert.Equal("Code review specialist", agent.GetProperty("description").GetString());
-        Assert.Equal("You are a code reviewer", agent.GetProperty("prompt").GetString());
+        // Assert - agents are sent via the initialize control request, not argv
+        Assert.DoesNotContain("--agents", args);
+        var agent = options.Agents!["code-reviewer"].ToCliDictionary();
+        Assert.Equal("Code review specialist", agent["description"]);
+        Assert.Equal("You are a code reviewer", agent["prompt"]);
+        Assert.Equal("sonnet", agent["model"]);
     }
 
     [Fact]
-    public void Build_WithPlugins_AddsPluginsJsonArg()
+    public void Build_WithPlugins_AddsPluginDirArgs()
     {
         // Arrange
         var options = new ClaudeAgentOptions
@@ -491,14 +709,8 @@ public class CliArgumentsBuilderTests
         var args = CliArgumentsBuilder.Create(options).Build();
 
         // Assert
-        Assert.Contains("--plugins", args);
-        var pluginsIndex = args.IndexOf("--plugins");
-        var pluginsJson = args[pluginsIndex + 1];
-
-        // Verify valid JSON array
-        var doc = JsonDocument.Parse(pluginsJson);
-        Assert.Equal(JsonValueKind.Array, doc.RootElement.ValueKind);
-        Assert.Single(doc.RootElement.EnumerateArray());
+        Assert.Equal(1, args.Count(a => a == "--plugin-dir"));
+        Assert.Equal("./my-plugin", args[args.IndexOf("--plugin-dir") + 1]);
     }
 
     [Fact]
@@ -1470,17 +1682,48 @@ public class TransportEdgeCaseTests
         // Act
         var args = CliArgumentsBuilder.Create(options).Build();
 
-        // Assert
-        Assert.Contains("--agents", args);
-        var agentsIndex = args.IndexOf("--agents");
-        var agentsJson = args[agentsIndex + 1];
+        // Assert - agents go through initialize; the wire dictionary omits unset optional fields
+        Assert.DoesNotContain("--agents", args);
+        var agent = options.Agents!["simple-agent"].ToCliDictionary();
 
-        var doc = JsonDocument.Parse(agentsJson);
-        var agent = doc.RootElement.GetProperty("simple-agent");
+        Assert.False(agent.ContainsKey("tools"));
+        Assert.False(agent.ContainsKey("model"));
+        Assert.Equal(2, agent.Count);
+    }
 
-        // Should not have tools or model properties
-        Assert.False(agent.TryGetProperty("tools", out _));
-        Assert.False(agent.TryGetProperty("model", out _));
+    [Fact]
+    public void AgentDefinition_ToCliDictionary_IncludesNewFields()
+    {
+        var agent = new AgentDefinition
+        {
+            Description = "d",
+            Prompt = "p",
+            DisallowedTools = ["Bash"],
+            InitialPrompt = "start",
+            MaxTurns = 3,
+            Background = true,
+            Effort = EffortLevel.High,
+            PermissionMode = PermissionMode.AcceptEdits,
+            Memory = SettingSource.Project,
+            McpServerNames = ["shared"],
+            McpServers = new Dictionary<string, McpServerConfig>
+            {
+                ["inline"] = new McpStdioServerConfig { Command = "node" }
+            }
+        };
+
+        var json = JsonDocument.Parse(JsonSerializer.Serialize(agent.ToCliDictionary())).RootElement;
+
+        Assert.Equal("Bash", json.GetProperty("disallowedTools")[0].GetString());
+        Assert.Equal("start", json.GetProperty("initialPrompt").GetString());
+        Assert.Equal(3, json.GetProperty("maxTurns").GetInt32());
+        Assert.True(json.GetProperty("background").GetBoolean());
+        Assert.Equal("high", json.GetProperty("effort").GetString());
+        Assert.Equal("acceptEdits", json.GetProperty("permissionMode").GetString());
+        Assert.Equal("project", json.GetProperty("memory").GetString());
+        var servers = json.GetProperty("mcpServers");
+        Assert.Equal("shared", servers[0].GetString());
+        Assert.Equal("node", servers[1].GetProperty("inline").GetProperty("command").GetString());
     }
 
     [Fact]
@@ -1513,25 +1756,26 @@ public class TransportEdgeCaseTests
         var args = CliArgumentsBuilder.Create(options).Build();
 
         // Assert
-        Assert.Contains("--resume", args);
+        Assert.Contains("--resume=session-123", args);
         Assert.DoesNotContain("--fork-session", args);
     }
 
     [Fact]
-    public void CliArgumentsBuilder_ForkWithoutResume_DoesNotAddForkArg()
+    public void CliArgumentsBuilder_ForkWithContinue_AddsForkArg()
     {
-        // Arrange - fork is only meaningful with resume
+        // Arrange - fork also applies to --continue, so it is forwarded whenever set
         var options = new ClaudeAgentOptions
         {
-            ForkSession = true
-            // No Resume specified
+            ForkSession = true,
+            ContinueConversation = true
         };
 
         // Act
         var args = CliArgumentsBuilder.Create(options).Build();
 
         // Assert
-        Assert.DoesNotContain("--fork-session", args);
+        Assert.Contains("--continue", args);
+        Assert.Contains("--fork-session", args);
     }
 
     [Fact]
@@ -1550,8 +1794,8 @@ public class TransportEdgeCaseTests
         // Act
         var args = CliArgumentsBuilder.Create(options).Build();
 
-        // Assert
-        Assert.Contains("--system-prompt", args);
+        // Assert - the preset is the CLI default: no system prompt flags at all
+        Assert.DoesNotContain("--system-prompt", args);
         Assert.DoesNotContain("--append-system-prompt", args);
     }
 }

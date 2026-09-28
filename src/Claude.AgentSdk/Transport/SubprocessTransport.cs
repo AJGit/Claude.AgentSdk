@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Claude.AgentSdk.Exceptions;
 using Claude.AgentSdk.Logging;
@@ -9,6 +10,9 @@ namespace Claude.AgentSdk.Transport;
 /// <summary>
 ///     Transport that communicates with the Claude CLI via subprocess stdin/stdout.
 /// </summary>
+/// <remarks>
+///     The CLI always runs in streaming mode; the prompt (if any) is written to stdin by the caller.
+/// </remarks>
 internal sealed class SubprocessTransport(
     ClaudeAgentOptions options,
     string? prompt = null,
@@ -21,10 +25,18 @@ internal sealed class SubprocessTransport(
         WriteIndented = false
     };
 
+    // Live CLI subprocesses, terminated when the host process exits so callers that crash or exit without
+    // disposing don't leak orphaned `claude` processes.
+    private static readonly ConcurrentDictionary<Process, byte> _activeChildren = new();
+
     private readonly ILogger<SubprocessTransport>? _logger = logger;
     private readonly ClaudeAgentOptions _options = options;
-    private readonly string? _prompt = prompt;
     private readonly SemaphoreSlim _writeLock = new(1, 1);
+
+    static SubprocessTransport()
+    {
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => KillActiveChildren();
+    }
     private bool _disposed;
     private bool _inputEnded;
     private IDisposable? _logScope;
@@ -51,8 +63,10 @@ internal sealed class SubprocessTransport(
             .Create(_options.CliPath, _logger)
             .Resolve();
 
+        _ = prompt; // Prompts are sent over stdin by the protocol handler.
+
         var args = CliArgumentsBuilder
-            .Create(_options, _prompt)
+            .Create(_options)
             .Build();
 
         if (_logger is not null)
@@ -168,11 +182,22 @@ internal sealed class SubprocessTransport(
                     Log.CliStdoutClosed(_logger);
                 }
 
+                await ThrowIfProcessFailedAsync(cancellationToken).ConfigureAwait(false);
                 yield break;
             }
 
-            if (string.IsNullOrWhiteSpace(line))
+            line = line.Trim();
+            if (line.Length == 0)
             {
+                continue;
+            }
+
+            // Some CLI builds write non-JSON diagnostics (e.g. "[SandboxDebug] ...") to stdout; skip them.
+            // A line that starts like JSON but does not parse is corrupt and still raises below.
+            if (!line.StartsWith('{'))
+            {
+                _logger?.LogDebug("Skipping non-JSON line from CLI stdout: {Line}",
+                    line.Length > 200 ? line[..200] : line);
                 continue;
             }
 
@@ -252,6 +277,13 @@ internal sealed class SubprocessTransport(
                 _process.Kill(true);
                 WasProcessKilled = true;
             }
+            finally
+            {
+                if (_process.HasExited)
+                {
+                    _activeChildren.TryRemove(_process, out _);
+                }
+            }
 
             // Log exit information
             if (_process.HasExited && _logger is not null)
@@ -286,23 +318,89 @@ internal sealed class SubprocessTransport(
             await _stdin.DisposeAsync().ConfigureAwait(false);
         }
 
+        if (_process is not null)
+        {
+            _activeChildren.TryRemove(_process, out _);
+        }
+
         _stdout?.Dispose();
         _process?.Dispose();
         _writeLock.Dispose();
         _logScope?.Dispose();
     }
 
+    private static void KillActiveChildren()
+    {
+        foreach (var process in _activeChildren.Keys)
+        {
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill(true);
+                }
+            }
+            catch
+            {
+                // Best effort during host shutdown
+            }
+        }
+
+        _activeChildren.Clear();
+    }
+
+    /// <summary>
+    ///     After stdout EOF, raises <see cref="CliProcessException" /> if the CLI exited with a non-zero code.
+    /// </summary>
+    private async Task ThrowIfProcessFailedAsync(CancellationToken cancellationToken)
+    {
+        if (_process is null || _disposed)
+        {
+            return;
+        }
+
+        int exitCode;
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(5));
+            await _process.WaitForExitAsync(cts.Token).ConfigureAwait(false);
+            exitCode = _process.ExitCode;
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            // Stdout closed but the process lingers or its state is unavailable; nothing to report.
+            return;
+        }
+
+        if (exitCode != 0 && !WasProcessKilled)
+        {
+            throw new CliProcessException($"Command failed with exit code {exitCode}", exitCode);
+        }
+    }
+
     private void ConfigureStderrHandler()
     {
         _process!.ErrorDataReceived += (_, e) =>
         {
-            if (e.Data is not null)
+            if (e.Data is null)
+            {
+                return;
+            }
+
+            // Isolate the user callback so one failure doesn't silence every later stderr line.
+            try
             {
                 _options.OnStderr?.Invoke(e.Data);
-                if (_logger is not null)
-                {
-                    Log.CliStderr(_logger, e.Data);
-                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogDebug(ex, "OnStderr callback threw; continuing");
+            }
+
+            if (_logger is not null)
+            {
+                Log.CliStderr(_logger, e.Data);
             }
         };
     }
@@ -314,6 +412,8 @@ internal sealed class SubprocessTransport(
             throw new TransportException("Failed to start CLI process");
         }
 
+        _activeChildren.TryAdd(_process, 0);
+
         _stdin = _process.StandardInput;
         _stdout = _process.StandardOutput;
         _process.BeginErrorReadLine();
@@ -323,22 +423,6 @@ internal sealed class SubprocessTransport(
         {
             _logScope = _logger.BeginCliScope(_process.Id);
             Log.CliProcessStarted(_logger, _process.Id);
-        }
-
-        // SDK MCP servers require bidirectional mode for control protocol communication
-        var hasSdkMcpServers = _options.McpServers?.Values.Any(c => c is McpSdkServerConfig) ?? false;
-
-        // For one-shot mode (--print), close stdin immediately to signal EOF
-        // But keep stdin open if SDK MCP servers are present (they need bidirectional communication)
-        if (!string.IsNullOrEmpty(_prompt) && !hasSdkMcpServers)
-        {
-            if (_logger is not null)
-            {
-                Log.ClosingStdinOneShot(_logger);
-            }
-
-            _stdin.Close();
-            _inputEnded = true;
         }
 
         return Task.CompletedTask;

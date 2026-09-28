@@ -146,6 +146,20 @@ public sealed record PreToolUseHookInput : HookInput
     [JsonPropertyName("tool_input")] public required JsonElement ToolInput { get; init; }
 
     [JsonPropertyName("tool_use_id")] public string? ToolUseId { get; init; }
+
+    /// <summary>
+    ///     Subagent id when the hook fires inside a subagent; null on the main thread. Parallel subagents
+    ///     interleave their hooks over the same channel, so this is the reliable way to attribute them.
+    /// </summary>
+    [JsonPropertyName("agent_id")]
+    public string? AgentId { get; init; }
+
+    /// <summary>
+    ///     Agent type name (e.g. "general-purpose"). Present inside a subagent, or on the main thread of a
+    ///     session started with --agent.
+    /// </summary>
+    [JsonPropertyName("agent_type")]
+    public string? AgentType { get; init; }
 }
 
 public sealed record PostToolUseHookInput : HookInput
@@ -159,6 +173,20 @@ public sealed record PostToolUseHookInput : HookInput
     [JsonPropertyName("tool_response")] public JsonElement? ToolResponse { get; init; }
 
     [JsonPropertyName("tool_use_id")] public string? ToolUseId { get; init; }
+
+    /// <summary>
+    ///     Subagent id when the hook fires inside a subagent; null on the main thread. Parallel subagents
+    ///     interleave their hooks over the same channel, so this is the reliable way to attribute them.
+    /// </summary>
+    [JsonPropertyName("agent_id")]
+    public string? AgentId { get; init; }
+
+    /// <summary>
+    ///     Agent type name (e.g. "general-purpose"). Present inside a subagent, or on the main thread of a
+    ///     session started with --agent.
+    /// </summary>
+    [JsonPropertyName("agent_type")]
+    public string? AgentType { get; init; }
 }
 
 public sealed record UserPromptSubmitHookInput : HookInput
@@ -215,6 +243,20 @@ public sealed record PostToolUseFailureHookInput : HookInput
     [JsonPropertyName("is_interrupt")] public bool IsInterrupt { get; init; }
 
     [JsonPropertyName("tool_use_id")] public string? ToolUseId { get; init; }
+
+    /// <summary>
+    ///     Subagent id when the hook fires inside a subagent; null on the main thread. Parallel subagents
+    ///     interleave their hooks over the same channel, so this is the reliable way to attribute them.
+    /// </summary>
+    [JsonPropertyName("agent_id")]
+    public string? AgentId { get; init; }
+
+    /// <summary>
+    ///     Agent type name (e.g. "general-purpose"). Present inside a subagent, or on the main thread of a
+    ///     session started with --agent.
+    /// </summary>
+    [JsonPropertyName("agent_type")]
+    public string? AgentType { get; init; }
 }
 
 /// <summary>
@@ -242,6 +284,20 @@ public sealed record PermissionRequestHookInput : HookInput
 
     [JsonPropertyName("permission_suggestions")]
     public JsonElement? PermissionSuggestions { get; init; }
+
+    /// <summary>
+    ///     Subagent id when the hook fires inside a subagent; null on the main thread. Parallel subagents
+    ///     interleave their hooks over the same channel, so this is the reliable way to attribute them.
+    /// </summary>
+    [JsonPropertyName("agent_id")]
+    public string? AgentId { get; init; }
+
+    /// <summary>
+    ///     Agent type name (e.g. "general-purpose"). Present inside a subagent, or on the main thread of a
+    ///     session started with --agent.
+    /// </summary>
+    [JsonPropertyName("agent_type")]
+    public string? AgentType { get; init; }
 }
 
 /// <summary>
@@ -438,42 +494,144 @@ public sealed record TaskCompletedHookInput : HookInput
 // ============================================================================
 
 /// <summary>
+///     Base class for typed hook-specific outputs. Convert with <see cref="ToJsonElement" /> and assign to
+///     <see cref="SyncHookOutput.HookSpecificOutput" />.
+/// </summary>
+public abstract record HookSpecificOutputBase
+{
+    private static readonly JsonSerializerOptions _options = new()
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+
+    /// <summary>
+    ///     The hook event this output belongs to.
+    /// </summary>
+    [JsonPropertyName("hookEventName")]
+    public abstract string HookEventName { get; }
+
+    /// <summary>
+    ///     Additional context injected for the model.
+    /// </summary>
+    [JsonPropertyName("additionalContext")]
+    public string? AdditionalContext { get; init; }
+
+    /// <summary>
+    ///     Serializes this output (with its concrete type's fields) to a JSON element.
+    /// </summary>
+    public JsonElement ToJsonElement()
+    {
+        return JsonSerializer.SerializeToElement(this, GetType(), _options);
+    }
+}
+
+/// <summary>
 ///     Hook-specific output for PreToolUse hooks.
 /// </summary>
-public sealed record PreToolUseHookSpecificOutput
+public sealed record PreToolUseHookSpecificOutput : HookSpecificOutputBase
 {
-    [JsonPropertyName("additionalContext")] public string? AdditionalContext { get; init; }
+    public override string HookEventName => "PreToolUse";
+
+    /// <summary>
+    ///     "allow", "deny", "ask", or "defer". "defer" stops the run and reports the tool call on
+    ///     <see cref="Messages.ResultMessage.DeferredToolUse" /> so the caller can decide whether to resume.
+    /// </summary>
+    [JsonPropertyName("permissionDecision")]
+    public string? PermissionDecision { get; init; }
+
+    /// <summary>
+    ///     Reason for the decision. For "ask" it is forwarded to the CanUseTool callback as
+    ///     <see cref="ToolPermissionRequest.DecisionReason" />.
+    /// </summary>
+    [JsonPropertyName("permissionDecisionReason")]
+    public string? PermissionDecisionReason { get; init; }
+
+    /// <summary>
+    ///     Replacement tool input.
+    /// </summary>
+    [JsonPropertyName("updatedInput")]
+    public JsonElement? UpdatedInput { get; init; }
 }
 
 /// <summary>
 ///     Hook-specific output for PostToolUse hooks.
 /// </summary>
-public sealed record PostToolUseHookSpecificOutput
+public sealed record PostToolUseHookSpecificOutput : HookSpecificOutputBase
 {
-    [JsonPropertyName("updatedMCPToolOutput")] public JsonElement? UpdatedMcpToolOutput { get; init; }
+    public override string HookEventName => "PostToolUse";
+
+    /// <summary>
+    ///     Replaces any tool's output before it is sent to the model. For built-in tools the value must match
+    ///     the tool's output schema; a mismatched shape is rejected and the original output kept.
+    /// </summary>
+    [JsonPropertyName("updatedToolOutput")]
+    public JsonElement? UpdatedToolOutput { get; init; }
+
+    /// <summary>
+    ///     Replaces the output for MCP tools only. Prefer <see cref="UpdatedToolOutput" />.
+    /// </summary>
+    [JsonPropertyName("updatedMCPToolOutput")]
+    public JsonElement? UpdatedMcpToolOutput { get; init; }
+}
+
+/// <summary>
+///     Hook-specific output for PostToolUseFailure hooks.
+/// </summary>
+public sealed record PostToolUseFailureHookSpecificOutput : HookSpecificOutputBase
+{
+    public override string HookEventName => "PostToolUseFailure";
+}
+
+/// <summary>
+///     Hook-specific output for UserPromptSubmit hooks.
+/// </summary>
+public sealed record UserPromptSubmitHookSpecificOutput : HookSpecificOutputBase
+{
+    public override string HookEventName => "UserPromptSubmit";
 }
 
 /// <summary>
 ///     Hook-specific output for Notification hooks.
 /// </summary>
-public sealed record NotificationHookSpecificOutput;
+public sealed record NotificationHookSpecificOutput : HookSpecificOutputBase
+{
+    public override string HookEventName => "Notification";
+}
 
 /// <summary>
 ///     Hook-specific output for SessionStart hooks.
 /// </summary>
-public sealed record SessionStartHookSpecificOutput;
+public sealed record SessionStartHookSpecificOutput : HookSpecificOutputBase
+{
+    public override string HookEventName => "SessionStart";
+}
 
 /// <summary>
 ///     Hook-specific output for Setup hooks.
 /// </summary>
-public sealed record SetupHookSpecificOutput;
+public sealed record SetupHookSpecificOutput : HookSpecificOutputBase
+{
+    public override string HookEventName => "Setup";
+}
 
 /// <summary>
 ///     Hook-specific output for SubagentStart hooks.
 /// </summary>
-public sealed record SubagentStartHookSpecificOutput;
+public sealed record SubagentStartHookSpecificOutput : HookSpecificOutputBase
+{
+    public override string HookEventName => "SubagentStart";
+}
 
 /// <summary>
-///     Hook-specific output for PostToolUseFailure hooks.
+///     Hook-specific output for PermissionRequest hooks.
 /// </summary>
-public sealed record PostToolUseFailureHookSpecificOutput;
+public sealed record PermissionRequestHookSpecificOutput : HookSpecificOutputBase
+{
+    public override string HookEventName => "PermissionRequest";
+
+    /// <summary>
+    ///     The permission decision object (e.g. <c>{"behavior":"allow"}</c>).
+    /// </summary>
+    [JsonPropertyName("decision")]
+    public JsonElement Decision { get; init; }
+}

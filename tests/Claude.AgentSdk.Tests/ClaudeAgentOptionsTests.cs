@@ -168,13 +168,14 @@ public class ClaudeAgentOptionsTests
     public void PermissionMode_HasExpectedValues()
     {
         var values = Enum.GetValues<PermissionMode>();
-        Assert.Equal(6, values.Length);
+        Assert.Equal(7, values.Length);
         Assert.Contains(PermissionMode.Default, values);
         Assert.Contains(PermissionMode.AcceptEdits, values);
         Assert.Contains(PermissionMode.Plan, values);
         Assert.Contains(PermissionMode.BypassPermissions, values);
         Assert.Contains(PermissionMode.DontAsk, values);
         Assert.Contains(PermissionMode.Delegate, values);
+        Assert.Contains(PermissionMode.Auto, values);
     }
 
     [Theory]

@@ -33,6 +33,8 @@ namespace Claude.AgentSdk.Extensions;
 /// </remarks>
 public static class MessageExtensions
 {
+    private static readonly JsonSerializerOptions _dataOptions = new() { PropertyNameCaseInsensitive = true };
+
     /// <param name="message">The assistant message.</param>
     extension(AssistantMessage message)
     {
@@ -234,21 +236,38 @@ public static class MessageExtensions
         }
 
         /// <summary>
-        ///     Extracts the typed data from the system message's Data property.
+        ///     Extracts the typed payload of a system message.
         /// </summary>
+        /// <remarks>
+        ///     The CLI sends subtype fields at the top level of the message (e.g. <c>task_id</c> on task_started),
+        ///     so the raw message JSON is used; a nested <c>data</c> object takes precedence when present.
+        /// </remarks>
         /// <typeparam name="T">The expected data type for this system message subtype.</typeparam>
         /// <returns>The deserialized data, or null if data is missing or deserialization fails.</returns>
         public T? GetData<T>() where T : class
         {
-            if (message?.Data is null || message.Data.Value.ValueKind == System.Text.Json.JsonValueKind.Undefined)
+            if (message is null)
             {
                 return null;
             }
 
-            return message.Data.Value.Deserialize<T>(new JsonSerializerOptions
+            var source = message.Data is { ValueKind: JsonValueKind.Object } data
+                ? data
+                : message.RawJson;
+
+            if (source.ValueKind != JsonValueKind.Object)
             {
-                PropertyNameCaseInsensitive = true
-            });
+                return null;
+            }
+
+            try
+            {
+                return source.Deserialize<T>(_dataOptions);
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
         }
     }
 }

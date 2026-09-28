@@ -1,8 +1,9 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 using Claude.AgentSdk.Logging;
 using Claude.AgentSdk.Messages;
 using Claude.AgentSdk.Metrics;
 using Claude.AgentSdk.Protocol;
+using Claude.AgentSdk.Transport;
 using Microsoft.Extensions.Logging;
 
 namespace Claude.AgentSdk;
@@ -33,6 +34,7 @@ public sealed class ClaudeAgentSession : IAsyncDisposable
     private readonly ILogger<ClaudeAgentSession>? _logger;
     private readonly IDisposable? _logScope;
 
+    private readonly Func<Task>? _cleanup;
     private readonly CancellationTokenSource _sessionCts = new();
     private readonly string? _sessionDisplayName;
     private bool _disposed;
@@ -40,9 +42,11 @@ public sealed class ClaudeAgentSession : IAsyncDisposable
     internal ClaudeAgentSession(
         QueryHandler handler,
         string? sessionDisplayName = null,
-        ILogger<ClaudeAgentSession>? logger = null)
+        ILogger<ClaudeAgentSession>? logger = null,
+        Func<Task>? cleanup = null)
     {
         _handler = handler;
+        _cleanup = cleanup;
         _sessionDisplayName = sessionDisplayName;
         _logger = logger;
         SessionId = GenerateSessionId();
@@ -121,6 +125,12 @@ public sealed class ClaudeAgentSession : IAsyncDisposable
     public Exception? TerminalException => _handler.TerminalException;
 
     /// <summary>
+    ///     The CLI's response to the initialize handshake (available commands, models, account, output styles,
+    ///     ...), as raw JSON. Null if the CLI returned no data.
+    /// </summary>
+    public JsonElement? ServerInfo => _handler.InitializationResult;
+
+    /// <summary>
     ///     Disposes the session and releases all resources.
     /// </summary>
     public async ValueTask DisposeAsync()
@@ -146,6 +156,12 @@ public sealed class ClaudeAgentSession : IAsyncDisposable
 
         // Dispose the handler (which disposes transport)
         await _handler.DisposeAsync().ConfigureAwait(false);
+
+        // Remove the store-backed resume temp dir (it holds a credentials copy) once the CLI is gone.
+        if (_cleanup is not null)
+        {
+            await _cleanup().ConfigureAwait(false);
+        }
 
         _sessionCts.Dispose();
         _logScope?.Dispose();
@@ -189,13 +205,7 @@ public sealed class ClaudeAgentSession : IAsyncDisposable
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
             _sessionCts.Token, cancellationToken);
 
-        var message = new UserMessageEnvelope
-        {
-            Message = new UserMessagePayload { Content = content },
-            SessionId = sessionId
-        };
-
-        await _handler.SendMessageAsync(message, linkedCts.Token).ConfigureAwait(false);
+        await _handler.SendUserMessageAsync(content, sessionId, linkedCts.Token).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -283,9 +293,9 @@ public sealed class ClaudeAgentSession : IAsyncDisposable
     /// <summary>
     ///     Change the model.
     /// </summary>
-    /// <param name="model">The model to use.</param>
+    /// <param name="model">The model to use, or null to reset to the default model.</param>
     /// <param name="cancellationToken">Cancellation token for this operation.</param>
-    public async Task SetModelAsync(string model, CancellationToken cancellationToken = default)
+    public async Task SetModelAsync(string? model, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -373,7 +383,54 @@ public sealed class ClaudeAgentSession : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         var json = await GetMcpServerStatusAsync(cancellationToken).ConfigureAwait(false);
-        return json.Deserialize<List<McpServerStatusInfo>>(_jsonOptions) ?? [];
+
+        // The response wraps the list as {"mcpServers": [...]}; accept a bare array too.
+        var servers = json.ValueKind == JsonValueKind.Object && json.TryGetProperty("mcpServers", out var list)
+            ? list
+            : json;
+
+        return servers.ValueKind == JsonValueKind.Array
+            ? servers.Deserialize<List<McpServerStatusInfo>>(_jsonOptions) ?? []
+            : [];
+    }
+
+    /// <summary>
+    ///     Get a breakdown of current context window usage by category as raw JSON.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token for this operation.</param>
+    public async Task<JsonElement> GetContextUsageAsync(CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+            _sessionCts.Token, cancellationToken);
+
+        return await _handler.GetContextUsageAsync(linkedCts.Token).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    ///     Get a breakdown of current context window usage by category (same data as the CLI's /context command).
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token for this operation.</param>
+    public async Task<ContextUsage> GetContextUsageTypedAsync(CancellationToken cancellationToken = default)
+    {
+        var json = await GetContextUsageAsync(cancellationToken).ConfigureAwait(false);
+        return json.Deserialize<ContextUsage>(_jsonOptions) ?? new ContextUsage();
+    }
+
+    /// <summary>
+    ///     Stop a running background task.
+    /// </summary>
+    /// <param name="taskId">The task id from task_started / task_notification system messages.</param>
+    /// <param name="cancellationToken">Cancellation token for this operation.</param>
+    public async Task StopTaskAsync(string taskId, CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+            _sessionCts.Token, cancellationToken);
+
+        await _handler.StopTaskAsync(taskId, linkedCts.Token).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -489,7 +546,22 @@ public sealed class ClaudeAgentSession : IAsyncDisposable
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
             _sessionCts.Token, cancellationToken);
 
-        var json = await _handler.SetMcpServersAsync(servers, linkedCts.Token).ConfigureAwait(false);
+        // In-process SDK servers must be routable before the CLI starts talking to them.
+        foreach (var (name, config) in servers)
+        {
+            if (config is McpSdkServerConfig sdk)
+            {
+                _handler.RegisterSdkMcpServer(name, sdk.Instance);
+            }
+        }
+
+        // Serialize to the CLI wire shape (the in-process instance itself never crosses the wire).
+        var wireServers = servers
+            .Select(kv => (kv.Key, Config: kv.Value.ToCliDictionary()))
+            .Where(entry => entry.Config is not null)
+            .ToDictionary(entry => entry.Key, entry => (object)entry.Config!);
+
+        var json = await _handler.SetMcpServersAsync(wireServers, linkedCts.Token).ConfigureAwait(false);
         return json.Deserialize<McpSetServersResult>(_jsonOptions) ?? new McpSetServersResult();
     }
 
